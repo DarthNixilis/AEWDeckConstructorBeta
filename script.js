@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         populatePersonaSelectors();
         renderCascadingFilters();
         renderCardPool();
-        addDeckSearchFunctionality();
+        addDeckSearchFunctionality(); // This line was causing the error
         addEventListeners();
     }
 
@@ -386,6 +386,32 @@ document.addEventListener('DOMContentLoaded', () => {
             deck.splice(cardIndex, 1);
             renderDecks();
         }
+    }
+
+    // *** MISSING FUNCTIONS RESTORED HERE ***
+    function addDeckSearchFunctionality() {
+        const startingDeckSearch = document.createElement('input');
+        startingDeckSearch.type = 'text';
+        startingDeckSearch.placeholder = 'Search starting deck...';
+        startingDeckSearch.className = 'deck-search-input';
+        startingDeckSearch.addEventListener('input', debounce(() => filterDeckList(startingDeckList, startingDeckSearch.value), 300));
+        
+        const purchaseDeckSearch = document.createElement('input');
+        purchaseDeckSearch.type = 'text';
+        purchaseDeckSearch.placeholder = 'Search purchase deck...';
+        purchaseDeckSearch.className = 'deck-search-input';
+        purchaseDeckSearch.addEventListener('input', debounce(() => filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
+        
+        startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
+        purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
+    }
+
+    function filterDeckList(deckListElement, query) {
+        const items = deckListElement.querySelectorAll('.card-item');
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+        });
     }
     
     // --- DECK VALIDATION & EXPORT LOGIC ---

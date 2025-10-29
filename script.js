@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING (ROBUST PARSING IMPLEMENTED HERE) ---
+    // --- DATA FETCHING (BULLETPROOF PARSER) ---
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
@@ -60,13 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cardDatabase = lines.map(line => {
                 const values = line.split('\t');
                 const card = {};
+
+                // Manually and defensively map values to headers
                 headers.forEach((header, index) => {
-                    // Trim every value at the source for maximum data cleanliness
-                    const value = values[index] ? values[index].trim() : '';
-                    
+                    const value = (values[index] || '').trim(); // Get value or empty string, then trim
                     if (value === 'null' || value === '') {
                         card[header] = null;
-                    } else if (!isNaN(value) && value.trim() !== '') {
+                    } else if (!isNaN(value) && value !== '') {
                         card[header] = Number(value);
                     } else {
                         card[header] = value;
@@ -82,14 +82,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
                 
                 if (card.Keywords) {
-                    card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() }));
+                    card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() })).filter(k => k.name);
                 } else { card.text_box.keywords = []; }
 
                 if (card.Traits) {
                     card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
                         return { name: name.trim(), value: value ? value.trim() : undefined };
-                    });
+                    }).filter(t => t.name);
                 } else { card.text_box.traits = []; }
 
                 return card;
@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             initializeApp();
         } catch (error) {
-            console.error("Could not load game data:", error);
-            searchResults.innerHTML = `<p style="color: red;"><strong>Error:</strong> ${error.message}</p>`;
+            console.error("Fatal Error during data load:", error);
+            searchResults.innerHTML = `<p style="color: red;"><strong>FATAL ERROR:</strong> ${error.message}. Check console for details.</p>`;
         }
     }
 
@@ -127,8 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     }
 
-    // Defensive isKitCard check
     function isKitCard(card) {
+        // Defensive check against non-string or null values
         return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
     }
 
@@ -169,22 +169,27 @@ document.addEventListener('DOMContentLoaded', () => {
         cascadingFiltersContainer.innerHTML = '';
         const availableOptions = getAvailableFilterOptions(cardDatabase);
         
-        ['Card Type', 'Keyword', 'Trait'].forEach((category, i) => {
-            const filterWrapper = document.createElement('div');
+        const filterCategories = ['Card Type', 'Keyword', 'Trait'];
+
+        filterCategories.forEach((category, index) => {
             const select = document.createElement('select');
             select.innerHTML = `<option value="">-- Select ${category} --</option>`;
-            availableOptions[category].forEach(opt => select.add(new Option(opt, opt)));
             
-            select.value = activeFilters[i]?.value || '';
+            availableOptions[category].forEach(opt => {
+                select.add(new Option(opt, opt));
+            });
+
+            select.value = activeFilters[index]?.value || '';
 
             select.onchange = (e) => {
-                activeFilters[i] = { category: category, value: e.target.value };
-                for (let j = i + 1; j < 3; j++) { activeFilters[j] = {}; } // Reset subsequent filters
-                renderCascadingFilters(); // Re-render to update dependent filters if needed
+                activeFilters[index] = { category: category, value: e.target.value };
+                for (let j = index + 1; j < filterCategories.length; j++) {
+                    activeFilters[j] = {};
+                }
+                renderCascadingFilters();
                 renderCardPool();
             };
-            filterWrapper.appendChild(select);
-            cascadingFiltersContainer.appendChild(filterWrapper);
+            cascadingFiltersContainer.appendChild(select);
         });
     }
     

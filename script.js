@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING ---
-    // *** THIS FUNCTION CONTAINS THE ROBUST PARSING FIX ***
+    // --- DATA FETCHING (ROBUST PARSING IMPLEMENTED HERE) ---
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
@@ -62,9 +61,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const values = line.split('\t');
                 const card = {};
                 headers.forEach((header, index) => {
-                    let value = values[index] ? values[index].trim() : ''; // Trim every value at the source
-
-                    if (value === undefined || value === 'null' || value === '') {
+                    // Trim every value at the source for maximum data cleanliness
+                    const value = values[index] ? values[index].trim() : '';
+                    
+                    if (value === 'null' || value === '') {
                         card[header] = null;
                     } else if (!isNaN(value) && value.trim() !== '') {
                         card[header] = Number(value);
@@ -127,12 +127,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     }
 
+    // Defensive isKitCard check
     function isKitCard(card) {
-        return card['Wrestler Kit'] === 'TRUE';
+        return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
     }
 
     function isSignatureFor(card) {
-        if (!card['Signature For']) return false;
+        if (!card || !card['Signature For']) return false;
         const activePersonaTitles = [];
         if (selectedWrestler) activePersonaTitles.push(selectedWrestler.title);
         if (selectedManager) activePersonaTitles.push(selectedManager.title);
@@ -168,26 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
         cascadingFiltersContainer.innerHTML = '';
         const availableOptions = getAvailableFilterOptions(cardDatabase);
         
-        const filterCategories = ['Card Type', 'Keyword', 'Trait'];
-
-        filterCategories.forEach((category, i) => {
+        ['Card Type', 'Keyword', 'Trait'].forEach((category, i) => {
             const filterWrapper = document.createElement('div');
-            const categorySelect = document.createElement('select');
-            categorySelect.innerHTML = `<option value="">-- Filter by ${category} --</option>`;
-            availableOptions[category].forEach(opt => categorySelect.add(new Option(opt, opt)));
+            const select = document.createElement('select');
+            select.innerHTML = `<option value="">-- Select ${category} --</option>`;
+            availableOptions[category].forEach(opt => select.add(new Option(opt, opt)));
             
-            categorySelect.value = activeFilters[i]?.category === category ? activeFilters[i].value : '';
+            select.value = activeFilters[i]?.value || '';
 
-            categorySelect.onchange = (e) => {
+            select.onchange = (e) => {
                 activeFilters[i] = { category: category, value: e.target.value };
-                // Clear subsequent filters
-                for (let j = i + 1; j < filterCategories.length; j++) {
-                    activeFilters[j] = {};
-                }
-                renderCascadingFilters();
+                for (let j = i + 1; j < 3; j++) { activeFilters[j] = {}; } // Reset subsequent filters
+                renderCascadingFilters(); // Re-render to update dependent filters if needed
                 renderCardPool();
             };
-            filterWrapper.appendChild(categorySelect);
+            filterWrapper.appendChild(select);
             cascadingFiltersContainer.appendChild(filterWrapper);
         });
     }
@@ -307,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
-    // *** KIT CARD FIX IS HERE ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';

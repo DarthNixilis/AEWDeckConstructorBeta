@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES (THIS SECTION IS FIXED) ---
+    // --- DOM ELEMENT REFERENCES ---
     const searchInput = document.getElementById('searchInput');
     const cascadingFiltersContainer = document.getElementById('cascadingFiltersContainer');
     const searchResults = document.getElementById('searchResults');
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const startingDeckCount = document.getElementById('startingDeckCount');
     const purchaseDeckCount = document.getElementById('purchaseDeckCount');
-    const exportDeckBtn = document.getElementById('exportDeck'); // Correct button
+    const exportDeckBtn = document.getElementById('exportDeck');
     const clearDeckBtn = document.getElementById('clearDeck');
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');

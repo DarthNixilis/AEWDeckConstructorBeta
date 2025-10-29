@@ -74,14 +74,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                card.title = card['Card Name'] ? card['Card Name'].replace(/^\s+|\s+$/g, '') : null;
-                card.card_type = card['Type'];
+                card.title = card['Card Name'] ? card['Card Name'].trim() : null;
+                card.card_type = card['Type'] ? card['Type'].trim() : null;
                 card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
                 card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
                 
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
                 
+                // *** KEYWORD FIX IS HERE ***
+                // Trim the keyword names at the source so the data is always clean.
                 if (card.Keywords && typeof card.Keywords === 'string') {
                     card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() }));
                 } else { card.text_box.keywords = []; }
@@ -147,17 +149,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'Trait': (card, value) => card.text_box?.traits?.some(t => t.name === value),
     };
 
-    // *** FIXES FOR BUGS 1 & 2 ARE HERE ***
     function getAvailableFilterOptions(cards) {
         const options = { 'Card Type': new Set(), 'Keyword': new Set(), 'Trait': new Set() };
         cards.forEach(card => {
-            // Trim card_type to fix duplicate "Grapple" issue
-            if (card && card.card_type) options['Card Type'].add(card.card_type.trim());
-            
-            // Trim keyword names to fix empty keyword filter
+            if (card && card.card_type) options['Card Type'].add(card.card_type);
             if (card && card.text_box?.keywords) {
                 card.text_box.keywords.forEach(k => {
-                    if (k.name) options['Keyword'].add(k.name.trim());
+                    if (k.name) options['Keyword'].add(k.name);
                 });
             }
             if (card && card.text_box?.traits) {
@@ -188,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             filterWrapper.appendChild(categorySelect);
             if (activeFilters[i].category) {
-                const availableOptions = getAvailableFilterOptions(cardDatabase); // Use full database for options
+                const availableOptions = getAvailableFilterOptions(cardDatabase);
                 const valueSelect = document.createElement('select');
                 valueSelect.innerHTML = `<option value="">-- Select ${activeFilters[i].category} --</option>`;
                 availableOptions[activeFilters[i].category].forEach(opt => valueSelect.add(new Option(opt, opt)));
@@ -317,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
-    // *** FIX FOR BUG 3 IS HERE ***
+    // *** KIT CARD FIX IS HERE ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';

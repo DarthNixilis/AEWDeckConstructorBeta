@@ -74,9 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // *** THE FIX IS HERE ***
-                card.title = card['Card Name'] ? card['Card Name'].trim() : null; // Trim whitespace from the card name
-
+                card.title = card['Card Name'] ? card['Card Name'].replace(/^\s+|\s+$/g, '') : null;
                 card.card_type = card['Type'];
                 card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
@@ -96,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else { card.text_box.traits = []; }
 
                 return card;
-            }).filter(card => card.title); // Add a filter to remove any rows that might be completely empty
+            }).filter(card => card.title);
 
             initializeApp();
         } catch (error) {
@@ -130,12 +128,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     }
 
-    function isSignatureFor(card, wrestler) {
-        if (!wrestler || !card) return false;
-        return card['Signature For'] === wrestler.title;
-    }
-
-    function isLogoCard(card) {
+    // *** RENAMED AND CLARIFIED THIS FUNCTION ***
+    function isKitCard(card) {
+        // A card is a "Kit Card" if the "Wrestler Kit" column is exactly "TRUE".
         return card['Wrestler Kit'] === 'TRUE';
     }
 
@@ -208,7 +203,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!card || !card.title) return false; 
             const isPlayableCard = card.card_type !== 'Wrestler' && card.card_type !== 'Manager';
             if (!isPlayableCard) return false;
-            if (isLogoCard(card)) return selectedWrestler ? card['Signature For'] === selectedWrestler.title : false;
+            
+            // This logic is now only for filtering the main card pool, not the persona display.
+            // Kit cards should not appear in the main pool at all.
+            if (isKitCard(card)) return false; 
+
+            // Show signature cards (non-kit) only if the correct wrestler is selected
+            if (card['Signature For'] && card['Signature For'] !== selectedWrestler?.title) {
+                return false;
+            }
+
             const rawText = card.text_box?.raw_text || '';
             const matchesQuery = query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
             return matchesQuery;
@@ -298,19 +302,33 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
+    // *** THIS FUNCTION CONTAINS THE PRIMARY FIX ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';
             return;
         }
         personaDisplay.style.display = 'block';
-        personaDisplay.innerHTML = '<h3>Persona & Signatures</h3><div class="persona-card-list"></div>';
+        personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>'; // Renamed for clarity
         const list = personaDisplay.querySelector('.persona-card-list');
+        
         const cardsToShow = new Set();
+
+        // 1. Add the Wrestler card itself
         cardsToShow.add(selectedWrestler);
-        if (selectedManager) cardsToShow.add(selectedManager);
-        const signatureCards = cardDatabase.filter(c => isSignatureFor(c, selectedWrestler));
-        signatureCards.forEach(c => cardsToShow.add(c));
+
+        // 2. Add the Manager card if selected
+        if (selectedManager) {
+            cardsToShow.add(selectedManager);
+        }
+
+        // 3. Find and add the official Kit cards for the selected wrestler
+        const kitCards = cardDatabase.filter(card => 
+            isKitCard(card) && card['Signature For'] === selectedWrestler.title
+        );
+        kitCards.forEach(card => cardsToShow.add(card));
+        
+        // Render all the collected cards
         cardsToShow.forEach(card => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
@@ -361,10 +379,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function addCardToDeck(cardTitle, targetDeck) {
         const card = cardDatabase.find(c => c.title === cardTitle);
         if (!card) return;
-        if (isLogoCard(card)) {
-            alert(`"${card.title}" is a Logo card and cannot be added to your deck.`);
+        
+        // Since Kit cards are filtered from the main pool, this check is now redundant but safe to keep.
+        if (isKitCard(card)) {
+            alert(`"${card.title}" is a Kit card and cannot be added to your deck manually.`);
             return;
         }
+
         const totalCount = (startingDeck.filter(title => title === cardTitle).length) + (purchaseDeck.filter(title => title === cardTitle).length);
         if (totalCount >= 3) {
             alert(`Rule Violation: Max 3 copies of "${card.title}" allowed in total.`);

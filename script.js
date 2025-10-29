@@ -74,7 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                card.title = card['Card Name'];
+                // *** THE FIX IS HERE ***
+                card.title = card['Card Name'] ? card['Card Name'].trim() : null; // Trim whitespace from the card name
+
                 card.card_type = card['Type'];
                 card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
@@ -94,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else { card.text_box.traits = []; }
 
                 return card;
-            });
+            }).filter(card => card.title); // Add a filter to remove any rows that might be completely empty
 
             initializeApp();
         } catch (error) {

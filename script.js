@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCardContent = document.getElementById('modalCardContent');
     const modalCloseButton = document.querySelector('.modal-close-button');
     const viewModeToggle = document.getElementById('viewModeToggle');
+    const sortSelect = document.getElementById('sortSelect'); // New sort dropdown
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedManager = null;
     let activeFilters = [{}, {}, {}];
     let currentViewMode = 'grid';
+    let currentSort = 'alpha-asc'; // New state for sorting
     let lastFocusedElement;
 
     // --- UTILITY FUNCTIONS ---
@@ -138,9 +140,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return activePersonaTitles.includes(card['Signature For']);
     }
 
-    // --- FILTER LOGIC (ROBUSTNESS FIX HERE) ---
+    // --- FILTER & SORT LOGIC ---
     const filterFunctions = {
-        'Card Type': (card, value) => card.card_type === value,
+        'Card Type': (card, value) => {
+            // Special case for the "Maneuver" super-filter
+            if (value === 'Maneuver') {
+                return ['Strike', 'Grapple', 'Submission'].includes(card.card_type);
+            }
+            return card.card_type === value;
+        },
         'Keyword': (card, value) => card.text_box?.keywords?.some(k => k.name.trim() === value),
         'Trait': (card, value) => card.text_box?.traits?.some(t => t.name.trim() === value),
     };
@@ -160,7 +168,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
-        return { 'Card Type': Array.from(options['Card Type']).sort(), 'Keyword': Array.from(options['Keyword']).sort(), 'Trait': Array.from(options['Trait']).sort() };
+        
+        const sortedTypes = Array.from(options['Card Type']).sort();
+        // Manually add "Maneuver" to the list
+        if (sortedTypes.some(type => ['Strike', 'Grapple', 'Submission'].includes(type))) {
+            sortedTypes.unshift('Maneuver');
+        }
+
+        return { 
+            'Card Type': sortedTypes, 
+            'Keyword': Array.from(options['Keyword']).sort(), 
+            'Trait': Array.from(options['Trait']).sort() 
+        };
     }
 
     function renderCascadingFilters() {
@@ -179,9 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             select.onchange = (e) => {
                 activeFilters[index] = { category: category, value: e.target.value };
-                for (let j = index + 1; j < 3; j++) {
-                    activeFilters[j] = {};
-                }
+                for (let j = index + 1; j < 3; j++) { activeFilters[j] = {}; }
                 renderCascadingFilters();
                 renderCardPool();
             };
@@ -202,8 +219,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return filtered;
     }
 
+    function applySort(cards) {
+        const [sortBy, direction] = currentSort.split('-');
+        
+        return cards.sort((a, b) => {
+            let valA, valB;
+
+            switch (sortBy) {
+                case 'alpha':
+                    valA = a.title.toLowerCase();
+                    valB = b.title.toLowerCase();
+                    break;
+                case 'cost':
+                    valA = a.cost ?? -1;
+                    valB = b.cost ?? -1;
+                    break;
+                case 'damage':
+                    valA = a.damage ?? -1;
+                    valB = b.damage ?? -1;
+                    break;
+                case 'momentum':
+                    valA = a.momentum ?? -1;
+                    valB = b.momentum ?? -1;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (direction === 'asc') {
+                return valA > valB ? 1 : (valA < valB ? -1 : 0);
+            } else { // desc
+                return valA < valB ? 1 : (valA > valB ? -1 : 0);
+            }
+        });
+    }
+
     // --- RENDERING & CARD POOL LOGIC ---
-    function getFilteredCardPool() {
+    function getFilteredAndSortedCardPool() {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
             if (!card || !card.title) return false; 
@@ -215,18 +267,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchesQuery;
         });
 
-        return applyAllFilters(cards);
+        const filtered = applyAllFilters(cards);
+        return applySort(filtered);
     }
 
     function renderCardPool() {
         searchResults.innerHTML = '';
         searchResults.className = `card-list ${currentViewMode}-view`;
-        const filteredCards = getFilteredCardPool();
-        if (filteredCards.length === 0) {
+        const finalCards = getFilteredAndSortedCardPool();
+        if (finalCards.length === 0) {
             searchResults.innerHTML = '<p>No cards match the current filters.</p>';
             return;
         }
-        filteredCards.forEach(card => {
+        finalCards.forEach(card => {
             const cardElement = document.createElement('div');
             cardElement.className = currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
             
@@ -261,7 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- VISUAL HTML GENERATION (ROBUSTNESS FIX HERE) ---
     function generateCardVisualHTML(card) {
         const imageName = toPascalCase(card.title);
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
@@ -269,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const keywords = card.text_box?.keywords || [];
         const traits = card.text_box?.traits || [];
 
-        // Trim the keyword name right before looking it up.
         let keywordsText = keywords.map(kw => `<strong>${kw.name.trim()}:</strong> ${keywordDatabase[kw.name.trim()] || 'Definition not found.'}`).join('<br>');
         let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
         
@@ -510,12 +561,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- EVENT LISTENERS ---
     function addEventListeners() {
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderCardPool();
+        });
 
         searchResults.addEventListener('click', (e) => {
             const target = e.target;
             const cardTitle = target.dataset.title;
             if (target.tagName === 'BUTTON' && cardTitle) {
-                addCardToDeck(cardTitle, target.dataset.deckTarget);
+                addCardToDeck(cardTitle, target.dataset.title);
             } else {
                 const cardVisual = target.closest('[data-title]');
                 if (cardVisual) showCardModal(cardVisual.dataset.title);
@@ -573,14 +628,5 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
-                cardModal.style.display = 'none';
-                if (lastFocusedElement) lastFocusedElement.focus();
-            }
-        });
-    }
-
-    // --- START THE APP ---
-    loadGameData();
-});
+            if (e.key === 'Escape' && cardModal
 

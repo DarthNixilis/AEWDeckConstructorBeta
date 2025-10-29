@@ -258,4 +258,23 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
     border-color: gold !important; /* Make the border also gold */
 }
 
+/* Add this to the end of style.css */
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.sort-controls label {
+    font-weight: bold;
+}
+
+.sort-controls select {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--panel-bg);
+}
+
 

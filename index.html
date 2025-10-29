@@ -23,6 +23,25 @@
             </div>
             <div class="filter-controls">
                 <input type="text" id="searchInput" placeholder="Search card name or text...">
+<div class="filter-controls">
+    <input type="text" id="searchInput" placeholder="Search card name or text...">
+    <div id="cascadingFiltersContainer"></div>
+    <!-- ADD THIS NEW SORTING SECTION -->
+    <div class="sort-controls">
+        <label for="sortSelect">Sort by:</label>
+        <select id="sortSelect">
+            <option value="alpha-asc">Alphabetical (A-Z)</option>
+            <option value="alpha-desc">Alphabetical (Z-A)</option>
+            <option value="cost-desc">Cost (High to Low)</option>
+            <option value="cost-asc">Cost (Low to High)</option>
+            <option value="damage-desc">Damage (High to Low)</option>
+            <option value="damage-asc">Damage (Low to High)</option>
+            <option value="momentum-desc">Momentum (High to Low)</option>
+            <option value="momentum-asc">Momentum (Low to High)</option>
+        </select>
+    </div>
+</div>
+
                 <div id="cascadingFiltersContainer"></div>
             </div>
             <!-- The card list will now have its view mode changed by JS -->

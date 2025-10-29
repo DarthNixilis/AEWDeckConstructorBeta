@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES ---
+    // --- DOM ELEMENT REFERENCES (THIS SECTION IS FIXED) ---
     const searchInput = document.getElementById('searchInput');
     const cascadingFiltersContainer = document.getElementById('cascadingFiltersContainer');
     const searchResults = document.getElementById('searchResults');
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const startingDeckCount = document.getElementById('startingDeckCount');
     const purchaseDeckCount = document.getElementById('purchaseDeckCount');
-    const exportDeckBtn = document.getElementById('exportDeck');
+    const exportDeckBtn = document.getElementById('exportDeck'); // Correct button
     const clearDeckBtn = document.getElementById('clearDeck');
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         populatePersonaSelectors();
         renderCascadingFilters();
         renderCardPool();
-        addDeckSearchFunctionality(); // This line was causing the error
+        addDeckSearchFunctionality();
         addEventListeners();
     }
 
@@ -387,8 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDecks();
         }
     }
-
-    // *** MISSING FUNCTIONS RESTORED HERE ***
+    
     function addDeckSearchFunctionality() {
         const startingDeckSearch = document.createElement('input');
         startingDeckSearch.type = 'text';

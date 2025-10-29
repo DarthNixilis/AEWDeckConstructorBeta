@@ -147,12 +147,24 @@ document.addEventListener('DOMContentLoaded', () => {
         'Trait': (card, value) => card.text_box?.traits?.some(t => t.name === value),
     };
 
+    // *** FIXES FOR BUGS 1 & 2 ARE HERE ***
     function getAvailableFilterOptions(cards) {
         const options = { 'Card Type': new Set(), 'Keyword': new Set(), 'Trait': new Set() };
         cards.forEach(card => {
-            if (card && card.card_type) options['Card Type'].add(card.card_type);
-            if (card && card.text_box?.keywords) card.text_box.keywords.forEach(k => k.name && options['Keyword'].add(k.name));
-            if (card && card.text_box?.traits) card.text_box.traits.forEach(t => t.name && options['Trait'].add(t.name));
+            // Trim card_type to fix duplicate "Grapple" issue
+            if (card && card.card_type) options['Card Type'].add(card.card_type.trim());
+            
+            // Trim keyword names to fix empty keyword filter
+            if (card && card.text_box?.keywords) {
+                card.text_box.keywords.forEach(k => {
+                    if (k.name) options['Keyword'].add(k.name.trim());
+                });
+            }
+            if (card && card.text_box?.traits) {
+                card.text_box.traits.forEach(t => {
+                    if (t.name) options['Trait'].add(t.name.trim());
+                });
+            }
         });
         return { 'Card Type': Array.from(options['Card Type']).sort(), 'Keyword': Array.from(options['Keyword']).sort(), 'Trait': Array.from(options['Trait']).sort() };
     }
@@ -176,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             filterWrapper.appendChild(categorySelect);
             if (activeFilters[i].category) {
-                const availableOptions = getAvailableFilterOptions(filteredCards);
+                const availableOptions = getAvailableFilterOptions(cardDatabase); // Use full database for options
                 const valueSelect = document.createElement('select');
                 valueSelect.innerHTML = `<option value="">-- Select ${activeFilters[i].category} --</option>`;
                 availableOptions[activeFilters[i].category].forEach(opt => valueSelect.add(new Option(opt, opt)));
@@ -203,23 +215,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- RENDERING & CARD POOL LOGIC ---
-    // *** FIX #1: This function is now simple and correct. ***
     function getFilteredCardPool(ignoreCascadingFilters = false) {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
             if (!card || !card.title) return false; 
+            if (card.card_type === 'Wrestler' || card.card_type === 'Manager') return false;
+            if (isKitCard(card)) return false;
             
-            // Rule 1: Never show Persona cards in the main pool.
-            if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
-                return false;
-            }
-
-            // Rule 2: Never show Kit cards in the main pool.
-            if (isKitCard(card)) {
-                return false;
-            }
-            
-            // Rule 3: Standard text search for all other cards.
             const rawText = card.text_box?.raw_text || '';
             const matchesQuery = query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
             return matchesQuery;
@@ -315,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
-    // *** FIX #2: This function now correctly finds and displays Kit cards. ***
+    // *** FIX FOR BUG 3 IS HERE ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';
@@ -328,22 +330,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cardsToShow = new Set();
         
-        // 1. Get the list of active persona components
         const activePersona = [];
         if (selectedWrestler) activePersona.push(selectedWrestler);
         if (selectedManager) activePersona.push(selectedManager);
         
-        // 2. Add the persona components themselves to the display
         activePersona.forEach(p => cardsToShow.add(p));
 
-        // 3. Find and add all relevant Kit cards
         const activePersonaTitles = activePersona.map(p => p.title);
+        
+        // Correctly filter for Kit cards associated with any active persona component
         const kitCards = cardDatabase.filter(card => 
             isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
         );
         kitCards.forEach(card => cardsToShow.add(card));
         
-        // 4. Render all the collected cards
         cardsToShow.forEach(card => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
@@ -552,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
             renderCardPool();
             renderPersonaDisplay();
+            renderCascadingFilters();
         });
 
         managerSelect.addEventListener('change', (e) => {

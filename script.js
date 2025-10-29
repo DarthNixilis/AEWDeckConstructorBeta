@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedWrestler = null;
     let selectedManager = null;
     let activeFilters = [{}, {}, {}];
-    let currentViewMode = 'grid';
+    let currentViewMode = 'grid'; // Default to grid view
     let lastFocusedElement;
 
     // --- UTILITY FUNCTIONS ---
@@ -55,8 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             keywordDatabase = await keywordResponse.json();
 
             // --- TSV Parsing Logic ---
-            // *** FIX: Use a regular expression to handle both \n and \r\n line endings ***
-            const lines = tsvData.trim().split(/\r?\n/);
+            const lines = tsvData.trim().split(/\r?\n/); // Handles both \n and \r\n
             const headers = lines.shift().trim().split('\t');
             
             cardDatabase = lines.map(line => {
@@ -65,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers.forEach((header, index) => {
                     let value = values[index];
                     if (value === undefined) {
-                        value = null; // Ensure empty trailing columns are null
+                        value = null;
                     }
                     if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
                         try {
@@ -82,6 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                // Standardize property names from TSV to a consistent schema
+                card.title = card['Card Name'];
+                card.card_type = card['Type'];
+                card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
+                card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
+                card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
+                
                 // Reconstruct complex objects
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
                 
@@ -94,18 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (card.Traits && typeof card.Traits === 'string') {
                     card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
-                        return { name: name.trim(), value: value ? value.trim() : null };
+                        return { name: name.trim(), value: value ? value.trim() : undefined };
                     });
                 } else {
                     card.text_box.traits = [];
                 }
-
-                // Standardize property names from TSV to JSON schema
-                card.title = card['Card Name'];
-                card.card_type = card['Type'];
-                card.cost = card['Cost'];
-                card.damage = card['Damage'];
-                card.momentum = card['Momentum'];
 
                 return card;
             });
@@ -132,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         managerSelect.length = 1;
         const wrestlers = cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
         const managers = cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
-        wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title))); // Use title as value for simplicity
+        wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
         managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
     }
 
@@ -144,12 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isSignatureFor(card, wrestler) {
         if (!wrestler || !card) return false;
-        // Simplified check based on TSV data
         return card['Signature For'] === wrestler.title;
     }
 
     function isLogoCard(card) {
-        // Simplified check, assuming logo cards might be marked in 'Wrestler Kit'
         return card['Wrestler Kit'] === 'TRUE';
     }
 
@@ -242,9 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredCards.forEach(card => {
             const cardElement = document.createElement('div');
             cardElement.className = currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
-            cardElement.dataset.title = card.title; // Use title as identifier
+            cardElement.dataset.title = card.title;
             if (currentViewMode === 'list') {
-                cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost}, D:${card.damage}, M:${card.momentum})</span>`;
+                cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
                 const buttonsDiv = document.createElement('div');
                 buttonsDiv.className = 'card-buttons';
                 if (card.cost === 0) {
@@ -274,9 +271,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
         let keywordsText = (card.text_box?.keywords || []).map(kw => `<strong>${kw.name}:</strong> ${keywordDatabase[kw.name] || 'Definition not found.'}`).join('<br>');
         let traitsText = (card.text_box?.traits || []).map(tr => `<strong>${tr.name}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
+        
         const placeholderHTML = `
             <div class="placeholder-card">
-                <div class="placeholder-header"><span>${card.title}</span><span>C: ${card.cost ?? 'N/A'}</span></div>
+                <div class="placeholder-header">
+                    <div class="stats-left">
+                        <span>D: ${card.damage ?? 'N/A'}</span>
+                        <span>M: ${card.momentum ?? 'N/A'}</span>
+                    </div>
+                    <div class="title-center">
+                        <span>${card.title}</span>
+                    </div>
+                    <div class="cost-right">
+                        <span>C: ${card.cost ?? 'N/A'}</span>
+                    </div>
+                </div>
                 <div class="placeholder-art-area"><span>Art Missing</span></div>
                 <div class="placeholder-type-line"><span>${card.card_type}</span></div>
                 <div class="placeholder-text-box">
@@ -284,8 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${keywordsText ? `<hr><p>${keywordsText}</p>` : ''}
                     ${traitsText ? `<hr><p>${traitsText}</p>` : ''}
                 </div>
-                <div class="placeholder-stats"><span>D: ${card.damage ?? 'N/A'}</span><span>M: ${card.momentum ?? 'N/A'}</span></div>
+                <div class="placeholder-stats"></div>
             </div>`;
+            
         return `
             <img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
             <div style="display: none;">${placeholderHTML}</div>`;

@@ -107,10 +107,10 @@ h2 {
 .card-list.list-view .card-item span { cursor: pointer; }
 .card-list.list-view .card-buttons { display: flex; gap: 5px; }
 
-/* --- Grid View Styles (MAJOR FIXES HERE) --- */
+/* --- Grid View Styles --- */
 .card-list.grid-view {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Increased min-width for better spacing */
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 15px;
     align-content: start;
 }
@@ -120,7 +120,7 @@ h2 {
     border-radius: 8px;
     background-color: #f9f9f9;
     display: flex;
-    flex-direction: column; /* Arrange content vertically */
+    flex-direction: column;
     align-items: center;
     text-align: center;
     padding: 10px;
@@ -129,18 +129,18 @@ h2 {
 .grid-view .card-visual {
     width: 100%;
     cursor: pointer;
-    margin-bottom: 10px; /* Space between card and buttons */
+    margin-bottom: 10px;
 }
 
 .grid-view .card-visual img {
-    width: 100%; /* Make image fill its container */
-    height: auto; /* Maintain aspect ratio */
+    width: 100%;
+    height: auto;
     display: block;
-    border-radius: 5px; /* Slightly rounded corners for the image */
+    border-radius: 5px;
 }
 
 .grid-view .card-buttons {
-    margin-top: auto; /* Push buttons to the bottom */
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -176,11 +176,85 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .modal-content { background-color: var(--panel-bg); padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
 .modal-close-button { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
 
-/* Placeholder Card Styles */
-.placeholder-card { border: 1px solid #ccc; border-radius: 10px; width: 100%; aspect-ratio: 63 / 88; padding: 15px; background-color: #fdfdfd; display: flex; flex-direction: column; box-sizing: border-box; color: #333; }
-.placeholder-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
-.placeholder-art-area { flex-grow: 1; background-color: #e9ecef; border-radius: 5px; margin: 10px 0; display: flex; align-items: center; justify-content: center; color: #6c757d; font-style: italic; }
-.placeholder-type-line { font-style: italic; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 5px 0; text-align: center; margin-bottom: 10px; }
-.placeholder-text-box { font-size: 0.9em; flex-grow: 2; overflow-y: auto; padding: 5px; background-color: #f8f9fa; border-radius: 4px; white-space: pre-wrap; margin-bottom: 10px; }
-.placeholder-stats { display: flex; justify-content: space-around; font-weight: bold; border-top: 1px solid #eee; padding-top: 5px; }
+/* --- Placeholder Card Styles (UPDATED SECTION) --- */
+.placeholder-card {
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    width: 100%;
+    aspect-ratio: 63 / 88;
+    padding: 15px;
+    background-color: #fdfdfd;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    color: #333;
+}
+
+.placeholder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.1em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.placeholder-header .stats-left {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.placeholder-header .title-center {
+    flex-grow: 1;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.placeholder-header .cost-right {
+    flex-shrink: 0;
+}
+
+.placeholder-art-area {
+    flex-grow: 1;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.placeholder-type-line {
+    font-style: italic;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    padding: 5px 0;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.placeholder-text-box {
+    font-size: 0.9em;
+    flex-grow: 2;
+    overflow-y: auto;
+    padding: 5px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    margin-bottom: 10px;
+}
+
+.placeholder-stats {
+    display: none; /* This is no longer used, stats are in the header */
+    border-top: 1px solid #eee;
+    padding-top: 5px;
+}
 

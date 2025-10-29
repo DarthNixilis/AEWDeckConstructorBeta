@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCardContent = document.getElementById('modalCardContent');
     const modalCloseButton = document.querySelector('.modal-close-button');
     const viewModeToggle = document.getElementById('viewModeToggle');
-    const sortSelect = document.getElementById('sortSelect'); // New sort dropdown
+    const sortSelect = document.getElementById('sortSelect');
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedManager = null;
     let activeFilters = [{}, {}, {}];
     let currentViewMode = 'grid';
-    let currentSort = 'alpha-asc'; // New state for sorting
+    let currentSort = 'alpha-asc';
     let lastFocusedElement;
 
     // --- UTILITY FUNCTIONS ---
@@ -143,7 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FILTER & SORT LOGIC ---
     const filterFunctions = {
         'Card Type': (card, value) => {
-            // Special case for the "Maneuver" super-filter
             if (value === 'Maneuver') {
                 return ['Strike', 'Grapple', 'Submission'].includes(card.card_type);
             }
@@ -170,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const sortedTypes = Array.from(options['Card Type']).sort();
-        // Manually add "Maneuver" to the list
         if (sortedTypes.some(type => ['Strike', 'Grapple', 'Submission'].includes(type))) {
             sortedTypes.unshift('Maneuver');
         }
@@ -558,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(a.href);
     }
 
-    // --- EVENT LISTENERS ---
+    // --- EVENT LISTENERS (FIX IS HERE) ---
     function addEventListeners() {
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
         sortSelect.addEventListener('change', (e) => {
@@ -570,7 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target;
             const cardTitle = target.dataset.title;
             if (target.tagName === 'BUTTON' && cardTitle) {
-                addCardToDeck(cardTitle, target.dataset.title);
+                // This is the corrected line
+                addCardToDeck(cardTitle, target.dataset.deckTarget); 
             } else {
                 const cardVisual = target.closest('[data-title]');
                 if (cardVisual) showCardModal(cardVisual.dataset.title);
@@ -628,5 +627,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && cardModal
+            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+    }
+
+    // --- START THE APP ---
+    loadGameData();
+});
 

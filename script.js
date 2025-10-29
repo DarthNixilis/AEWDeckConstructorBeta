@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const startingDeckCount = document.getElementById('startingDeckCount');
     const purchaseDeckCount = document.getElementById('purchaseDeckCount');
-    const saveDeckBtn = document.getElementById('saveDeck');
+    const exportDeckBtn = document.getElementById('exportDeck');
     const clearDeckBtn = document.getElementById('clearDeck');
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING (UPDATED FOR TSV) ---
+    // --- DATA FETCHING ---
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
@@ -62,15 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = {};
                 headers.forEach((header, index) => {
                     let value = values[index];
-                    if (value === undefined) {
-                        value = null;
-                    }
+                    if (value === undefined) { value = null; }
                     if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
-                        try {
-                            card[header] = JSON.parse(value);
-                        } catch (e) {
-                            card[header] = value;
-                        }
+                        try { card[header] = JSON.parse(value); } catch (e) { card[header] = value; }
                     } else if (value !== null && !isNaN(value) && value.trim() !== '') {
                         card[header] = Number(value);
                     } else if (value === 'null' || value === '') {
@@ -90,18 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (card.Keywords && typeof card.Keywords === 'string') {
                     card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() }));
-                } else {
-                    card.text_box.keywords = [];
-                }
+                } else { card.text_box.keywords = []; }
 
                 if (card.Traits && typeof card.Traits === 'string') {
                     card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
                         return { name: name.trim(), value: value ? value.trim() : undefined };
                     });
-                } else {
-                    card.text_box.traits = [];
-                }
+                } else { card.text_box.traits = []; }
 
                 return card;
             });
@@ -263,19 +253,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // *** THIS FUNCTION HAS BEEN FIXED ***
     function generateCardVisualHTML(card) {
         const imageName = toPascalCase(card.title);
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
         
-        // Safely get keywords and traits text
         const keywords = card.text_box?.keywords || [];
         const traits = card.text_box?.traits || [];
 
         let keywordsText = keywords.map(kw => `<strong>${kw.name}:</strong> ${keywordDatabase[kw.name] || 'Definition not found.'}`).join('<br>');
         let traitsText = traits.map(tr => `<strong>${tr.name}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
         
-        // Safely find the Target trait
         const targetTrait = traits.find(t => t.name === 'Target');
         const targetValue = targetTrait ? targetTrait.value : null;
 
@@ -401,86 +388,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // --- DECK VALIDATION & EXPORT LOGIC ---
     function validateDeck() {
         const issues = [];
-        if (!selectedWrestler) issues.push("No wrestler selected");
-        if (!selectedManager) issues.push("No manager selected");
-        if (startingDeck.length !== 24) issues.push(`Starting deck has ${startingDeck.length} cards (needs 24)`);
-        if (purchaseDeck.length < 36) issues.push(`Purchase deck has ${purchaseDeck.length} cards (needs at least 36)`);
+        if (!selectedWrestler) issues.push("No wrestler selected.");
+        if (!selectedManager) issues.push("No manager selected.");
+        if (startingDeck.length !== 24) issues.push(`Starting deck has ${startingDeck.length} cards (needs 24).`);
+        if (purchaseDeck.length < 36) issues.push(`Purchase deck has ${purchaseDeck.length} cards (needs at least 36).`);
+        
         const allCardTitles = [...startingDeck, ...purchaseDeck];
-        const cardCounts = allCardTitles.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        const cardCounts = allCardTitles.reduce((acc, cardTitle) => {
+            acc[cardTitle] = (acc[cardTitle] || 0) + 1;
+            return acc;
+        }, {});
+
         Object.entries(cardCounts).forEach(([cardTitle, count]) => {
             if (count > 3) {
                 const card = cardDatabase.find(c => c.title === cardTitle);
-                issues.push(`Too many copies of ${card.title} (${count} copies, max 3)`);
+                issues.push(`Too many copies of ${card.title} (${count} copies, max 3).`);
             }
         });
         return issues;
     }
 
-    function exportDeck() {
-        const validationIssues = validateDeck();
-        if (validationIssues.length > 0) {
-            alert("Deck validation failed:\n\n" + validationIssues.join("\n"));
-            return;
-        }
-        const format = confirm("Export as JSON (OK) or plain text (Cancel)?") ? 'json' : 'text';
-        const blob = format === 'json' ? new Blob([generateJsonDeck()], { type: 'application/json' }) : new Blob([generatePlainTextDeck()], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${selectedWrestler.title}-deck.${format}`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-    }
-
-    function generateJsonDeck() {
-        const deckObject = {
-            wrestler: selectedWrestler.title,
-            manager: selectedManager.title,
-            signatureCards: cardDatabase.filter(c => isSignatureFor(c, selectedWrestler)).map(c => c.title),
-            startingDeck: startingDeck,
-            purchaseDeck: purchaseDeck
-        };
-        return JSON.stringify(deckObject, null, 2);
-    }
-
     function generatePlainTextDeck() {
-        let text = `Wrestler: ${selectedWrestler.title}\nManager: ${selectedManager.title}\n\n--- Starting Deck (${startingDeck.length}/24) ---\n`;
+        let text = `Wrestler: ${selectedWrestler.title}\n`;
+        text += `Manager: ${selectedManager.title}\n\n`;
+        
+        text += `--- Starting Deck (${startingDeck.length}/24) ---\n`;
         const startingCounts = startingDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-        Object.entries(startingCounts).forEach(([cardTitle, count]) => {
-            const card = cardDatabase.find(c => c.title === cardTitle);
-            text += `${count}x ${card.title}\n`;
+        Object.entries(startingCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
+            text += `${count}x ${cardTitle}\n`;
         });
+
         text += `\n--- Purchase Deck (${purchaseDeck.length}/36+) ---\n`;
         const purchaseCounts = purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-        Object.entries(purchaseCounts).forEach(([cardTitle, count]) => {
-            const card = cardDatabase.find(c => c.title === cardTitle);
-            text += `${count}x ${card.title}\n`;
+        Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
+            text += `${count}x ${cardTitle}\n`;
         });
+        
         return text;
     }
 
-    function addDeckSearchFunctionality() {
-        const startingDeckSearch = document.createElement('input');
-        startingDeckSearch.type = 'text';
-        startingDeckSearch.placeholder = 'Search starting deck...';
-        startingDeckSearch.className = 'deck-search-input';
-        startingDeckSearch.addEventListener('input', debounce(() => filterDeckList(startingDeckList, startingDeckSearch.value), 300));
-        const purchaseDeckSearch = document.createElement('input');
-        purchaseDeckSearch.type = 'text';
-        purchaseDeckSearch.placeholder = 'Search purchase deck...';
-        purchaseDeckSearch.className = 'deck-search-input';
-        purchaseDeckSearch.addEventListener('input', debounce(() => filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
-        startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
-        purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
-    }
+    function exportDeck() {
+        const validationIssues = validateDeck();
+        if (validationIssues.length > 0) {
+            alert("Deck is not valid and cannot be exported:\n\n" + validationIssues.join("\n"));
+            return;
+        }
 
-    function filterDeckList(deckListElement, query) {
-        const items = deckListElement.querySelectorAll('.card-item');
-        items.forEach(item => {
-            const text = item.textContent.toLowerCase();
-            item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
-        });
+        const deckContent = generatePlainTextDeck();
+        const blob = new Blob([deckContent], { type: 'text/plain' });
+        const a = document.createElement('a');
+        
+        a.href = URL.createObjectURL(blob);
+        a.download = `${toPascalCase(selectedWrestler.title)}Deck.txt`;
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
     }
 
     // --- EVENT LISTENERS ---
@@ -517,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        saveDeckBtn.addEventListener('click', exportDeck);
+        exportDeckBtn.addEventListener('click', exportDeck);
 
         wrestlerSelect.addEventListener('change', (e) => {
             selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;

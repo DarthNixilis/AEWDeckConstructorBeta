@@ -251,3 +251,11 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
     display: none; /* This is no longer used */
 }
 
+/* Add this to the end of your style.css file */
+
+.signature-highlight {
+    box-shadow: 0 0 8px 4px gold;
+    border-color: gold !important; /* Make the border also gold */
+}
+
+

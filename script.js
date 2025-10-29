@@ -128,10 +128,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     }
 
-    // *** RENAMED AND CLARIFIED THIS FUNCTION ***
     function isKitCard(card) {
-        // A card is a "Kit Card" if the "Wrestler Kit" column is exactly "TRUE".
         return card['Wrestler Kit'] === 'TRUE';
+    }
+
+    function isSignatureFor(card) {
+        if (!card['Signature For']) return false;
+        const activePersonaTitles = [];
+        if (selectedWrestler) activePersonaTitles.push(selectedWrestler.title);
+        if (selectedManager) activePersonaTitles.push(selectedManager.title);
+        return activePersonaTitles.includes(card['Signature For']);
     }
 
     // --- FILTER LOGIC ---
@@ -197,26 +203,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- RENDERING & CARD POOL LOGIC ---
+    // *** THIS FUNCTION CONTAINS THE NEW, CORRECTED LOGIC ***
     function getFilteredCardPool(ignoreCascadingFilters = false) {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
             if (!card || !card.title) return false; 
-            const isPlayableCard = card.card_type !== 'Wrestler' && card.card_type !== 'Manager';
-            if (!isPlayableCard) return false;
             
-            // This logic is now only for filtering the main card pool, not the persona display.
-            // Kit cards should not appear in the main pool at all.
-            if (isKitCard(card)) return false; 
-
-            // Show signature cards (non-kit) only if the correct wrestler is selected
-            if (card['Signature For'] && card['Signature For'] !== selectedWrestler?.title) {
+            // Rule 1: Never show Wrestlers or Managers in the main pool.
+            if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
                 return false;
             }
 
+            // Rule 2: Handle Kit Cards specifically.
+            if (isKitCard(card)) {
+                // A Kit card is ONLY visible if it belongs to the currently selected wrestler.
+                // If no wrestler is selected, all kit cards are hidden.
+                return selectedWrestler && card['Signature For'] === selectedWrestler.title;
+            }
+            
+            // Rule 3: Standard text search for all other cards.
             const rawText = card.text_box?.raw_text || '';
             const matchesQuery = query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
             return matchesQuery;
         });
+
         if (!ignoreCascadingFilters) activeFilters.forEach(filter => { if (filter.value) cards = applySingleFilter(cards, filter); });
         return cards;
     }
@@ -232,6 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredCards.forEach(card => {
             const cardElement = document.createElement('div');
             cardElement.className = currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
+            
+            if (isSignatureFor(card) || (isKitCard(card) && isSignatureFor(card))) {
+                cardElement.classList.add('signature-highlight');
+            }
+
             cardElement.dataset.title = card.title;
             if (currentViewMode === 'list') {
                 cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
@@ -302,33 +317,30 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
-    // *** THIS FUNCTION CONTAINS THE PRIMARY FIX ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';
             return;
         }
         personaDisplay.style.display = 'block';
-        personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>'; // Renamed for clarity
+        personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>';
         const list = personaDisplay.querySelector('.persona-card-list');
-        
+        list.innerHTML = ''; 
+
         const cardsToShow = new Set();
+        
+        const activePersona = [];
+        if (selectedWrestler) activePersona.push(selectedWrestler);
+        if (selectedManager) activePersona.push(selectedManager);
 
-        // 1. Add the Wrestler card itself
-        cardsToShow.add(selectedWrestler);
+        activePersona.forEach(p => cardsToShow.add(p));
 
-        // 2. Add the Manager card if selected
-        if (selectedManager) {
-            cardsToShow.add(selectedManager);
-        }
-
-        // 3. Find and add the official Kit cards for the selected wrestler
+        const activePersonaTitles = activePersona.map(p => p.title);
         const kitCards = cardDatabase.filter(card => 
-            isKitCard(card) && card['Signature For'] === selectedWrestler.title
+            isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
         );
         kitCards.forEach(card => cardsToShow.add(card));
         
-        // Render all the collected cards
         cardsToShow.forEach(card => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
@@ -380,9 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = cardDatabase.find(c => c.title === cardTitle);
         if (!card) return;
         
-        // Since Kit cards are filtered from the main pool, this check is now redundant but safe to keep.
         if (isKitCard(card)) {
-            alert(`"${card.title}" is a Kit card and cannot be added to your deck manually.`);
+            // This alert is now more accurate.
+            alert(`"${card.title}" is a Kit card and must be purchased from the Market during a game. It cannot be added to your deck during construction.`);
             return;
         }
 
@@ -538,11 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
             renderCardPool();
             renderPersonaDisplay();
-            renderCascadingFilters();
         });
 
         managerSelect.addEventListener('change', (e) => {
             selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
+            renderCardPool(); 
             renderPersonaDisplay();
         });
 

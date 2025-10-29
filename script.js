@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedWrestler = null;
     let selectedManager = null;
     let activeFilters = [{}, {}, {}];
-    let currentViewMode = 'list';
+    let currentViewMode = 'grid'; // <-- DEFAULTS TO GRID VIEW
     let lastFocusedElement;
 
     // --- UTILITY FUNCTIONS ---
@@ -41,12 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING (UPDATED FOR .txt FILE) ---
+    // --- DATA FETCHING (UPDATED FOR TSV) ---
     async function loadGameData() {
         try {
-            // Fetch the .txt file for cards and the JSON for keywords
             const [cardResponse, keywordResponse] = await Promise.all([
-                fetch(`./cardDatabase.txt?v=${new Date().getTime()}`), // <--- THIS LINE IS UPDATED
+                fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
                 fetch(`./keywords.json?v=${new Date().getTime()}`)
             ]);
             if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
@@ -64,14 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = {};
                 headers.forEach((header, index) => {
                     let value = values[index];
-                    // Attempt to parse numbers and JSON-like strings
                     if (!isNaN(value) && value.trim() !== '') {
                         card[header] = Number(value);
                     } else if (value && (value.startsWith('{') || value.startsWith('['))) {
                         try {
                             card[header] = JSON.parse(value);
                         } catch (e) {
-                            card[header] = value; // Keep as string if parsing fails
+                            card[header] = value;
                         }
                     } else if (value === 'null' || value === '') {
                         card[header] = null;
@@ -80,17 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // Reconstruct the text_box object from the raw text
+                // Reconstruct the text_box object
                 card.text_box = { raw_text: card.text_box };
-
-                // Reconstruct keywords array from comma-separated string
                 if (card.keywords && typeof card.keywords === 'string') {
                     card.text_box.keywords = card.keywords.split(',').map(name => ({ name: name.trim() }));
                 } else {
                     card.text_box.keywords = [];
                 }
-
-                // Reconstruct traits array from comma-separated string
                 if (card.traits && typeof card.traits === 'string') {
                     card.text_box.traits = card.traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
@@ -98,6 +92,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } else {
                     card.text_box.traits = [];
+                }
+
+                // *** FIX: Correctly parse persona_details for all types ***
+                if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
+                    if (typeof card.persona_details === 'string') {
+                        try {
+                            card.persona_details = JSON.parse(card.persona_details);
+                        } catch {
+                            // If parsing fails, create a default object based on type
+                            card.persona_details = { is_manager: card.card_type === 'Manager' };
+                        }
+                    } else if (!card.persona_details) {
+                         card.persona_details = { is_manager: card.card_type === 'Manager' };
+                    }
                 }
 
                 return card;
@@ -112,6 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZATION ---
     function initializeApp() {
+        // Set initial button text based on default view mode
+        viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         populatePersonaSelectors();
         renderCascadingFilters();
         renderCardPool();

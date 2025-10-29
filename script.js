@@ -41,59 +41,60 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING (BULLETPROOF PARSER) ---
+    // --- DATA FETCHING (NOW USES KEYWORDS.TXT) ---
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
                 fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
-                fetch(`./keywords.json?v=${new Date().getTime()}`)
+                fetch(`./keywords.txt?v=${new Date().getTime()}`) // Fetching .txt instead of .json
             ]);
             if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
-            if (!keywordResponse.ok) throw new Error(`Could not load keywords.json (Status: ${keywordResponse.status})`);
+            if (!keywordResponse.ok) throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status})`);
             
+            // Parse Card Data (TSV)
             const tsvData = await cardResponse.text();
-            keywordDatabase = await keywordResponse.json();
-
-            const lines = tsvData.trim().split(/\r?\n/);
-            const headers = lines.shift().trim().split('\t').map(h => h.trim());
+            const cardLines = tsvData.trim().split(/\r?\n/);
+            const cardHeaders = cardLines.shift().trim().split('\t').map(h => h.trim());
             
-            cardDatabase = lines.map(line => {
+            cardDatabase = cardLines.map(line => {
                 const values = line.split('\t');
                 const card = {};
-
-                // Manually and defensively map values to headers
-                headers.forEach((header, index) => {
-                    const value = (values[index] || '').trim(); // Get value or empty string, then trim
-                    if (value === 'null' || value === '') {
-                        card[header] = null;
-                    } else if (!isNaN(value) && value !== '') {
-                        card[header] = Number(value);
-                    } else {
-                        card[header] = value;
-                    }
+                cardHeaders.forEach((header, index) => {
+                    const value = (values[index] || '').trim();
+                    if (value === 'null' || value === '') { card[header] = null; }
+                    else if (!isNaN(value) && value !== '') { card[header] = Number(value); }
+                    else { card[header] = value; }
                 });
-
                 card.title = card['Card Name'];
                 card.card_type = card['Type'];
                 card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
                 card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
-                
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
-                
                 if (card.Keywords) {
                     card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() })).filter(k => k.name);
                 } else { card.text_box.keywords = []; }
-
                 if (card.Traits) {
                     card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
                         return { name: name.trim(), value: value ? value.trim() : undefined };
                     }).filter(t => t.name);
                 } else { card.text_box.traits = []; }
-
                 return card;
             }).filter(card => card.title);
+
+            // Parse Keyword Data (New TXT format)
+            const keywordText = await keywordResponse.text();
+            keywordDatabase = {};
+            const keywordLines = keywordText.trim().split(/\r?\n/);
+            keywordLines.forEach(line => {
+                const parts = line.split(':');
+                if (parts.length >= 2) {
+                    const key = parts[0].trim();
+                    const value = parts.slice(1).join(':').trim();
+                    keywordDatabase[key] = value;
+                }
+            });
 
             initializeApp();
         } catch (error) {
@@ -128,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function isKitCard(card) {
-        // Defensive check against non-string or null values
         return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
     }
 
@@ -169,9 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cascadingFiltersContainer.innerHTML = '';
         const availableOptions = getAvailableFilterOptions(cardDatabase);
         
-        const filterCategories = ['Card Type', 'Keyword', 'Trait'];
-
-        filterCategories.forEach((category, index) => {
+        ['Card Type', 'Keyword', 'Trait'].forEach((category, index) => {
             const select = document.createElement('select');
             select.innerHTML = `<option value="">-- Select ${category} --</option>`;
             
@@ -183,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             select.onchange = (e) => {
                 activeFilters[index] = { category: category, value: e.target.value };
-                for (let j = index + 1; j < filterCategories.length; j++) {
+                for (let j = index + 1; j < 3; j++) {
                     activeFilters[j] = {};
                 }
                 renderCascadingFilters();

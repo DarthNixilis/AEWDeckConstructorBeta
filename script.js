@@ -203,22 +203,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- RENDERING & CARD POOL LOGIC ---
-    // *** THIS FUNCTION CONTAINS THE NEW, CORRECTED LOGIC ***
+    // *** FIX #1: This function is now simple and correct. ***
     function getFilteredCardPool(ignoreCascadingFilters = false) {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
             if (!card || !card.title) return false; 
             
-            // Rule 1: Never show Wrestlers or Managers in the main pool.
+            // Rule 1: Never show Persona cards in the main pool.
             if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
                 return false;
             }
 
-            // Rule 2: Handle Kit Cards specifically.
+            // Rule 2: Never show Kit cards in the main pool.
             if (isKitCard(card)) {
-                // A Kit card is ONLY visible if it belongs to the currently selected wrestler.
-                // If no wrestler is selected, all kit cards are hidden.
-                return selectedWrestler && card['Signature For'] === selectedWrestler.title;
+                return false;
             }
             
             // Rule 3: Standard text search for all other cards.
@@ -243,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cardElement = document.createElement('div');
             cardElement.className = currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
             
-            if (isSignatureFor(card) || (isKitCard(card) && isSignatureFor(card))) {
+            if (isSignatureFor(card)) {
                 cardElement.classList.add('signature-highlight');
             }
 
@@ -317,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: none;">${placeholderHTML}</div>`;
     }
 
+    // *** FIX #2: This function now correctly finds and displays Kit cards. ***
     function renderPersonaDisplay() {
         if (!selectedWrestler) {
             personaDisplay.style.display = 'none';
@@ -329,18 +328,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cardsToShow = new Set();
         
+        // 1. Get the list of active persona components
         const activePersona = [];
         if (selectedWrestler) activePersona.push(selectedWrestler);
         if (selectedManager) activePersona.push(selectedManager);
-
+        
+        // 2. Add the persona components themselves to the display
         activePersona.forEach(p => cardsToShow.add(p));
 
+        // 3. Find and add all relevant Kit cards
         const activePersonaTitles = activePersona.map(p => p.title);
         const kitCards = cardDatabase.filter(card => 
             isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
         );
         kitCards.forEach(card => cardsToShow.add(card));
         
+        // 4. Render all the collected cards
         cardsToShow.forEach(card => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
@@ -393,8 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!card) return;
         
         if (isKitCard(card)) {
-            // This alert is now more accurate.
-            alert(`"${card.title}" is a Kit card and must be purchased from the Market during a game. It cannot be added to your deck during construction.`);
+            alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
             return;
         }
 

@@ -56,7 +56,7 @@ Don Callis	Manager	Core	N/a	N/a	3						Ready Action - Commit and discard an Acti
 Luthor	Manager	Core	N/a	N/a	2					Permanent	Recovery Action - Commit and choose an Action in your Ring. It gains Permanent this turn. 
 Marina Shafir 	Manager	Core	N/a	N/a	4						Tie-Up Action - Commit - Play a maneuver from your hand, it gets +1D and gains 'Enters - Scout, then draw a card' 
 Prince Nana	Manager	Core	N/a	N/a	2						Ready Action - Commit and discard the top two cards of your draw deck. If a maneuver is discarded this way draw a card and gain 2 Stamina. 
-MVP	Manager 	Core	N/a	N/a	2						Recovery Action - Commit : Put a maneuver with cost 4 or less from your discard beneath your draw deck.
+MVP	Manager	Core	N/a	N/a	2						Recovery Action - Commit : Put a maneuver with cost 4 or less from your discard beneath your draw deck.
 And Watch for the Shoe	Response	Core	7	0	5			TRUE	Toni Storm		Reverse any maneuver. Ongoing - Your Action cards are +1D
 Anti-Air	Response	Core	0	2	2					Cycling	Cycling. Reverse any High Risk.
 Block	Response	Core	0	0	2						Reverse any Strike.

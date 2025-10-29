@@ -41,17 +41,68 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING ---
+    // --- DATA FETCHING (UPDATED FOR .txt FILE) ---
     async function loadGameData() {
         try {
+            // Fetch the .txt file for cards and the JSON for keywords
             const [cardResponse, keywordResponse] = await Promise.all([
-                fetch(`./cardDatabase.json?v=${new Date().getTime()}`),
+                fetch(`./cardDatabase.txt?v=${new Date().getTime()}`), // <--- THIS LINE IS UPDATED
                 fetch(`./keywords.json?v=${new Date().getTime()}`)
             ]);
-            if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.json (Status: ${cardResponse.status})`);
+            if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
             if (!keywordResponse.ok) throw new Error(`Could not load keywords.json (Status: ${keywordResponse.status})`);
-            cardDatabase = await cardResponse.json();
+            
+            const tsvData = await cardResponse.text();
             keywordDatabase = await keywordResponse.json();
+
+            // --- TSV Parsing Logic ---
+            const lines = tsvData.trim().split('\n');
+            const headers = lines.shift().trim().split('\t');
+            
+            cardDatabase = lines.map(line => {
+                const values = line.trim().split('\t');
+                const card = {};
+                headers.forEach((header, index) => {
+                    let value = values[index];
+                    // Attempt to parse numbers and JSON-like strings
+                    if (!isNaN(value) && value.trim() !== '') {
+                        card[header] = Number(value);
+                    } else if (value && (value.startsWith('{') || value.startsWith('['))) {
+                        try {
+                            card[header] = JSON.parse(value);
+                        } catch (e) {
+                            card[header] = value; // Keep as string if parsing fails
+                        }
+                    } else if (value === 'null' || value === '') {
+                        card[header] = null;
+                    } else {
+                        card[header] = value;
+                    }
+                });
+
+                // Reconstruct the text_box object from the raw text
+                card.text_box = { raw_text: card.text_box };
+
+                // Reconstruct keywords array from comma-separated string
+                if (card.keywords && typeof card.keywords === 'string') {
+                    card.text_box.keywords = card.keywords.split(',').map(name => ({ name: name.trim() }));
+                } else {
+                    card.text_box.keywords = [];
+                }
+
+                // Reconstruct traits array from comma-separated string
+                if (card.traits && typeof card.traits === 'string') {
+                    card.text_box.traits = card.traits.split(',').map(traitStr => {
+                        const [name, value] = traitStr.split(':');
+                        return { name: name.trim(), value: value ? value.trim() : null };
+                    });
+                } else {
+                    card.text_box.traits = [];
+                }
+
+                return card;
+            });
+
             initializeApp();
         } catch (error) {
             console.error("Could not load game data:", error);

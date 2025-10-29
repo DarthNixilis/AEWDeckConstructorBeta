@@ -191,40 +191,35 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 }
 
 .placeholder-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     font-weight: bold;
     font-size: 1.1em;
     border-bottom: 1px solid #eee;
     padding-bottom: 5px;
-    margin-bottom: 10px;
-    gap: 10px;
+    margin-bottom: 5px; /* Reduced margin */
+    text-align: center;
 }
 
-.placeholder-header .stats-left {
+.placeholder-stats-line { /* NEW STYLE */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+    font-weight: bold;
+    padding: 0 5px 5px 5px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.placeholder-stats-line .stats-left {
     display: flex;
     gap: 8px;
-    flex-shrink: 0;
-}
-
-.placeholder-header .title-center {
-    flex-grow: 1;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.placeholder-header .cost-right {
-    flex-shrink: 0;
 }
 
 .placeholder-art-area {
     flex-grow: 1;
     background-color: #e9ecef;
     border-radius: 5px;
-    margin: 10px 0;
+    margin-bottom: 10px; /* Adjusted margin */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -253,8 +248,6 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 }
 
 .placeholder-stats {
-    display: none; /* This is no longer used, stats are in the header */
-    border-top: 1px solid #eee;
-    padding-top: 5px;
+    display: none; /* This is no longer used */
 }
 

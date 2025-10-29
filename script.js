@@ -41,17 +41,16 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- DATA FETCHING (NOW USES KEYWORDS.TXT) ---
+    // --- DATA FETCHING ---
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
                 fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
-                fetch(`./keywords.txt?v=${new Date().getTime()}`) // Fetching .txt instead of .json
+                fetch(`./keywords.txt?v=${new Date().getTime()}`)
             ]);
             if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
             if (!keywordResponse.ok) throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status})`);
             
-            // Parse Card Data (TSV)
             const tsvData = await cardResponse.text();
             const cardLines = tsvData.trim().split(/\r?\n/);
             const cardHeaders = cardLines.shift().trim().split('\t').map(h => h.trim());
@@ -83,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return card;
             }).filter(card => card.title);
 
-            // Parse Keyword Data (New TXT format)
             const keywordText = await keywordResponse.text();
             keywordDatabase = {};
             const keywordLines = keywordText.trim().split(/\r?\n/);
@@ -140,11 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return activePersonaTitles.includes(card['Signature For']);
     }
 
-    // --- FILTER LOGIC ---
+    // --- FILTER LOGIC (ROBUSTNESS FIX HERE) ---
     const filterFunctions = {
         'Card Type': (card, value) => card.card_type === value,
-        'Keyword': (card, value) => card.text_box?.keywords?.some(k => k.name === value),
-        'Trait': (card, value) => card.text_box?.traits?.some(t => t.name === value),
+        'Keyword': (card, value) => card.text_box?.keywords?.some(k => k.name.trim() === value),
+        'Trait': (card, value) => card.text_box?.traits?.some(t => t.name.trim() === value),
     };
 
     function getAvailableFilterOptions(cards) {
@@ -153,12 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card && card.card_type) options['Card Type'].add(card.card_type);
             if (card && card.text_box?.keywords) {
                 card.text_box.keywords.forEach(k => {
-                    if (k.name) options['Keyword'].add(k.name);
+                    if (k.name) options['Keyword'].add(k.name.trim());
                 });
             }
             if (card && card.text_box?.traits) {
                 card.text_box.traits.forEach(t => {
-                    if (t.name) options['Trait'].add(t.name);
+                    if (t.name) options['Trait'].add(t.name.trim());
                 });
             }
         });
@@ -263,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- VISUAL HTML GENERATION (ROBUSTNESS FIX HERE) ---
     function generateCardVisualHTML(card) {
         const imageName = toPascalCase(card.title);
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
@@ -270,10 +269,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const keywords = card.text_box?.keywords || [];
         const traits = card.text_box?.traits || [];
 
-        let keywordsText = keywords.map(kw => `<strong>${kw.name}:</strong> ${keywordDatabase[kw.name] || 'Definition not found.'}`).join('<br>');
-        let traitsText = traits.map(tr => `<strong>${tr.name}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
+        // Trim the keyword name right before looking it up.
+        let keywordsText = keywords.map(kw => `<strong>${kw.name.trim()}:</strong> ${keywordDatabase[kw.name.trim()] || 'Definition not found.'}`).join('<br>');
+        let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
         
-        const targetTrait = traits.find(t => t.name === 'Target');
+        const targetTrait = traits.find(t => t.name.trim() === 'Target');
         const targetValue = targetTrait ? targetTrait.value : null;
 
         const placeholderHTML = `

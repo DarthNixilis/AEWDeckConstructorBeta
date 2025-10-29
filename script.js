@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedWrestler = null;
     let selectedManager = null;
     let activeFilters = [{}, {}, {}];
-    let currentViewMode = 'grid'; // <-- DEFAULTS TO GRID VIEW
+    let currentViewMode = 'grid';
     let lastFocusedElement;
 
     // --- UTILITY FUNCTIONS ---
@@ -55,7 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
             keywordDatabase = await keywordResponse.json();
 
             // --- TSV Parsing Logic ---
-            const lines = tsvData.trim().split('\n');
+            // *** FIX: Use a regular expression to handle both \n and \r\n line endings ***
+            const lines = tsvData.trim().split(/\r?\n/);
             const headers = lines.shift().trim().split('\t');
             
             cardDatabase = lines.map(line => {
@@ -63,14 +64,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = {};
                 headers.forEach((header, index) => {
                     let value = values[index];
-                    if (!isNaN(value) && value.trim() !== '') {
-                        card[header] = Number(value);
-                    } else if (value && (value.startsWith('{') || value.startsWith('['))) {
+                    if (value === undefined) {
+                        value = null; // Ensure empty trailing columns are null
+                    }
+                    if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
                         try {
                             card[header] = JSON.parse(value);
                         } catch (e) {
                             card[header] = value;
                         }
+                    } else if (value !== null && !isNaN(value) && value.trim() !== '') {
+                        card[header] = Number(value);
                     } else if (value === 'null' || value === '') {
                         card[header] = null;
                     } else {
@@ -78,15 +82,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // Reconstruct the text_box object
-                card.text_box = { raw_text: card.text_box };
-                if (card.keywords && typeof card.keywords === 'string') {
-                    card.text_box.keywords = card.keywords.split(',').map(name => ({ name: name.trim() }));
+                // Reconstruct complex objects
+                card.text_box = { raw_text: card['Card Raw Game Text'] };
+                
+                if (card.Keywords && typeof card.Keywords === 'string') {
+                    card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() }));
                 } else {
                     card.text_box.keywords = [];
                 }
-                if (card.traits && typeof card.traits === 'string') {
-                    card.text_box.traits = card.traits.split(',').map(traitStr => {
+
+                if (card.Traits && typeof card.Traits === 'string') {
+                    card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
                         return { name: name.trim(), value: value ? value.trim() : null };
                     });
@@ -94,19 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.text_box.traits = [];
                 }
 
-                // *** FIX: Correctly parse persona_details for all types ***
-                if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
-                    if (typeof card.persona_details === 'string') {
-                        try {
-                            card.persona_details = JSON.parse(card.persona_details);
-                        } catch {
-                            // If parsing fails, create a default object based on type
-                            card.persona_details = { is_manager: card.card_type === 'Manager' };
-                        }
-                    } else if (!card.persona_details) {
-                         card.persona_details = { is_manager: card.card_type === 'Manager' };
-                    }
-                }
+                // Standardize property names from TSV to JSON schema
+                card.title = card['Card Name'];
+                card.card_type = card['Type'];
+                card.cost = card['Cost'];
+                card.damage = card['Damage'];
+                card.momentum = card['Momentum'];
 
                 return card;
             });
@@ -120,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZATION ---
     function initializeApp() {
-        // Set initial button text based on default view mode
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         populatePersonaSelectors();
         renderCascadingFilters();
@@ -134,8 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
         managerSelect.length = 1;
         const wrestlers = cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
         const managers = cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
-        wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.id)));
-        managers.forEach(m => managerSelect.add(new Option(m.title, m.id)));
+        wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title))); // Use title as value for simplicity
+        managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
     }
 
     // --- CORE GAME LOGIC & HELPERS ---
@@ -146,14 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isSignatureFor(card, wrestler) {
         if (!wrestler || !card) return false;
-        if (card.signature_info?.logo && card.signature_info.logo === wrestler.signature_info?.logo) return true;
-        if (card.signature_info?.linked_persona && wrestler.title && card.signature_info.linked_persona === wrestler.title) return true;
-        const wrestlerFirstName = wrestler.title.split(' ')[0];
-        const rawText = card.text_box?.raw_text || '';
-        return rawText.includes(wrestler.title) || rawText.includes(wrestlerFirstName);
+        // Simplified check based on TSV data
+        return card['Signature For'] === wrestler.title;
     }
 
-    function isLogoCard(card) { return !!card.signature_info?.logo; }
+    function isLogoCard(card) {
+        // Simplified check, assuming logo cards might be marked in 'Wrestler Kit'
+        return card['Wrestler Kit'] === 'TRUE';
+    }
 
     // --- FILTER LOGIC ---
     const filterFunctions = {
@@ -221,12 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function getFilteredCardPool(ignoreCascadingFilters = false) {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
-            if (!card) return false; 
+            if (!card || !card.title) return false; 
             const isPlayableCard = card.card_type !== 'Wrestler' && card.card_type !== 'Manager';
             if (!isPlayableCard) return false;
-            if (isLogoCard(card)) return selectedWrestler ? card.signature_info.logo === selectedWrestler.signature_info.logo : false;
+            if (isLogoCard(card)) return selectedWrestler ? card['Signature For'] === selectedWrestler.title : false;
             const rawText = card.text_box?.raw_text || '';
-            const matchesQuery = query === '' || (card.title && card.title.toLowerCase().includes(query)) || rawText.toLowerCase().includes(query);
+            const matchesQuery = query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
             return matchesQuery;
         });
         if (!ignoreCascadingFilters) activeFilters.forEach(filter => { if (filter.value) cards = applySingleFilter(cards, filter); });
@@ -244,26 +242,26 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredCards.forEach(card => {
             const cardElement = document.createElement('div');
             cardElement.className = currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
-            cardElement.dataset.id = card.id;
+            cardElement.dataset.title = card.title; // Use title as identifier
             if (currentViewMode === 'list') {
-                cardElement.innerHTML = `<span data-id="${card.id}">${card.title} (C:${card.cost}, D:${card.damage}, M:${card.momentum})</span>`;
+                cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost}, D:${card.damage}, M:${card.momentum})</span>`;
                 const buttonsDiv = document.createElement('div');
                 buttonsDiv.className = 'card-buttons';
                 if (card.cost === 0) {
-                    buttonsDiv.innerHTML = `<button data-id="${card.id}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-id="${card.id}" data-deck-target="purchase">Purchase</button>`;
+                    buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
                 } else {
-                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-id="${card.id}" data-deck-target="purchase">Purchase</button>`;
+                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
                 }
                 cardElement.appendChild(buttonsDiv);
             } else {
                 const visualHTML = generateCardVisualHTML(card);
-                cardElement.innerHTML = `<div class="card-visual" data-id="${card.id}">${visualHTML}</div>`;
+                cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
                 const buttonsDiv = document.createElement('div');
                 buttonsDiv.className = 'card-buttons';
                 if (card.cost === 0) {
-                    buttonsDiv.innerHTML = `<button data-id="${card.id}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-id="${card.id}" data-deck-target="purchase">Purchase</button>`;
+                    buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
                 } else {
-                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-id="${card.id}" data-deck-target="purchase">Purchase</button>`;
+                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
                 }
                 cardElement.appendChild(buttonsDiv);
             }
@@ -275,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageName = toPascalCase(card.title);
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
         let keywordsText = (card.text_box?.keywords || []).map(kw => `<strong>${kw.name}:</strong> ${keywordDatabase[kw.name] || 'Definition not found.'}`).join('<br>');
-        let traitsText = (card.text_box?.traits || []).map(tr => `<strong>${tr.name}:</strong> ${tr.value || ''}`).join('<br>');
+        let traitsText = (card.text_box?.traits || []).map(tr => `<strong>${tr.name}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
         const placeholderHTML = `
             <div class="placeholder-card">
                 <div class="placeholder-header"><span>${card.title}</span><span>C: ${card.cost ?? 'N/A'}</span></div>
@@ -310,14 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
             item.textContent = card.title;
-            item.dataset.id = card.id;
+            item.dataset.title = card.title;
             list.appendChild(item);
         });
     }
 
-    function showCardModal(cardId) {
+    function showCardModal(cardTitle) {
         lastFocusedElement = document.activeElement;
-        const card = cardDatabase.find(c => c.id === cardId);
+        const card = cardDatabase.find(c => c.title === cardTitle);
         if (!card) return;
         modalCardContent.innerHTML = generateCardVisualHTML(card);
         cardModal.style.display = 'flex';
@@ -334,13 +332,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderDeckList(element, deck, deckName) {
         element.innerHTML = '';
-        const cardCounts = deck.reduce((acc, cardId) => { acc[cardId] = (acc[cardId] || 0) + 1; return acc; }, {});
-        Object.entries(cardCounts).forEach(([cardId, count]) => {
-            const card = cardDatabase.find(c => c.id === cardId);
+        const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(cardCounts).forEach(([cardTitle, count]) => {
+            const card = cardDatabase.find(c => c.title === cardTitle);
             if (!card) return;
             const cardElement = document.createElement('div');
             cardElement.className = 'card-item';
-            cardElement.innerHTML = `<span data-id="${card.id}">${count}x ${card.title}</span><button data-id="${card.id}" data-deck="${deckName}">Remove</button>`;
+            cardElement.innerHTML = `<span data-title="${card.title}">${count}x ${card.title}</span><button data-title="${card.title}" data-deck="${deckName}">Remove</button>`;
             element.appendChild(cardElement);
         });
     }
@@ -353,14 +351,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- DECK CONSTRUCTION LOGIC ---
-    function addCardToDeck(cardId, targetDeck) {
-        const card = cardDatabase.find(c => c.id === cardId);
+    function addCardToDeck(cardTitle, targetDeck) {
+        const card = cardDatabase.find(c => c.title === cardTitle);
         if (!card) return;
         if (isLogoCard(card)) {
             alert(`"${card.title}" is a Logo card and cannot be added to your deck.`);
             return;
         }
-        const totalCount = (startingDeck.filter(id => id === cardId).length) + (purchaseDeck.filter(id => id === cardId).length);
+        const totalCount = (startingDeck.filter(title => title === cardTitle).length) + (purchaseDeck.filter(title => title === cardTitle).length);
         if (totalCount >= 3) {
             alert(`Rule Violation: Max 3 copies of "${card.title}" allowed in total.`);
             return;
@@ -368,17 +366,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetDeck === 'starting') {
             if (card.cost !== 0) { alert(`Rule Violation: Only 0-cost cards allowed in Starting Deck.`); return; }
             if (startingDeck.length >= 24) { alert(`Rule Violation: Starting Deck is full (24 cards).`); return; }
-            if (startingDeck.filter(id => id === cardId).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
-            startingDeck.push(cardId);
+            if (startingDeck.filter(title => title === cardTitle).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
+            startingDeck.push(cardTitle);
         } else {
-            purchaseDeck.push(cardId);
+            purchaseDeck.push(cardTitle);
         }
         renderDecks();
     }
 
-    function removeCardFromDeck(cardId, deckName) {
+    function removeCardFromDeck(cardTitle, deckName) {
         const deck = deckName === 'starting' ? startingDeck : purchaseDeck;
-        const cardIndex = deck.lastIndexOf(cardId);
+        const cardIndex = deck.lastIndexOf(cardTitle);
         if (cardIndex > -1) {
             deck.splice(cardIndex, 1);
             renderDecks();
@@ -391,11 +389,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedManager) issues.push("No manager selected");
         if (startingDeck.length !== 24) issues.push(`Starting deck has ${startingDeck.length} cards (needs 24)`);
         if (purchaseDeck.length < 36) issues.push(`Purchase deck has ${purchaseDeck.length} cards (needs at least 36)`);
-        const allCardIds = [...startingDeck, ...purchaseDeck];
-        const cardCounts = allCardIds.reduce((acc, cardId) => { acc[cardId] = (acc[cardId] || 0) + 1; return acc; }, {});
-        Object.entries(cardCounts).forEach(([cardId, count]) => {
+        const allCardTitles = [...startingDeck, ...purchaseDeck];
+        const cardCounts = allCardTitles.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(cardCounts).forEach(([cardTitle, count]) => {
             if (count > 3) {
-                const card = cardDatabase.find(c => c.id === cardId);
+                const card = cardDatabase.find(c => c.title === cardTitle);
                 issues.push(`Too many copies of ${card.title} (${count} copies, max 3)`);
             }
         });
@@ -430,15 +428,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generatePlainTextDeck() {
         let text = `Wrestler: ${selectedWrestler.title}\nManager: ${selectedManager.title}\n\n--- Starting Deck (${startingDeck.length}/24) ---\n`;
-        const startingCounts = startingDeck.reduce((acc, cardId) => { acc[cardId] = (acc[cardId] || 0) + 1; return acc; }, {});
-        Object.entries(startingCounts).forEach(([cardId, count]) => {
-            const card = cardDatabase.find(c => c.id === cardId);
+        const startingCounts = startingDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(startingCounts).forEach(([cardTitle, count]) => {
+            const card = cardDatabase.find(c => c.title === cardTitle);
             text += `${count}x ${card.title}\n`;
         });
         text += `\n--- Purchase Deck (${purchaseDeck.length}/36+) ---\n`;
-        const purchaseCounts = purchaseDeck.reduce((acc, cardId) => { acc[cardId] = (acc[cardId] || 0) + 1; return acc; }, {});
-        Object.entries(purchaseCounts).forEach(([cardId, count]) => {
-            const card = cardDatabase.find(c => c.id === cardId);
+        const purchaseCounts = purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(purchaseCounts).forEach(([cardTitle, count]) => {
+            const card = cardDatabase.find(c => c.title === cardTitle);
             text += `${count}x ${card.title}\n`;
         });
         return text;
@@ -473,22 +471,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         searchResults.addEventListener('click', (e) => {
             const target = e.target;
-            const cardId = target.dataset.id;
-            if (target.tagName === 'BUTTON' && cardId) {
-                addCardToDeck(cardId, target.dataset.deckTarget);
+            const cardTitle = target.dataset.title;
+            if (target.tagName === 'BUTTON' && cardTitle) {
+                addCardToDeck(cardTitle, target.dataset.deckTarget);
             } else {
-                const cardVisual = target.closest('[data-id]');
-                if (cardVisual) showCardModal(cardVisual.dataset.id);
+                const cardVisual = target.closest('[data-title]');
+                if (cardVisual) showCardModal(cardVisual.dataset.title);
             }
         });
 
         [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
             container.addEventListener('click', (e) => {
                 const target = e.target;
-                if ((target.tagName === 'SPAN' && target.dataset.id) || target.classList.contains('persona-card-item')) {
-                    showCardModal(target.dataset.id);
-                } else if (target.tagName === 'BUTTON' && target.dataset.id && target.dataset.deck) {
-                    removeCardFromDeck(target.dataset.id, target.dataset.deck);
+                if ((target.tagName === 'SPAN' && target.dataset.title) || target.classList.contains('persona-card-item')) {
+                    showCardModal(target.dataset.title);
+                } else if (target.tagName === 'BUTTON' && target.dataset.title && target.dataset.deck) {
+                    removeCardFromDeck(target.dataset.title, target.dataset.deck);
                 }
             });
         });
@@ -504,14 +502,14 @@ document.addEventListener('DOMContentLoaded', () => {
         saveDeckBtn.addEventListener('click', exportDeck);
 
         wrestlerSelect.addEventListener('change', (e) => {
-            selectedWrestler = cardDatabase.find(c => c.id === e.target.value) || null;
+            selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
             renderCardPool();
             renderPersonaDisplay();
             renderCascadingFilters();
         });
 
         managerSelect.addEventListener('change', (e) => {
-            selectedManager = cardDatabase.find(c => c.id === e.target.value) || null;
+            selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
             renderPersonaDisplay();
         });
 

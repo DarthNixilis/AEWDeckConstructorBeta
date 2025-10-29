@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- DATA FETCHING ---
+    // *** THIS FUNCTION CONTAINS THE ROBUST PARSING FIX ***
     async function loadGameData() {
         try {
             const [cardResponse, keywordResponse] = await Promise.all([
@@ -55,40 +56,36 @@ document.addEventListener('DOMContentLoaded', () => {
             keywordDatabase = await keywordResponse.json();
 
             const lines = tsvData.trim().split(/\r?\n/);
-            const headers = lines.shift().trim().split('\t');
+            const headers = lines.shift().trim().split('\t').map(h => h.trim());
             
             cardDatabase = lines.map(line => {
-                const values = line.trim().split('\t');
+                const values = line.split('\t');
                 const card = {};
                 headers.forEach((header, index) => {
-                    let value = values[index];
-                    if (value === undefined) { value = null; }
-                    if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
-                        try { card[header] = JSON.parse(value); } catch (e) { card[header] = value; }
-                    } else if (value !== null && !isNaN(value) && value.trim() !== '') {
-                        card[header] = Number(value);
-                    } else if (value === 'null' || value === '') {
+                    let value = values[index] ? values[index].trim() : ''; // Trim every value at the source
+
+                    if (value === undefined || value === 'null' || value === '') {
                         card[header] = null;
+                    } else if (!isNaN(value) && value.trim() !== '') {
+                        card[header] = Number(value);
                     } else {
                         card[header] = value;
                     }
                 });
 
-                card.title = card['Card Name'] ? card['Card Name'].trim() : null;
-                card.card_type = card['Type'] ? card['Type'].trim() : null;
+                card.title = card['Card Name'];
+                card.card_type = card['Type'];
                 card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
                 card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
                 
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
                 
-                // *** KEYWORD FIX IS HERE ***
-                // Trim the keyword names at the source so the data is always clean.
-                if (card.Keywords && typeof card.Keywords === 'string') {
+                if (card.Keywords) {
                     card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() }));
                 } else { card.text_box.keywords = []; }
 
-                if (card.Traits && typeof card.Traits === 'string') {
+                if (card.Traits) {
                     card.text_box.traits = card.Traits.split(',').map(traitStr => {
                         const [name, value] = traitStr.split(':');
                         return { name: name.trim(), value: value ? value.trim() : undefined };
@@ -160,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (card && card.text_box?.traits) {
                 card.text_box.traits.forEach(t => {
-                    if (t.name) options['Trait'].add(t.name.trim());
+                    if (t.name) options['Trait'].add(t.name);
                 });
             }
         });
@@ -169,51 +166,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCascadingFilters() {
         cascadingFiltersContainer.innerHTML = '';
-        let filteredCards = getFilteredCardPool(true);
-        for (let i = 0; i < 3; i++) {
-            if (i > 0 && !activeFilters[i - 1].value) break;
+        const availableOptions = getAvailableFilterOptions(cardDatabase);
+        
+        const filterCategories = ['Card Type', 'Keyword', 'Trait'];
+
+        filterCategories.forEach((category, i) => {
             const filterWrapper = document.createElement('div');
             const categorySelect = document.createElement('select');
-            categorySelect.innerHTML = `<option value="">-- Filter by --</option>${Object.keys(filterFunctions).map(cat => `<option>${cat}</option>`).join('')}`;
-            categorySelect.value = activeFilters[i].category || '';
-            categorySelect.dataset.index = i;
+            categorySelect.innerHTML = `<option value="">-- Filter by ${category} --</option>`;
+            availableOptions[category].forEach(opt => categorySelect.add(new Option(opt, opt)));
+            
+            categorySelect.value = activeFilters[i]?.category === category ? activeFilters[i].value : '';
+
             categorySelect.onchange = (e) => {
-                const index = parseInt(e.target.dataset.index);
-                activeFilters[index] = { category: e.target.value, value: '' };
-                for (let j = index + 1; j < 3; j++) activeFilters[j] = {};
+                activeFilters[i] = { category: category, value: e.target.value };
+                // Clear subsequent filters
+                for (let j = i + 1; j < filterCategories.length; j++) {
+                    activeFilters[j] = {};
+                }
                 renderCascadingFilters();
                 renderCardPool();
             };
             filterWrapper.appendChild(categorySelect);
-            if (activeFilters[i].category) {
-                const availableOptions = getAvailableFilterOptions(cardDatabase);
-                const valueSelect = document.createElement('select');
-                valueSelect.innerHTML = `<option value="">-- Select ${activeFilters[i].category} --</option>`;
-                availableOptions[activeFilters[i].category].forEach(opt => valueSelect.add(new Option(opt, opt)));
-                valueSelect.value = activeFilters[i].value || '';
-                valueSelect.dataset.index = i;
-                valueSelect.onchange = (e) => {
-                    const index = parseInt(e.target.dataset.index);
-                    activeFilters[index].value = e.target.value;
-                    for (let j = index + 1; j < 3; j++) activeFilters[j] = {};
-                    renderCascadingFilters();
-                    renderCardPool();
-                };
-                filterWrapper.appendChild(valueSelect);
-            }
             cascadingFiltersContainer.appendChild(filterWrapper);
-            if (activeFilters[i].value) filteredCards = applySingleFilter(filteredCards, activeFilters[i]);
-        }
+        });
     }
     
-    function applySingleFilter(cards, filter) {
-        if (!filter.category || !filter.value) return cards;
-        const filterFunction = filterFunctions[filter.category];
-        return filterFunction ? cards.filter(card => filterFunction(card, filter.value)) : cards;
+    function applyAllFilters(cards) {
+        let filtered = cards;
+        activeFilters.forEach(filter => {
+            if (filter && filter.value) {
+                const filterFunc = filterFunctions[filter.category];
+                if (filterFunc) {
+                    filtered = filtered.filter(card => filterFunc(card, filter.value));
+                }
+            }
+        });
+        return filtered;
     }
 
     // --- RENDERING & CARD POOL LOGIC ---
-    function getFilteredCardPool(ignoreCascadingFilters = false) {
+    function getFilteredCardPool() {
         const query = searchInput.value.toLowerCase();
         let cards = cardDatabase.filter(card => {
             if (!card || !card.title) return false; 
@@ -225,8 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchesQuery;
         });
 
-        if (!ignoreCascadingFilters) activeFilters.forEach(filter => { if (filter.value) cards = applySingleFilter(cards, filter); });
-        return cards;
+        return applyAllFilters(cards);
     }
 
     function renderCardPool() {
@@ -336,13 +328,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const activePersonaTitles = activePersona.map(p => p.title);
         
-        // Correctly filter for Kit cards associated with any active persona component
         const kitCards = cardDatabase.filter(card => 
             isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
         );
         kitCards.forEach(card => cardsToShow.add(card));
         
-        cardsToShow.forEach(card => {
+        const sortedCards = Array.from(cardsToShow).sort((a, b) => {
+            if (a.card_type === 'Wrestler') return -1;
+            if (b.card_type === 'Wrestler') return 1;
+            if (a.card_type === 'Manager') return -1;
+            if (b.card_type === 'Manager') return 1;
+            return a.title.localeCompare(b.title);
+        });
+
+        sortedCards.forEach(card => {
             const item = document.createElement('div');
             item.className = 'persona-card-item';
             item.textContent = card.title;

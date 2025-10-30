@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES (Corrected to be assigned at the top) ---
+    // --- DOM ELEMENT REFERENCES ---
     const searchInput = document.getElementById('searchInput');
     const cascadingFiltersContainer = document.getElementById('cascadingFiltersContainer');
     const searchResults = document.getElementById('searchResults');
@@ -144,13 +144,13 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedManager = null;
         populatePersonaSelectors();
         loadStateFromCache();
-        addEventListeners(); // Call this BEFORE rendering anything
+        addEventListeners();
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         renderCascadingFilters();
         renderPersonaDisplay();
         renderDecks();
         renderCardPool();
-        addDeckSearchFunctionality();
+        addDeckSearchFunctionality(); // This was the missing call
     }
 
     function populatePersonaSelectors() {
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             select.onchange = (e) => {
                 activeFilters[index] = { category: category, value: e.target.value };
                 for (let j = index + 1; j < 3; j++) activeFilters[j] = {};
-                renderCascadingFilters(); // Re-render to update dependent filters
+                renderCascadingFilters();
                 renderCardPool();
             };
             cascadingFiltersContainer.appendChild(select);
@@ -427,17 +427,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // *** THIS IS THE MISSING FUNCTION ***
     function addDeckSearchFunctionality() {
         const startingDeckSearch = document.createElement('input');
         startingDeckSearch.type = 'text';
         startingDeckSearch.placeholder = 'Search starting deck...';
         startingDeckSearch.className = 'deck-search-input';
         startingDeckSearch.addEventListener('input', debounce(() => filterDeckList(startingDeckList, startingDeckSearch.value), 300));
+        
         const purchaseDeckSearch = document.createElement('input');
         purchaseDeckSearch.type = 'text';
         purchaseDeckSearch.placeholder = 'Search purchase deck...';
         purchaseDeckSearch.className = 'deck-search-input';
         purchaseDeckSearch.addEventListener('input', debounce(() => filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
+        
         startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
         purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
     }

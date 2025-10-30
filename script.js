@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortSelect = document.getElementById('sortSelect');
     const showZeroCostCheckbox = document.getElementById('showZeroCost');
     const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
-    const gridSizeControls = document.getElementById('gridSizeControls'); // New
+    // This variable is declared here, but the element is assigned inside addEventListeners
+    let gridSizeControls; 
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -33,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSort = 'alpha-asc';
     let showZeroCost = true;
     let showNonZeroCost = true;
-    let numGridColumns = 4; // New
+    let numGridColumns = 4;
     let lastFocusedElement;
 
     const CACHE_KEY = 'aewDeckBuilderCache';
@@ -55,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
             startingDeck = state.startingDeck || [];
             purchaseDeck = state.purchaseDeck || [];
             
-            // This logic is now inside initializeApp to ensure dropdowns are populated first
             if (state.wrestler) {
                 const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === state.wrestler);
                 if (wrestlerExists) {
@@ -152,15 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeApp() {
-        // FIX: Ensure dropdowns are empty before loading cache
         wrestlerSelect.value = "";
         managerSelect.value = "";
         selectedWrestler = null;
         selectedManager = null;
-
         populatePersonaSelectors();
-        loadStateFromCache(); // Load cache AFTER dropdowns are populated
-        
+        loadStateFromCache();
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         renderCascadingFilters();
         renderPersonaDisplay();
@@ -281,13 +278,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCardPool() {
         searchResults.innerHTML = '';
         searchResults.className = `card-list ${currentViewMode}-view`;
-        
         if (currentViewMode === 'grid') {
             searchResults.setAttribute('data-columns', numGridColumns);
         } else {
             searchResults.removeAttribute('data-columns');
         }
-
         const finalCards = getFilteredAndSortedCardPool();
         if (finalCards.length === 0) {
             searchResults.innerHTML = '<p>No cards match the current filters.</p>';
@@ -532,6 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addEventListeners() {
+        // THIS IS THE FIX: Assign the element to the variable
+        gridSizeControls = document.getElementById('gridSizeControls');
+
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
         sortSelect.addEventListener('change', (e) => {
             currentSort = e.target.value;
@@ -604,7 +602,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm('Are you sure you want to clear both decks? This cannot be undone.')) {
                 startingDeck = [];
                 purchaseDeck = [];
-                // Also clear persona selection for a full reset
                 wrestlerSelect.value = "";
                 managerSelect.value = "";
                 selectedWrestler = null;
@@ -617,23 +614,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
         modalCloseButton.addEventListener('click', () => {
             cardModal.style.display = 'none';
-            if (lastFocusedElement) lastFocusedElement.focus();
-        });
-
-        cardModal.addEventListener('click', (e) => {
-            if (e.target === cardModal) {
-                cardModal.style.display = 'none';
-                if (lastFocusedElement) lastFocusedElement.focus();
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
-                cardModal.style.display = 'none';
-                if (lastFocusedElement) lastFocusedElement.focus();
-            }
-        });
-    }
-
-    loadGameData();
+            if (lastFocused
 

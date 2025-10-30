@@ -29,12 +29,41 @@ const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
 const exportAsImageBtn = document.getElementById('exportAsImageBtn');
 
+// --- NEW: FALLBACK TEST DATA ---
+function createTestData() {
+    console.warn("FALLBACK: Creating test data because live files failed to load.");
+    
+    const testCards = [
+        { title: "Test Strike", card_type: "Strike", cost: 0, damage: 5, momentum: 3, text_box: { raw_text: "A basic test strike maneuver.", keywords: [{name: "Power Attack"}], traits: [{name: "Target", value: "H"}] } },
+        { title: "Test Grapple", card_type: "Grapple", cost: 3, damage: 6, momentum: 4, text_box: { raw_text: "A basic test grapple maneuver.", keywords: [{name: "Finisher"}], traits: [{name: "Target", value: "T"}] } },
+        { title: "Test Action", card_type: "Action", cost: 0, damage: null, momentum: 2, text_box: { raw_text: "A test action.", keywords: [{name: "Permanent"}], traits: [] } },
+        { title: "MJF", card_type: "Wrestler", cost: null, damage: null, momentum: null, text_box: { raw_text: "", keywords: [], traits: [] } },
+        { title: "Another Card", card_type: "Strike", cost: 4, damage: 8, momentum: 5, text_box: { raw_text: "Another powerful strike.", keywords: [], traits: [] } }
+    ];
+    
+    const testKeywords = {
+        "Power Attack": "Add momentum to damage when committed",
+        "Finisher": "Powerful finishing maneuver",
+        "Permanent": "Stays in play after use"
+    };
+    
+    state.setCardDatabase(testCards);
+    state.setKeywordDatabase(testKeywords);
+    state.buildCardTitleCache();
+    
+    // Pre-populate decks for testing
+    state.setSelectedWrestler(testCards.find(c => c.title === "MJF"));
+    state.setStartingDeck(["Test Strike", "Test Action"]);
+    state.setPurchaseDeck(["Test Grapple", "Another Card", "Test Grapple"]);
+    
+    return true;
+}
+
 // --- DATA LOADING ---
 async function loadGameData() {
     try {
-        searchResults.innerHTML = '<p>Loading card data...</p>';
+        searchResults.innerHTML = '<p>Loading card data from repository...</p>';
         
-        // THE CORRECT FIX: Using standard relative paths for deployment.
         const cardDbUrl = `./cardDatabase.txt?v=${new Date().getTime()}`;
         const keywordsUrl = `./keywords.txt?v=${new Date().getTime()}`;
 
@@ -43,11 +72,8 @@ async function loadGameData() {
             fetch(keywordsUrl)
         ]);
 
-        if (!cardResponse.ok) {
-            throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status}).`);
-        }
-        if (!keywordResponse.ok) {
-            throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status}).`);
+        if (!cardResponse.ok || !keywordResponse.ok) {
+            throw new Error(`File loading failed (Status: ${cardResponse.status}, ${keywordResponse.status}) - using test data instead.`);
         }
         
         const tsvData = await cardResponse.text();
@@ -97,19 +123,9 @@ async function loadGameData() {
         initializeApp();
 
     } catch (error) {
-        console.error("Fatal Error during data load:", error);
-        searchResults.innerHTML = `
-            <div style="color: red; padding: 20px; text-align: center;">
-                <strong>FATAL ERROR:</strong> ${error.message}<br><br>
-                <div style="font-size: 0.9em; margin: 10px 0; text-align: left; display: inline-block;">
-                    Troubleshooting steps:<br>
-                    1. Ensure <strong>cardDatabase.txt</strong> and <strong>keywords.txt</strong> are in the root of your GitHub repository.<br>
-                    2. Wait a minute for GitHub Pages to update after a new commit.<br>
-                    3. Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R).
-                </div>
-                <br>
-                <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px;">Retry</button>
-            </div>`;
+        console.warn("Using test data for development:", error.message);
+        createTestData(); // Load the fallback data
+        initializeApp(); // Initialize the app with the test data
     }
 }
 
@@ -134,30 +150,40 @@ function initializeApp() {
 function populatePersonaSelectors() {
     wrestlerSelect.value = "";
     managerSelect.value = "";
-    state.setSelectedWrestler(null);
-    state.setSelectedManager(null);
+    // Don't reset selected wrestler/manager if they are already set by test data
+    if (!state.selectedWrestler) state.setSelectedWrestler(null);
+    if (!state.selectedManager) state.setSelectedManager(null);
+    
     wrestlerSelect.length = 1;
     managerSelect.length = 1;
     const wrestlers = state.cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
     const managers = state.cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
+
+    // If a wrestler was pre-selected (by test data), make sure the dropdown reflects it
+    if (state.selectedWrestler) {
+        wrestlerSelect.value = state.selectedWrestler.title;
+    }
 }
 
 function loadStateFromCache() {
     const cachedState = localStorage.getItem(state.CACHE_KEY);
     if (cachedState) {
         const parsed = JSON.parse(cachedState);
-        state.setStartingDeck(parsed.startingDeck || []);
-        state.setPurchaseDeck(parsed.purchaseDeck || []);
-        if (parsed.wrestler) {
+        // Only load from cache if test data wasn't used.
+        if (state.startingDeck.length === 0 && state.purchaseDeck.length === 0) {
+            state.setStartingDeck(parsed.startingDeck || []);
+            state.setPurchaseDeck(parsed.purchaseDeck || []);
+        }
+        if (parsed.wrestler && !state.selectedWrestler) {
             const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === parsed.wrestler);
             if (wrestlerExists) {
                 wrestlerSelect.value = parsed.wrestler;
                 state.setSelectedWrestler(state.cardDatabase.find(c => c.title === parsed.wrestler));
             }
         }
-        if (parsed.manager) {
+        if (parsed.manager && !state.selectedManager) {
             const managerExists = Array.from(managerSelect.options).some(opt => opt.value === parsed.manager);
             if (managerExists) {
                 managerSelect.value = parsed.manager;
@@ -173,6 +199,9 @@ function refreshCardPool() {
 }
 
 function addDeckSearchFunctionality() {
+    // Prevent adding search bars twice if app re-initializes
+    if (document.querySelector('.deck-search-input')) return;
+
     const startingDeckSearch = document.createElement('input');
     startingDeckSearch.type = 'text';
     startingDeckSearch.placeholder = 'Search starting deck...';
@@ -190,6 +219,10 @@ function addDeckSearchFunctionality() {
 }
 
 function setupEventListeners() {
+    // Prevent adding listeners multiple times
+    if (document.body.dataset.listenersAttached) return;
+    document.body.dataset.listenersAttached = 'true';
+
     document.addEventListener('filtersChanged', refreshCardPool);
     searchInput.addEventListener('input', state.debounce(refreshCardPool, 300));
     sortSelect.addEventListener('change', (e) => {

@@ -167,7 +167,7 @@ export function parseAndLoadDeck(text) {
     }
 }
 
-// --- IMAGE EXPORT LOGIC (REBUILT FOR RELIABILITY) ---
+// --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
     const issues = validateDeck();
     if (issues.length > 0) {
@@ -226,7 +226,6 @@ export async function exportDeckAsImage() {
             const x = MARGIN_PX + (col * CARD_RENDER_WIDTH_PX);
             const y = MARGIN_PX + (row * CARD_RENDER_HEIGHT_PX);
 
-            // Directly create the playtest HTML with inline styles for reliability
             const playtestHTML = generatePlaytestCardHTML(card);
             tempContainer.innerHTML = playtestHTML;
             const playtestElement = tempContainer.firstElementChild;
@@ -265,43 +264,43 @@ export async function exportDeckAsImage() {
     alert('All print sheets have been generated and downloaded!');
 }
 
-// NEW HELPER FUNCTION FOR RELIABLE PLAYTEST CARD RENDERING
+// --- FINAL, LEGIBLE PLAYTEST CARD HTML GENERATOR ---
 function generatePlaytestCardHTML(card) {
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
-    let keywordsText = keywords.map(kw => `<strong>${kw.name.trim()}:</strong> ${state.keywordDatabase[kw.name.trim()] || 'Definition not found.'}`).join('<br>');
+    let keywordsText = keywords.map(kw => `<strong>${kw.name.trim()}:</strong> ${state.keywordDatabase[kw.name.trim()] || 'Definition not found.'}`).join('<br><br>');
     let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>`).join(', ');
-    if (traitsText) keywordsText = `<em>${traitsText}</em><br><br>` + keywordsText;
+    if (traitsText) keywordsText = `<p style="margin-bottom: 25px; font-style: italic;">${traitsText}</p>` + keywordsText;
 
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
 
     const typeColors = {
         'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a',
-        'Strike': '#4c82c8', 'Grapple': '#e68a00'
+        'Strike': '#4c82c8', 'Grapple': ' #e68a00'
     };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
     return `
         <div style="
-            background-color: white; border: 30px solid black; border-radius: 60px;
-            box-sizing: border-box; width: 750px; height: 1050px; padding: 40px;
+            background-color: white; border: 10px solid black; border-radius: 35px;
+            box-sizing: border-box; width: 750px; height: 1050px; padding: 30px;
             display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;
         ">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 4px solid black; padding-bottom: 20px; margin-bottom: 20px;">
-                <div style="font-size: 48px; font-weight: bold; line-height: 1.1;">
-                    <span>D: ${card.damage ?? 'N/A'}</span><br>
-                    <span>M: ${card.momentum ?? 'N/A'}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px;">
+                <div style="font-size: 50px; font-weight: bold; line-height: 1.2;">
+                    <span>D: ${card.damage ?? '–'}</span><br>
+                    <span>M: ${card.momentum ?? '–'}</span>
                     ${targetValue ? `<br><span>T: ${targetValue}</span>` : ''}
                 </div>
-                <div style="font-size: 60px; font-weight: bold; text-align: center; flex-grow: 1; padding: 0 20px;">${card.title}</div>
-                <div style="font-size: 54px; font-weight: bold; border: 4px solid black; padding: 10px 30px; border-radius: 15px;">C: ${card.cost ?? 'N/A'}</div>
+                <div style="font-size: 64px; font-weight: 900; text-align: center; flex-grow: 1; padding: 0 20px;">${card.title}</div>
+                <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px;">${card.cost ?? '–'}</div>
             </div>
-            <div style="flex-grow: 1; border: 4px solid #ccc; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 42px; color: #888;">Art Missing</div>
-            <div style="padding: 20px; text-align: center; font-size: 48px; font-weight: bold; border-radius: 15px; margin-bottom: 20px; color: white; background-color: ${typeColor};">${card.card_type}</div>
-            <div style="background-color: #f0f0f0; border: 2px solid #ccc; border-radius: 20px; padding: 30px; font-size: 40px; line-height: 1.4; flex-grow: 2; overflow-y: auto; white-space: pre-wrap;">
-                <p>${card.text_box?.raw_text || ''}</p>
-                ${keywordsText ? `<hr style="border-top: 2px solid #ccc; margin: 20px 0;"><p>${keywordsText}</p>` : ''}
+            <div style="flex-grow: 1; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
+            <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: 42px; line-height: 1.4; flex-grow: 2; overflow-y: auto; white-space: pre-wrap;">
+                <p style="margin-top: 0;">${card.text_box?.raw_text || ''}</p>
+                ${keywordsText ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><p style="margin-bottom: 0;">${keywordsText}</p>` : ''}
             </div>
         </div>
     `;

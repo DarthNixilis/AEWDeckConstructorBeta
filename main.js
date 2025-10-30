@@ -6,9 +6,8 @@ import * as deck from './deck.js';
 import * as filters from './filters.js';
 
 // --- DOM ELEMENT REFERENCES ---
-// It's safer to declare these here to ensure they are always available.
 const searchInput = document.getElementById('searchInput');
-const exportDeckBtn = document.getElementById('exportDeck');
+const exportDeckBtn = document.getElementById('exportDeck'); // This is the "Export as Text" button
 const clearDeckBtn = document.getElementById('clearDeck');
 const wrestlerSelect = document.getElementById('wrestlerSelect');
 const managerSelect = document.getElementById('managerSelect');
@@ -28,7 +27,7 @@ const cardModal = document.getElementById('cardModal');
 const modalCloseButton = cardModal.querySelector('.modal-close-button');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
-const exportAsImageBtn = document.getElementById('exportAsImageBtn');
+const exportAsImageBtn = document.getElementById('exportAsImageBtn'); // This is the "Export as Image" button
 
 // --- DATA LOADING ---
 async function loadGameData() {
@@ -97,18 +96,13 @@ function initializeApp() {
     setupEventListeners();
     addDeckSearchFunctionality();
     
-    // Set default UI states FIRST
     viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
     gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
     gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`).classList.add('active');
 
-    // Reset and Populate Persona Selectors
     populatePersonaSelectors();
-    
-    // NOW, attempt to load from cache
     loadStateFromCache(); 
     
-    // Finally, render everything based on the final state
     filters.renderCascadingFilters();
     ui.renderDecks();
     ui.renderPersonaDisplay();
@@ -236,14 +230,14 @@ function setupEventListeners() {
         refreshCardPool();
     });
 
+    // THIS IS THE FIX: The validation check is removed from this event listener.
     exportDeckBtn.addEventListener('click', () => {
-        const issues = deck.validateDeck();
-        if (issues.length > 0) { alert("Deck is not valid:\n" + issues.join("\n")); return; }
         const text = deck.generatePlainTextDeck();
         const blob = new Blob([text], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${state.toPascalCase(state.selectedWrestler.title)}Deck.txt`;
+        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
+        a.download = `${wrestlerName}.txt`;
         a.click();
         URL.revokeObjectURL(a.href);
     });

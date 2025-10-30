@@ -6,7 +6,7 @@ import { toPascalCase } from './config.js';
 
 // --- DECK MANIPULATION ---
 export function addCardToDeck(cardTitle, targetDeck) {
-    const card = state.cardTitleCache[cardTitle]; // Use cache for performance
+    const card = state.cardTitleCache[cardTitle];
     if (!card) return;
     if (state.isKitCard(card)) {
         alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
@@ -37,7 +37,7 @@ export function removeCardFromDeck(cardTitle, deckName) {
     }
 }
 
-// --- DECK EXPORT ---
+// --- DECK EXPORT & IMPORT ---
 export function generatePlainTextDeck() {
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
@@ -55,7 +55,6 @@ export function generatePlainTextDeck() {
     return text;
 }
 
-// --- DECK IMPORT ---
 export function parseAndLoadDeck(text) {
     const importStatus = document.getElementById('importStatus');
     const importModal = document.getElementById('importModal');
@@ -63,11 +62,7 @@ export function parseAndLoadDeck(text) {
     const managerSelect = document.getElementById('managerSelect');
     try {
         const lines = text.trim().split(/\r?\n/);
-        let newWrestler = null;
-        let newManager = null;
-        let newStartingDeck = [];
-        let newPurchaseDeck = [];
-        let currentSection = '';
+        let newWrestler = null, newManager = null, newStartingDeck = [], newPurchaseDeck = [], currentSection = '';
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine || trimmedLine.toLowerCase().startsWith('kit')) return;
@@ -81,11 +76,9 @@ export function parseAndLoadDeck(text) {
                     const manager = state.cardTitleCache[managerName];
                     if (manager && manager.card_type === 'Manager') newManager = manager;
                 }
-            } else if (trimmedLine.startsWith('--- Starting Deck')) {
-                currentSection = 'starting';
-            } else if (trimmedLine.startsWith('--- Purchase Deck')) {
-                currentSection = 'purchase';
-            } else {
+            } else if (trimmedLine.startsWith('--- Starting Deck')) { currentSection = 'starting'; }
+            else if (trimmedLine.startsWith('--- Purchase Deck')) { currentSection = 'purchase'; }
+            else {
                 const match = trimmedLine.match(/^(\d+)x\s+(.+)/);
                 if (match) {
                     const count = parseInt(match[1], 10);
@@ -121,61 +114,39 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck]
-        .map(title => state.cardTitleCache[title]) // Use cache
-        .filter(card => card !== undefined) // Prevent errors from missing cards
-        .sort((a, b) => a.title.localeCompare(b.title));
-
+    const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]).filter(card => card !== undefined).sort((a, b) => a.title.localeCompare(b.title));
     if (allCardsInDeck.length === 0) {
         alert("There are no cards in the deck to export.");
         return;
     }
-
     const CARDS_PER_PAGE = 9;
     const numPages = Math.ceil(allCardsInDeck.length / CARDS_PER_PAGE);
-    
     if (!confirm(`This will generate ${numPages} print sheet(s) for ${allCardsInDeck.length} cards. This may take a moment. Continue?`)) {
         return;
     }
-
     const DPI = 300;
-    const PAPER_WIDTH_INCHES = 8.5;
-    const PAPER_HEIGHT_INCHES = 11;
-    const CARD_WIDTH_INCHES = 2.5;
-    const CARD_HEIGHT_INCHES = 3.5;
-    const MARGIN_INCHES = 0.5;
-    const CANVAS_WIDTH = PAPER_WIDTH_INCHES * DPI;
-    const CANVAS_HEIGHT = PAPER_HEIGHT_INCHES * DPI;
-    const CARD_RENDER_WIDTH_PX = CARD_WIDTH_INCHES * DPI;
-    const CARD_RENDER_HEIGHT_PX = CARD_HEIGHT_INCHES * DPI;
-    const MARGIN_PX = MARGIN_INCHES * DPI;
-
+    const CARD_RENDER_WIDTH_PX = 2.5 * DPI;
+    const CARD_RENDER_HEIGHT_PX = 3.5 * DPI;
     const tempContainer = document.createElement('div');
     tempContainer.style.position = 'absolute';
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
-
-    let successCount = 0;
-    let errorCount = 0;
-
+    let successCount = 0, errorCount = 0;
     for (let page = 0; page < numPages; page++) {
         const canvas = document.createElement('canvas');
-        canvas.width = CANVAS_WIDTH;
-        canvas.height = CANVAS_HEIGHT;
+        canvas.width = 8.5 * DPI;
+        canvas.height = 11 * DPI;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         const startIndex = page * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
         const cardsOnThisPage = allCardsInDeck.slice(startIndex, endIndex);
-
         for (let i = 0; i < cardsOnThisPage.length; i++) {
             const card = cardsOnThisPage[i];
-            const row = Math.floor(i / 3);
-            const col = i % 3;
-            const x = MARGIN_PX + (col * CARD_RENDER_WIDTH_PX);
-            const y = MARGIN_PX + (row * CARD_RENDER_HEIGHT_PX);
-            const playtestHTML = generatePlaytestCardHTML(card);
+            const row = Math.floor(i / 3), col = i % 3;
+            const x = (0.5 * DPI) + (col * CARD_RENDER_WIDTH_PX), y = (0.5 * DPI) + (row * CARD_RENDER_HEIGHT_PX);
+            const playtestHTML = await generatePlaytestCardHTML(card, tempContainer);
             tempContainer.innerHTML = playtestHTML;
             const playtestElement = tempContainer.firstElementChild;
             try {
@@ -203,48 +174,80 @@ export async function exportDeckAsImage() {
         document.body.removeChild(a);
         await new Promise(resolve => setTimeout(resolve, 500));
     }
-
     document.body.removeChild(tempContainer);
-    
     let message = `Successfully generated ${successCount} cards.`;
-    if (errorCount > 0) {
-        message = `Generated ${successCount} cards successfully. ${errorCount} cards failed to render. Check console for details.`;
-    }
+    if (errorCount > 0) message = `Generated ${successCount} cards successfully. ${errorCount} cards failed to render. Check console for details.`;
     alert(message);
 }
 
-function generatePlaytestCardHTML(card) {
+function getFittedTitleHTML(title, container) {
+    let fontSize = 64;
+    const MAX_WIDTH = 400;
+    const MIN_FONT_SIZE = 32;
+    const ruler = document.createElement('span');
+    ruler.style.visibility = 'hidden';
+    ruler.style.position = 'absolute';
+    ruler.style.whiteSpace = 'nowrap';
+    ruler.style.fontWeight = '900';
+    ruler.style.fontFamily = 'Arial, sans-serif';
+    ruler.textContent = title;
+    container.appendChild(ruler);
+    while (fontSize > MIN_FONT_SIZE) {
+        ruler.style.fontSize = `${fontSize}px`;
+        if (ruler.offsetWidth <= MAX_WIDTH) break;
+        fontSize -= 2;
+    }
+    container.removeChild(ruler);
+    return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
+}
+
+async function generatePlaytestCardHTML(card, tempContainer) {
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
+    const reminderFontSize = '0.75em';
+
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
-        return `<strong>${kw.name.trim()}:</strong> <span style="font-size: 0.8em; font-style: italic;">${definition}</span>`;
+        return `<strong>${kw.name.trim()}:</strong> <span style="font-size: ${reminderFontSize}; font-style: italic;">${definition}</span>`;
     }).join('<br><br>');
+
     let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>`).join(', ');
-    if (traitsText) keywordsText = `<p style="margin-bottom: 25px; font-style: italic;">${traitsText}</p>` + keywordsText;
+    if (traitsText) {
+        traitsText = `<p style="margin-bottom: 25px;"><span style="font-size: ${reminderFontSize}; font-style: italic;">${traitsText}</span></p>`;
+    }
+
+    const reminderBlock = traitsText + keywordsText;
+    
+    // THIS IS THE FIX: Re-added the logic to find the Target trait and its value
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
+
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
-    const fullText = (card.text_box?.raw_text || '') + keywordsText;
+
+    const fullText = (card.text_box?.raw_text || '') + reminderBlock;
     let textBoxFontSize = 42;
-    if (fullText.length > 200) { textBoxFontSize = 36; } else if (fullText.length > 150) { textBoxFontSize = 38; }
+    if (fullText.length > 250) { textBoxFontSize = 34; } 
+    else if (fullText.length > 180) { textBoxFontSize = 38; }
+
+    const titleHTML = getFittedTitleHTML(card.title, tempContainer);
+
     return `
         <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px;">
-                <div style="font-size: 50px; font-weight: bold; line-height: 1.2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px; gap: 15px;">
+                <div style="font-size: 50px; font-weight: bold; line-height: 1.2; flex-shrink: 0;">
                     <span>D: ${card.damage ?? '–'}</span><br>
                     <span>M: ${card.momentum ?? '–'}</span>
                     ${targetValue ? `<br><span>T: ${targetValue}</span>` : ''}
                 </div>
-                <div style="font-size: 64px; font-weight: 900; text-align: center; flex-grow: 1; padding: 0 20px;">${card.title}</div>
-                <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px;">${card.cost ?? '–'}</div>
+                ${titleHTML}
+                <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>
             </div>
             <div style="flex-grow: 10; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap;">
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; overflow: hidden;">
                 <p style="margin-top: 0;">${card.text_box?.raw_text || ''}</p>
-                ${keywordsText ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${keywordsText}</div>` : ''}
+                ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
             </div>
         </div>
     `;

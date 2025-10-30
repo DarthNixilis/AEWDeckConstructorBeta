@@ -22,11 +22,17 @@ const importModalCloseBtn = importModal.querySelector('.modal-close-button');
 const deckFileInput = document.getElementById('deckFileInput');
 const deckTextInput = document.getElementById('deckTextInput');
 const processImportBtn = document.getElementById('processImportBtn');
+const searchResults = document.getElementById('searchResults');
+const cardModal = document.getElementById('cardModal');
+const modalCloseButton = cardModal.querySelector('.modal-close-button');
+const startingDeckList = document.getElementById('startingDeckList');
+const purchaseDeckList = document.getElementById('purchaseDeckList');
+
 
 // --- DATA LOADING ---
 async function loadGameData() {
     try {
-        document.getElementById('searchResults').innerHTML = '<p>Loading card data...</p>';
+        searchResults.innerHTML = '<p>Loading card data...</p>';
         const [cardResponse, keywordResponse] = await Promise.all([
             fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
             fetch(`./keywords.txt?v=${new Date().getTime()}`)
@@ -81,23 +87,34 @@ async function loadGameData() {
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
-        document.getElementById('searchResults').innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()">Retry</button></div>`;
+        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()">Retry</button></div>`;
     }
 }
 
 // --- INITIALIZATION & EVENT LISTENERS ---
 function initializeApp() {
-    populatePersonaSelectors();
-    loadStateFromCache();
     setupEventListeners();
+    addDeckSearchFunctionality();
+    
+    // Set UI to match state
+    viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+    gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+    gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`).classList.add('active');
+
+    // ** THE FIX IS HERE: Populate dropdowns first, THEN load cache **
+    populatePersonaSelectors();
+    loadStateFromCache(); 
     
     // Initial render
+    renderCascadingFilters();
     ui.renderDecks();
     ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
     refreshCardPool();
 }
 
 function populatePersonaSelectors() {
+    wrestlerSelect.value = "";
+    managerSelect.value = "";
     wrestlerSelect.length = 1;
     managerSelect.length = 1;
     const wrestlers = state.cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
@@ -106,8 +123,30 @@ function populatePersonaSelectors() {
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
 }
 
+function loadStateFromCache() {
+    const cachedState = localStorage.getItem(state.CACHE_KEY);
+    if (cachedState) {
+        const parsed = JSON.parse(cachedState);
+        state.setStartingDeck(parsed.startingDeck || []);
+        state.setPurchaseDeck(parsed.purchaseDeck || []);
+        if (parsed.wrestler) {
+            const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === parsed.wrestler);
+            if (wrestlerExists) {
+                wrestlerSelect.value = parsed.wrestler;
+                state.setSelectedWrestler(state.cardDatabase.find(c => c.title === parsed.wrestler));
+            }
+        }
+        if (parsed.manager) {
+            const managerExists = Array.from(managerSelect.options).some(opt => opt.value === parsed.manager);
+            if (managerExists) {
+                managerSelect.value = parsed.manager;
+                state.setSelectedManager(state.cardDatabase.find(c => c.title === parsed.manager));
+            }
+        }
+    }
+}
+
 function refreshCardPool() {
-    // This function will gather all filtered and sorted cards and pass them to the UI renderer
     const query = searchInput.value.toLowerCase();
     let cards = state.cardDatabase.filter(card => {
         if (!card || !card.title) return false; 
@@ -117,9 +156,76 @@ function refreshCardPool() {
         const rawText = card.text_box?.raw_text || '';
         return query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
     });
+
     // Apply cascading filters and sort
-    // ... logic to apply activeFilters and currentSort ...
+    const filterFunc = state.filterFunctions[state.activeFilters[0]?.category];
+    if (filterFunc && state.activeFilters[0]?.value) {
+        cards = cards.filter(card => filterFunc(card, state.activeFilters[0].value));
+    }
+    // ... add more filter logic if needed ...
+
+    const [sortBy, direction] = state.currentSort.split('-');
+    cards.sort((a, b) => {
+        let valA, valB;
+        switch (sortBy) {
+            case 'alpha': valA = a.title.toLowerCase(); valB = b.title.toLowerCase(); break;
+            case 'cost': valA = a.cost ?? -1; valB = b.cost ?? -1; break;
+            case 'damage': valA = a.damage ?? -1; valB = b.damage ?? -1; break;
+            case 'momentum': valA = a.momentum ?? -1; valB = b.momentum ?? -1; break;
+            default: return 0;
+        }
+        if (direction === 'asc') return valA > valB ? 1 : -1;
+        else return valA < valB ? 1 : -1;
+    });
+
     ui.renderCardPool(cards);
+}
+
+function getAvailableFilterOptions(cards) {
+    const options = { 'Card Type': new Set(), 'Keyword': new Set(), 'Trait': new Set() };
+    cards.forEach(card => {
+        if (card && card.card_type) options['Card Type'].add(card.card_type);
+        if (card && card.text_box?.keywords) card.text_box.keywords.forEach(k => { if (k.name) options['Keyword'].add(k.name.trim()); });
+        if (card && card.text_box?.traits) card.text_box.traits.forEach(t => { if (t.name) options['Trait'].add(t.name.trim()); });
+    });
+    const sortedTypes = Array.from(options['Card Type']).sort();
+    if (sortedTypes.some(type => ['Strike', 'Grapple', 'Submission'].includes(type))) sortedTypes.unshift('Maneuver');
+    return { 'Card Type': sortedTypes, 'Keyword': Array.from(options['Keyword']).sort(), 'Trait': Array.from(options['Trait']).sort() };
+}
+
+function renderCascadingFilters() {
+    cascadingFiltersContainer.innerHTML = '';
+    const availableOptions = getAvailableFilterOptions(state.cardDatabase);
+    ['Card Type', 'Keyword', 'Trait'].forEach((category, index) => {
+        const select = document.createElement('select');
+        select.innerHTML = `<option value="">-- Select ${category} --</option>`;
+        availableOptions[category].forEach(opt => select.add(new Option(opt, opt)));
+        select.value = state.activeFilters[index]?.value || '';
+        select.onchange = (e) => {
+            state.activeFilters[index] = { category: category, value: e.target.value };
+            for (let j = index + 1; j < 3; j++) state.activeFilters[j] = {};
+            renderCascadingFilters();
+            refreshCardPool();
+        };
+        cascadingFiltersContainer.appendChild(select);
+    });
+}
+
+function addDeckSearchFunctionality() {
+    const startingDeckSearch = document.createElement('input');
+    startingDeckSearch.type = 'text';
+    startingDeckSearch.placeholder = 'Search starting deck...';
+    startingDeckSearch.className = 'deck-search-input';
+    startingDeckSearch.addEventListener('input', debounce(() => ui.filterDeckList(startingDeckList, startingDeckSearch.value), 300));
+    
+    const purchaseDeckSearch = document.createElement('input');
+    purchaseDeckSearch.type = 'text';
+    purchaseDeckSearch.placeholder = 'Search purchase deck...';
+    purchaseDeckSearch.className = 'deck-search-input';
+    purchaseDeckSearch.addEventListener('input', debounce(() => ui.filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
+    
+    startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
+    purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
 }
 
 function setupEventListeners() {
@@ -145,7 +251,7 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('searchResults').addEventListener('click', (e) => {
+    searchResults.addEventListener('click', (e) => {
         const target = e.target;
         const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
         if (!cardTitle) return;
@@ -157,8 +263,7 @@ function setupEventListeners() {
         }
     });
 
-    // Event listeners for deck lists and persona display
-    [document.getElementById('startingDeckList'), document.getElementById('purchaseDeckList'), document.getElementById('personaDisplay')].forEach(container => {
+    [startingDeckList, purchaseDeckList, document.getElementById('personaDisplay')].forEach(container => {
         container.addEventListener('click', (e) => {
             const target = e.target;
             const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
@@ -177,14 +282,20 @@ function setupEventListeners() {
         state.setSelectedWrestler(newWrestler);
         ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
         refreshCardPool();
-        state.saveStateToCache();
+        saveStateToCache();
     });
     managerSelect.addEventListener('change', (e) => {
         const newManager = state.cardDatabase.find(c => c.title === e.target.value) || null;
         state.setSelectedManager(newManager);
         ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
         refreshCardPool();
-        state.saveStateToCache();
+        saveStateToCache();
+    });
+
+    viewModeToggle.addEventListener('click', () => {
+        state.setCurrentViewMode(state.currentViewMode === 'list' ? 'grid' : 'list');
+        viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        refreshCardPool();
     });
 
     exportDeckBtn.addEventListener('click', () => {
@@ -203,16 +314,17 @@ function setupEventListeners() {
     });
 
     clearDeckBtn.addEventListener('click', () => {
-        if (confirm('Clear both decks and reset persona?')) {
+        if (confirm('Are you sure you want to clear both decks and reset your persona?')) {
             wrestlerSelect.value = "";
             managerSelect.value = "";
             state.setSelectedWrestler(null);
             state.setSelectedManager(null);
+            localStorage.removeItem(state.CACHE_KEY);
             state.setStartingDeck([]);
             state.setPurchaseDeck([]);
-            localStorage.removeItem(state.CACHE_KEY);
             ui.renderDecks();
             ui.renderPersonaDisplay(null, null);
+            refreshCardPool();
         }
     });
 
@@ -228,5 +340,39 @@ function setupEventListeners() {
         if (text) {
             deck.parseAndLoadDeck(text);
         } else if (deckFileInput.files.length > 0) {
-            const reader = new
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                deck.parseAndLoadDeck(e.target.result);
+            };
+            reader.readAsText(deckFileInput.files[0]);
+        } else {
+            document.getElementById('importStatus').textContent = 'Please paste a decklist or select a file.';
+            document.getElementById('importStatus').style.color = 'orange';
+        }
+    });
+
+    modalCloseButton.addEventListener('click', () => {
+        cardModal.style.display = 'none';
+        if (state.lastFocusedElement) state.lastFocusedElement.focus();
+    });
+
+    cardModal.addEventListener('click', (e) => {
+        if (e.target === cardModal) {
+            cardModal.style.display = 'none';
+            if (state.lastFocusedElement) state.lastFocusedElement.focus();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && (cardModal.style.display === 'flex' || importModal.style.display === 'flex')) {
+            cardModal.style.display = 'none';
+            importModal.style.display = 'none';
+            if (state.lastFocusedElement) state.lastFocusedElement.focus();
+        }
+    });
+}
+
+// --- START THE APP ---
+loadGameData();
+});
 

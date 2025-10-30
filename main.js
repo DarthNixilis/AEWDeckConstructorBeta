@@ -34,10 +34,11 @@ async function loadGameData() {
     try {
         searchResults.innerHTML = '<p>Loading card data...</p>';
         
-        // THIS IS THE FIX: Changed file paths for deployment
+        // THIS IS THE REAL FIX: Explicitly adding the repository name to the path.
+        const repoName = 'AEWDeckBuilder';
         const [cardResponse, keywordResponse] = await Promise.all([
-            fetch(`cardDatabase.txt?v=${new Date().getTime()}`),
-            fetch(`keywords.txt?v=${new Date().getTime()}`)
+            fetch(`${repoName}/cardDatabase.txt?v=${new Date().getTime()}`),
+            fetch(`${repoName}/keywords.txt?v=${new Date().getTime()}`)
         ]);
 
         if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
@@ -91,7 +92,7 @@ async function loadGameData() {
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
-        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br>Could not load game data. Please ensure cardDatabase.txt and keywords.txt are in the same folder as index.html and try refreshing the page.</div>`;
+        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br>Could not load game data. Please ensure cardDatabase.txt and keywords.txt are in the repository and try refreshing the page.</div>`;
     }
 }
 
@@ -242,7 +243,7 @@ function setupEventListeners() {
         const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
         a.download = `${wrestlerName}.txt`;
         document.body.appendChild(a);
-a.click();
+        a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     });

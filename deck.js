@@ -114,16 +114,56 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]).filter(card => card !== undefined).sort((a, b) => a.title.localeCompare(b.title));
-    if (allCardsInDeck.length === 0) {
+    // THIS IS THE FIX: Gather ALL cards for printing, including Persona and Kit.
+    const personaCards = [];
+    const activePersonaTitles = [];
+    if (state.selectedWrestler) {
+        personaCards.push(state.selectedWrestler);
+        activePersonaTitles.push(state.selectedWrestler.title);
+    }
+    if (state.selectedManager) {
+        personaCards.push(state.selectedManager);
+        activePersonaTitles.push(state.selectedManager.title);
+    }
+    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    
+    const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);
+    
+    // Combine all cards into one list
+    const allCardsToPrint = [
+        ...personaCards,
+        ...kitCards,
+        ...mainDeckCards
+    ].filter(card => card !== undefined);
+
+    // Remove duplicates for printing (e.g. if a kit card was somehow also in the deck)
+    const uniqueCardsToPrint = [...new Map(allCardsToPrint.map(card => [card.title, card])).values()];
+
+    // Sort the cards for a clean print layout
+    uniqueCardsToPrint.sort((a, b) => {
+        const getSortOrder = (card) => {
+            if (card.card_type === 'Wrestler') return 1;
+            if (card.card_type === 'Manager') return 2;
+            if (state.isKitCard(card)) return 3;
+            return 4;
+        };
+        const orderA = getSortOrder(a);
+        const orderB = getSortOrder(b);
+        if (orderA !== orderB) return orderA - orderB;
+        return a.title.localeCompare(b.title); // Alphabetical sort within each group
+    });
+
+    if (uniqueCardsToPrint.length === 0) {
         alert("There are no cards in the deck to export.");
         return;
     }
+
     const CARDS_PER_PAGE = 9;
-    const numPages = Math.ceil(allCardsInDeck.length / CARDS_PER_PAGE);
-    if (!confirm(`This will generate ${numPages} print sheet(s) for ${allCardsInDeck.length} cards. This may take a moment. Continue?`)) {
+    const numPages = Math.ceil(uniqueCardsToPrint.length / CARDS_PER_PAGE);
+    if (!confirm(`This will generate ${numPages} print sheet(s) for ${uniqueCardsToPrint.length} unique cards (including Persona and Kit). This may take a moment. Continue?`)) {
         return;
     }
+
     const DPI = 300;
     const CARD_RENDER_WIDTH_PX = 2.5 * DPI;
     const CARD_RENDER_HEIGHT_PX = 3.5 * DPI;
@@ -131,7 +171,9 @@ export async function exportDeckAsImage() {
     tempContainer.style.position = 'absolute';
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
+
     let successCount = 0, errorCount = 0;
+
     for (let page = 0; page < numPages; page++) {
         const canvas = document.createElement('canvas');
         canvas.width = 8.5 * DPI;
@@ -139,16 +181,20 @@ export async function exportDeckAsImage() {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         const startIndex = page * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
-        const cardsOnThisPage = allCardsInDeck.slice(startIndex, endIndex);
+        const cardsOnThisPage = uniqueCardsToPrint.slice(startIndex, endIndex);
+
         for (let i = 0; i < cardsOnThisPage.length; i++) {
             const card = cardsOnThisPage[i];
             const row = Math.floor(i / 3), col = i % 3;
             const x = (0.5 * DPI) + (col * CARD_RENDER_WIDTH_PX), y = (0.5 * DPI) + (row * CARD_RENDER_HEIGHT_PX);
+            
             const playtestHTML = await generatePlaytestCardHTML(card, tempContainer);
             tempContainer.innerHTML = playtestHTML;
             const playtestElement = tempContainer.firstElementChild;
+
             try {
                 const cardCanvas = await html2canvas(playtestElement, { width: CARD_RENDER_WIDTH_PX, height: CARD_RENDER_HEIGHT_PX, scale: 1, logging: false });
                 ctx.drawImage(cardCanvas, x, y);
@@ -164,6 +210,7 @@ export async function exportDeckAsImage() {
                 ctx.fillText(`Error: ${card.title}`, x + CARD_RENDER_WIDTH_PX / 2, y + CARD_RENDER_HEIGHT_PX / 2);
             }
         }
+
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -174,6 +221,7 @@ export async function exportDeckAsImage() {
         document.body.removeChild(a);
         await new Promise(resolve => setTimeout(resolve, 500));
     }
+
     document.body.removeChild(tempContainer);
     let message = `Successfully generated ${successCount} cards.`;
     if (errorCount > 0) message = `Generated ${successCount} cards successfully. ${errorCount} cards failed to render. Check console for details.`;
@@ -206,6 +254,16 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     const traits = card.text_box?.traits || [];
     const reminderFontSize = '0.75em';
 
+    // Persona cards don't have game text, keywords, or traits in the same way
+    if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
+        return `
+            <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: black; font-family: Arial, sans-serif;">
+                <div style="font-size: 80px; font-weight: 900; text-align: center;">${card.title}</div>
+                <div style="font-size: 60px; font-weight: bold; color: #6c757d; margin-top: 20px;">${card.card_type}</div>
+            </div>
+        `;
+    }
+
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
         return `<strong>${kw.name.trim()}:</strong> <span style="font-size: ${reminderFontSize}; font-style: italic;">${definition}</span>`;
@@ -222,7 +280,12 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
-    const fullText = (card.text_box?.raw_text || '') + reminderBlock;
+    let rawText = card.text_box?.raw_text || '';
+    const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Enters', 'Ready Enters'];
+    const regex = new RegExp(`(?!^)\\b(${abilityKeywords.join('|')})\\b`, 'g');
+    const formattedRawText = rawText.replace(regex, '<br><br>$1');
+
+    const fullText = formattedRawText + reminderBlock;
     let textBoxFontSize = 42;
     if (fullText.length > 250) { textBoxFontSize = 34; } 
     else if (fullText.length > 180) { textBoxFontSize = 38; }
@@ -241,13 +304,12 @@ async function generatePlaytestCardHTML(card, tempContainer) {
                 <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>
             </div>
             
-            <!-- THIS IS THE FIX: Art area has a fixed height, text box grows -->
             <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             
             <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
             
             <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
-                <p style="margin-top: 0;">${card.text_box?.raw_text || ''}</p>
+                <p style="margin-top: 0;">${formattedRawText}</p>
                 ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
             </div>
         </div>

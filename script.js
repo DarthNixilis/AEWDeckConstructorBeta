@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCloseButton = document.querySelector('.modal-close-button');
     const viewModeToggle = document.getElementById('viewModeToggle');
     const sortSelect = document.getElementById('sortSelect');
+    const showZeroCostCheckbox = document.getElementById('showZeroCost'); // New
+    const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost'); // New
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -28,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeFilters = [{}, {}, {}];
     let currentViewMode = 'grid';
     let currentSort = 'alpha-asc';
+    let showZeroCost = true; // New
+    let showNonZeroCost = true; // New
     let lastFocusedElement;
 
     // --- NEW: CACHING LOGIC ---
@@ -50,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
             startingDeck = state.startingDeck || [];
             purchaseDeck = state.purchaseDeck || [];
 
-            // We need the full card database to be loaded before we can set these
             if (state.wrestler) {
                 selectedWrestler = cardDatabase.find(c => c.title === state.wrestler);
                 if (selectedWrestler) wrestlerSelect.value = selectedWrestler.title;
@@ -138,11 +141,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     function initializeApp() {
         populatePersonaSelectors();
-        loadStateFromCache(); // Load saved data
+        loadStateFromCache();
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         renderCascadingFilters();
-        renderPersonaDisplay(); // Render persona after loading cache
-        renderDecks(); // Render decks after loading cache
+        renderPersonaDisplay();
+        renderDecks();
         renderCardPool();
         addDeckSearchFunctionality();
         addEventListeners();
@@ -295,6 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card.card_type === 'Wrestler' || card.card_type === 'Manager') return false;
             if (isKitCard(card)) return false;
             
+            // New Cost Filtering
+            if (!showZeroCost && card.cost === 0) return false;
+            if (!showNonZeroCost && card.cost > 0) return false;
+
             const rawText = card.text_box?.raw_text || '';
             const matchesQuery = query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
             return matchesQuery;
@@ -360,6 +367,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetTrait = traits.find(t => t.name.trim() === 'Target');
         const targetValue = targetTrait ? targetTrait.value : null;
 
+        // New: Add a dynamic class for the card type color
+        const typeClass = `type-${card.card_type.toLowerCase()}`;
+
         const placeholderHTML = `
             <div class="placeholder-card">
                 <div class="placeholder-header">
@@ -376,7 +386,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="placeholder-art-area"><span>Art Missing</span></div>
-                <div class="placeholder-type-line"><span>${card.card_type}</span></div>
+                <div class="placeholder-type-line ${typeClass}"> <!-- Class added here -->
+                    <span>${card.card_type}</span>
+                </div>
                 <div class="placeholder-text-box">
                     <p>${card.text_box?.raw_text || ''}</p>
                     ${keywordsText ? `<hr><p>${keywordsText}</p>` : ''}
@@ -447,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDeckList(startingDeckList, startingDeck, 'starting');
         renderDeckList(purchaseDeckList, purchaseDeck, 'purchase');
         updateDeckCounts();
-        saveStateToCache(); // Save state whenever decks are updated
+        saveStateToCache();
     }
 
     function renderDeckList(element, deck, deckName) {
@@ -600,6 +612,16 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCardPool();
         });
 
+        // New listeners for cost checkboxes
+        showZeroCostCheckbox.addEventListener('change', (e) => {
+            showZeroCost = e.target.checked;
+            renderCardPool();
+        });
+        showNonZeroCostCheckbox.addEventListener('change', (e) => {
+            showNonZeroCost = e.target.checked;
+            renderCardPool();
+        });
+
         searchResults.addEventListener('click', (e) => {
             const target = e.target;
             const cardTitle = target.dataset.title;
@@ -613,66 +635,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
         [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
             container.addEventListener('click', (e) => {
-                const target = e.target;
-                if ((target.tagName === 'SPAN' && target.dataset.title) || target.classList.contains('persona-card-item')) {
-                    showCardModal(target.dataset.title);
-                } else if (target.tagName === 'BUTTON' && target.dataset.title && target.dataset.deck) {
-                    removeCardFromDeck(target.dataset.title, target.dataset.deck);
-                }
-            });
-        });
-
-        clearDeckBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear both decks? This cannot be undone.')) {
-                startingDeck = [];
-                purchaseDeck = [];
-                localStorage.removeItem(CACHE_KEY); // Clear the cache
-                renderDecks();
-            }
-        });
-
-        exportDeckBtn.addEventListener('click', exportDeck);
-
-        wrestlerSelect.addEventListener('change', (e) => {
-            selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
-            renderCardPool();
-            renderPersonaDisplay();
-            renderCascadingFilters();
-            saveStateToCache(); // Save state on change
-        });
-
-        managerSelect.addEventListener('change', (e) => {
-            selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
-            renderCardPool(); 
-            renderPersonaDisplay();
-            saveStateToCache(); // Save state on change
-        });
-
-        viewModeToggle.addEventListener('click', () => {
-            currentViewMode = currentViewMode === 'list' ? 'grid' : 'list';
-            viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-            renderCardPool();
-        });
-
-        modalCloseButton.addEventListener('click', () => {
-            cardModal.style.display = 'none';
-            if (lastFocusedElement) lastFocusedElement.focus();
-        });
-        cardModal.addEventListener('click', (e) => {
-            if (e.target === cardModal) {
-                cardModal.style.display = 'none';
-                if (lastFocusedElement) lastFocusedElement.focus();
-            }
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
-                cardModal.style.display = 'none';
-                if (lastFocusedElement) lastFocusedElement.focus();
-            }
-        });
-    }
-
-    // --- START THE APP ---
-    loadGameData();
-});
 

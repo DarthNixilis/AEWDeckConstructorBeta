@@ -277,4 +277,26 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
     background-color: var(--panel-bg);
 }
 
+/* Add these new rules to the end of style.css */
+
+.cost-filter-controls {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    padding-left: 10px;
+}
+
+.cost-filter-controls label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+/* --- Card Type Color Coding --- */
+.placeholder-type-line.type-action { background-color: #9c5a9c; color: white; } /* Purple */
+.placeholder-type-line.type-response { background-color: #c84c4c; color: white; } /* Red */
+.placeholder-type-line.type-submission { background-color: #5aa05a; color: white; } /* Green */
+.placeholder-type-line.type-strike { background-color: #4c82c8; color: white; } /* Blue */
+.placeholder-type-line.type-grapple { background-color: #e68a00; color: white; } /* Orange */
 

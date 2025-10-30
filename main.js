@@ -68,6 +68,7 @@ async function loadGameData() {
             return card;
         }).filter(card => card.title);
         state.setCardDatabase(parsedCards);
+        state.buildCardTitleCache(); // Build the cache for performance
 
         const keywordText = await keywordResponse.text();
         const parsedKeywords = {};
@@ -214,92 +215,5 @@ function setupEventListeners() {
         state.setSelectedWrestler(newWrestler);
         ui.renderPersonaDisplay();
         refreshCardPool();
-        state.saveStateToCache();
-    });
-    managerSelect.addEventListener('change', (e) => {
-        const newManager = state.cardDatabase.find(c => c.title === e.target.value) || null;
-        state.setSelectedManager(newManager);
-        ui.renderPersonaDisplay();
-        refreshCardPool();
-        state.saveStateToCache();
-    });
-
-    viewModeToggle.addEventListener('click', () => {
-        state.setCurrentViewMode(state.currentViewMode === 'list' ? 'grid' : 'list');
-        viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        refreshCardPool();
-    });
-
-    exportDeckBtn.addEventListener('click', () => {
-        // Validation is removed.
-        const text = deck.generatePlainTextDeck();
-        const blob = new Blob([text], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
-        a.download = `${wrestlerName}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-    });
-
-    exportAsImageBtn.addEventListener('click', deck.exportDeckAsImage);
-
-    clearDeckBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear both decks and reset your persona?')) {
-            wrestlerSelect.value = "";
-            managerSelect.value = "";
-            state.setSelectedWrestler(null);
-            state.setSelectedManager(null);
-            localStorage.removeItem(state.CACHE_KEY);
-            state.setStartingDeck([]);
-            state.setPurchaseDeck([]);
-            ui.renderDecks();
-            ui.renderPersonaDisplay();
-            refreshCardPool();
-        }
-    });
-
-    importDeckBtn.addEventListener('click', () => {
-        importModal.style.display = 'flex';
-        document.getElementById('importStatus').textContent = '';
-        deckTextInput.value = '';
-        deckFileInput.value = '';
-    });
-    importModalCloseBtn.addEventListener('click', () => { importModal.style.display = 'none'; });
-    processImportBtn.addEventListener('click', () => {
-        const text = deckTextInput.value;
-        if (text) deck.parseAndLoadDeck(text);
-        else if (deckFileInput.files.length > 0) {
-            const reader = new FileReader();
-            reader.onload = (e) => { deck.parseAndLoadDeck(e.target.result); };
-            reader.readAsText(deckFileInput.files[0]);
-        } else {
-            document.getElementById('importStatus').textContent = 'Please paste a decklist or select a file.';
-            document.getElementById('importStatus').style.color = 'orange';
-        }
-    });
-
-    modalCloseButton.addEventListener('click', () => {
-        cardModal.style.display = 'none';
-        if (state.lastFocusedElement) state.lastFocusedElement.focus();
-    });
-    cardModal.addEventListener('click', (e) => {
-        if (e.target === cardModal) {
-            cardModal.style.display = 'none';
-            if (state.lastFocusedElement) state.lastFocusedElement.focus();
-        }
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && (cardModal.style.display === 'flex' || importModal.style.display === 'flex')) {
-            cardModal.style.display = 'none';
-            importModal.style.display = 'none';
-            if (state.lastFocusedElement) state.lastFocusedElement.focus();
-        }
-    });
-}
-
-// --- START THE APP ---
-loadGameData();
+        state.save
 

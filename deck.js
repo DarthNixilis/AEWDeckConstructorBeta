@@ -1,12 +1,12 @@
 // deck.js
 
 import * as state from './config.js';
-import { renderDecks, renderPersonaDisplay, generateCardVisualHTML } from './ui.js';
+import { renderDecks, renderPersonaDisplay } from './ui.js';
 import { toPascalCase } from './config.js';
 
 // --- DECK MANIPULATION ---
 export function addCardToDeck(cardTitle, targetDeck) {
-    const card = state.cardDatabase.find(c => c.title === cardTitle);
+    const card = state.cardTitleCache[cardTitle]; // Use cache for performance
     if (!card) return;
     if (state.isKitCard(card)) {
         alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
@@ -37,35 +37,21 @@ export function removeCardFromDeck(cardTitle, deckName) {
     }
 }
 
-// --- DECK VALIDATION & EXPORT ---
+// --- DECK EXPORT ---
 export function generatePlainTextDeck() {
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
     if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
-    
-    const kitCards = state.cardDatabase.filter(card => 
-        state.isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
-    ).sort((a, b) => a.title.localeCompare(b.title));
-
+    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For'])).sort((a, b) => a.title.localeCompare(b.title));
     let text = `Wrestler: ${state.selectedWrestler ? state.selectedWrestler.title : 'None'}\n`;
     text += `Manager: ${state.selectedManager ? state.selectedManager.title : 'None'}\n`;
-    
-    kitCards.forEach((card, index) => {
-        text += `Kit${index + 1}: ${card.title}\n`;
-    });
-
+    kitCards.forEach((card, index) => { text += `Kit${index + 1}: ${card.title}\n`; });
     text += `\n--- Starting Deck (${state.startingDeck.length}/24) ---\n`;
     const startingCounts = state.startingDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-    Object.entries(startingCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
-        text += `${count}x ${cardTitle}\n`;
-    });
-
+    Object.entries(startingCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => { text += `${count}x ${cardTitle}\n`; });
     text += `\n--- Purchase Deck (${state.purchaseDeck.length}/36+) ---\n`;
     const purchaseCounts = state.purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-    Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
-        text += `${count}x ${cardTitle}\n`;
-    });
-    
+    Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => { text += `${count}x ${cardTitle}\n`; });
     return text;
 }
 
@@ -75,7 +61,6 @@ export function parseAndLoadDeck(text) {
     const importModal = document.getElementById('importModal');
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
-    
     try {
         const lines = text.trim().split(/\r?\n/);
         let newWrestler = null;
@@ -83,20 +68,18 @@ export function parseAndLoadDeck(text) {
         let newStartingDeck = [];
         let newPurchaseDeck = [];
         let currentSection = '';
-
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine || trimmedLine.toLowerCase().startsWith('kit')) return;
-
             if (trimmedLine.toLowerCase().startsWith('wrestler:')) {
                 const wrestlerName = trimmedLine.substring(9).trim();
-                const wrestler = state.cardDatabase.find(c => c.title === wrestlerName && c.card_type === 'Wrestler');
-                if (wrestler) newWrestler = wrestler;
+                const wrestler = state.cardTitleCache[wrestlerName];
+                if (wrestler && wrestler.card_type === 'Wrestler') newWrestler = wrestler;
             } else if (trimmedLine.toLowerCase().startsWith('manager:')) {
                 const managerName = trimmedLine.substring(8).trim();
                 if (managerName.toLowerCase() !== 'none') {
-                    const manager = state.cardDatabase.find(c => c.title === managerName && c.card_type === 'Manager');
-                    if (manager) newManager = manager;
+                    const manager = state.cardTitleCache[managerName];
+                    if (manager && manager.card_type === 'Manager') newManager = manager;
                 }
             } else if (trimmedLine.startsWith('--- Starting Deck')) {
                 currentSection = 'starting';
@@ -107,7 +90,7 @@ export function parseAndLoadDeck(text) {
                 if (match) {
                     const count = parseInt(match[1], 10);
                     const cardName = match[2].trim();
-                    const card = state.cardDatabase.find(c => c.title === cardName);
+                    const card = state.cardTitleCache[cardName];
                     if (card) {
                         for (let i = 0; i < count; i++) {
                             if (currentSection === 'starting') newStartingDeck.push(card.title);
@@ -117,23 +100,18 @@ export function parseAndLoadDeck(text) {
                 }
             }
         });
-        
         state.setSelectedWrestler(newWrestler);
         state.setSelectedManager(newManager);
         wrestlerSelect.value = newWrestler ? newWrestler.title : "";
         managerSelect.value = newManager ? newManager.title : "";
-        
         state.setStartingDeck(newStartingDeck);
         state.setPurchaseDeck(newPurchaseDeck);
-        
         renderDecks();
         renderPersonaDisplay();
         document.dispatchEvent(new Event('filtersChanged'));
-
         importStatus.textContent = 'Deck imported successfully!';
         importStatus.style.color = 'green';
         setTimeout(() => { importModal.style.display = 'none'; }, 1500);
-
     } catch (error) {
         console.error('Error parsing decklist:', error);
         importStatus.textContent = `An unexpected error occurred: ${error.message}`;
@@ -143,10 +121,9 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    // Validation check is removed.
-    
     const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck]
-        .map(title => state.cardDatabase.find(c => c.title === title))
+        .map(title => state.cardTitleCache[title]) // Use cache
+        .filter(card => card !== undefined) // Prevent errors from missing cards
         .sort((a, b) => a.title.localeCompare(b.title));
 
     if (allCardsInDeck.length === 0) {
@@ -156,7 +133,10 @@ export async function exportDeckAsImage() {
 
     const CARDS_PER_PAGE = 9;
     const numPages = Math.ceil(allCardsInDeck.length / CARDS_PER_PAGE);
-    alert(`Preparing to generate ${numPages} print sheet(s). This may take a moment. Please wait for all downloads to complete.`);
+    
+    if (!confirm(`This will generate ${numPages} print sheet(s) for ${allCardsInDeck.length} cards. This may take a moment. Continue?`)) {
+        return;
+    }
 
     const DPI = 300;
     const PAPER_WIDTH_INCHES = 8.5;
@@ -164,7 +144,6 @@ export async function exportDeckAsImage() {
     const CARD_WIDTH_INCHES = 2.5;
     const CARD_HEIGHT_INCHES = 3.5;
     const MARGIN_INCHES = 0.5;
-
     const CANVAS_WIDTH = PAPER_WIDTH_INCHES * DPI;
     const CANVAS_HEIGHT = PAPER_HEIGHT_INCHES * DPI;
     const CARD_RENDER_WIDTH_PX = CARD_WIDTH_INCHES * DPI;
@@ -176,6 +155,9 @@ export async function exportDeckAsImage() {
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
 
+    let successCount = 0;
+    let errorCount = 0;
+
     for (let page = 0; page < numPages; page++) {
         const canvas = document.createElement('canvas');
         canvas.width = CANVAS_WIDTH;
@@ -183,7 +165,6 @@ export async function exportDeckAsImage() {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
         const startIndex = page * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
         const cardsOnThisPage = allCardsInDeck.slice(startIndex, endIndex);
@@ -192,23 +173,17 @@ export async function exportDeckAsImage() {
             const card = cardsOnThisPage[i];
             const row = Math.floor(i / 3);
             const col = i % 3;
-
             const x = MARGIN_PX + (col * CARD_RENDER_WIDTH_PX);
             const y = MARGIN_PX + (row * CARD_RENDER_HEIGHT_PX);
-
             const playtestHTML = generatePlaytestCardHTML(card);
             tempContainer.innerHTML = playtestHTML;
             const playtestElement = tempContainer.firstElementChild;
-            
             try {
-                const cardCanvas = await html2canvas(playtestElement, {
-                    width: CARD_RENDER_WIDTH_PX,
-                    height: CARD_RENDER_HEIGHT_PX,
-                    scale: 1,
-                    logging: false
-                });
+                const cardCanvas = await html2canvas(playtestElement, { width: CARD_RENDER_WIDTH_PX, height: CARD_RENDER_HEIGHT_PX, scale: 1, logging: false });
                 ctx.drawImage(cardCanvas, x, y);
+                successCount++;
             } catch (error) {
+                errorCount++;
                 console.error(`Failed to render card "${card.title}" to canvas:`, error);
                 ctx.fillStyle = 'red';
                 ctx.fillRect(x, y, CARD_RENDER_WIDTH_PX, CARD_RENDER_HEIGHT_PX);
@@ -218,7 +193,6 @@ export async function exportDeckAsImage() {
                 ctx.fillText(`Error: ${card.title}`, x + CARD_RENDER_WIDTH_PX / 2, y + CARD_RENDER_HEIGHT_PX / 2);
             }
         }
-
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -227,49 +201,36 @@ export async function exportDeckAsImage() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-
         await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     document.body.removeChild(tempContainer);
-    alert('All print sheets have been generated and downloaded!');
+    
+    let message = `Successfully generated ${successCount} cards.`;
+    if (errorCount > 0) {
+        message = `Generated ${successCount} cards successfully. ${errorCount} cards failed to render. Check console for details.`;
+    }
+    alert(message);
 }
 
 function generatePlaytestCardHTML(card) {
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
-    
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
         return `<strong>${kw.name.trim()}:</strong> <span style="font-size: 0.8em; font-style: italic;">${definition}</span>`;
     }).join('<br><br>');
-
     let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>`).join(', ');
     if (traitsText) keywordsText = `<p style="margin-bottom: 25px; font-style: italic;">${traitsText}</p>` + keywordsText;
-
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
-
-    const typeColors = {
-        'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a',
-        'Strike': '#4c82c8', 'Grapple': '#e68a00'
-    };
+    const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
-
     const fullText = (card.text_box?.raw_text || '') + keywordsText;
     let textBoxFontSize = 42;
-    if (fullText.length > 200) {
-        textBoxFontSize = 36;
-    } else if (fullText.length > 150) {
-        textBoxFontSize = 38;
-    }
-
+    if (fullText.length > 200) { textBoxFontSize = 36; } else if (fullText.length > 150) { textBoxFontSize = 38; }
     return `
-        <div style="
-            background-color: white; border: 10px solid black; border-radius: 35px;
-            box-sizing: border-box; width: 750px; height: 1050px; padding: 30px;
-            display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;
-        ">
+        <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px;">
                 <div style="font-size: 50px; font-weight: bold; line-height: 1.2;">
                     <span>D: ${card.damage ?? '–'}</span><br>
@@ -279,11 +240,8 @@ function generatePlaytestCardHTML(card) {
                 <div style="font-size: 64px; font-weight: 900; text-align: center; flex-grow: 1; padding: 0 20px;">${card.title}</div>
                 <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px;">${card.cost ?? '–'}</div>
             </div>
-            
             <div style="flex-grow: 10; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
-            
             <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
-            
             <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap;">
                 <p style="margin-top: 0;">${card.text_box?.raw_text || ''}</p>
                 ${keywordsText ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${keywordsText}</div>` : ''}

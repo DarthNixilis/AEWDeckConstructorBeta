@@ -14,10 +14,11 @@ export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let numGridColumns = 2;
 export let lastFocusedElement;
+export let cardTitleCache = {}; // NEW: For performance
 
 export const CACHE_KEY = 'aewDeckBuilderCache';
 
-// --- SETTERS (to modify state from other modules) ---
+// --- SETTERS ---
 export function setCardDatabase(db) { cardDatabase = db; }
 export function setKeywordDatabase(db) { keywordDatabase = db; }
 export function setStartingDeck(deck) { startingDeck = deck; }
@@ -31,6 +32,16 @@ export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
+
+// NEW: Build the card cache for faster lookups
+export function buildCardTitleCache() {
+    cardTitleCache = {};
+    cardDatabase.forEach(card => {
+        if (card && card.title) {
+            cardTitleCache[card.title] = card;
+        }
+    });
+}
 
 // --- UTILITY FUNCTIONS ---
 export function toPascalCase(str) {
@@ -61,7 +72,7 @@ export function saveStateToCache() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
 }
 
-// --- NEW: SHARED HELPER FUNCTIONS ---
+// --- SHARED HELPER FUNCTIONS ---
 export function isKitCard(card) {
     return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }

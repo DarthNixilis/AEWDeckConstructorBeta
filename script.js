@@ -72,10 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // 4. Add Loading States and Error Handling
     async function loadGameData() {
         try {
-            searchResults.innerHTML = '<p>Loading card data...</p>'; // Loading state
+            searchResults.innerHTML = '<p>Loading card data...</p>';
             
             const [cardResponse, keywordResponse] = await Promise.all([
                 fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
@@ -357,4 +356,248 @@ document.addEventListener('DOMContentLoaded', () => {
             item.textContent = card.title;
             item.dataset.title = card.title;
             list.appendChild(item);
+        });
+    }
+
+    function showCardModal(cardTitle) {
+        lastFocusedElement = document.activeElement;
+        const card = cardDatabase.find(c => c.title === cardTitle);
+        if (!card) return;
+        modalCardContent.innerHTML = generateCardVisualHTML(card);
+        cardModal.style.display = 'flex';
+        cardModal.setAttribute('role', 'dialog');
+        cardModal.setAttribute('aria-modal', 'true');
+        modalCloseButton.focus();
+    }
+
+    function renderDecks() {
+        renderDeckList(startingDeckList, startingDeck, 'starting');
+        renderDeckList(purchaseDeckList, purchaseDeck, 'purchase');
+        updateDeckCounts();
+        saveStateToCache();
+    }
+
+    function renderDeckList(element, deck, deckName) {
+        element.innerHTML = '';
+        const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(cardCounts).forEach(([cardTitle, count]) => {
+            const card = cardDatabase.find(c => c.title === cardTitle);
+            if (!card) return;
+            const cardElement = document.createElement('div');
+            cardElement.className = 'card-item';
+            cardElement.innerHTML = `<span data-title="${card.title}">${count}x ${card.title}</span><button data-title="${card.title}" data-deck="${deckName}">Remove</button>`;
+            element.appendChild(cardElement);
+        });
+    }
+    
+    function updateDeckCounts() {
+        startingDeckCount.textContent = startingDeck.length;
+        purchaseDeckCount.textContent = purchaseDeck.length;
+        startingDeckCount.parentElement.style.color = startingDeck.length === 24 ? 'green' : 'red';
+        document.getElementById('startingDeckHeader').style.color = startingDeck.length === 24 ? 'green' : 'inherit';
+        purchaseDeckCount.parentElement.style.color = purchaseDeck.length >= 36 ? 'green' : 'red';
+        document.getElementById('purchaseDeckHeader').style.color = purchaseDeck.length >= 36 ? 'green' : 'inherit';
+    }
+
+    function addCardToDeck(cardTitle, targetDeck) {
+        const card = cardDatabase.find(c => c.title === cardTitle);
+        if (!card) return;
+        if (isKitCard(card)) {
+            alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
+            return;
+        }
+        const totalCount = (startingDeck.filter(title => title === cardTitle).length) + (purchaseDeck.filter(title => title === cardTitle).length);
+        if (totalCount >= 3) {
+            alert(`Rule Violation: Max 3 copies of "${card.title}" allowed in total.`);
+            return;
+        }
+        if (targetDeck === 'starting') {
+            if (card.cost !== 0) { alert(`Rule Violation: Only 0-cost cards allowed in Starting Deck.`); return; }
+            if (startingDeck.length >= 24) { alert(`Rule Violation: Starting Deck is full (24 cards).`); return; }
+            if (startingDeck.filter(title => title === cardTitle).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
+            startingDeck.push(cardTitle);
+        } else {
+            purchaseDeck.push(cardTitle);
+        }
+        renderDecks();
+    }
+
+    function removeCardFromDeck(cardTitle, deckName) {
+        const deck = deckName === 'starting' ? startingDeck : purchaseDeck;
+        const cardIndex = deck.lastIndexOf(cardTitle);
+        if (cardIndex > -1) {
+            deck.splice(cardIndex, 1);
+            renderDecks();
+        }
+    }
+    
+    function addDeckSearchFunctionality() {
+        const startingDeckSearch = document.createElement('input');
+        startingDeckSearch.type = 'text';
+        startingDeckSearch.placeholder = 'Search starting deck...';
+        startingDeckSearch.className = 'deck-search-input';
+        startingDeckSearch.addEventListener('input', debounce(() => filterDeckList(startingDeckList, startingDeckSearch.value), 300));
+        const purchaseDeckSearch = document.createElement('input');
+        purchaseDeckSearch.type = 'text';
+        purchaseDeckSearch.placeholder = 'Search purchase deck...';
+        purchaseDeckSearch.className = 'deck-search-input';
+        purchaseDeckSearch.addEventListener('input', debounce(() => filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
+        startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
+        purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
+    }
+
+    function filterDeckList(deckListElement, query) {
+        const items = deckListElement.querySelectorAll('.card-item');
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+        });
+    }
+    
+    function validateDeck() {
+        const issues = [];
+        if (!selectedWrestler) issues.push("No wrestler selected.");
+        if (!selectedManager) issues.push("No manager selected.");
+        if (startingDeck.length !== 24) issues.push(`Starting deck has ${startingDeck.length} cards (needs 24).`);
+        if (purchaseDeck.length < 36) issues.push(`Purchase deck has ${purchaseDeck.length} cards (needs at least 36).`);
+        const allCardTitles = [...startingDeck, ...purchaseDeck];
+        const cardCounts = allCardTitles.reduce((acc, cardTitle) => {
+            acc[cardTitle] = (acc[cardTitle] || 0) + 1;
+            return acc;
+        }, {});
+        Object.entries(cardCounts).forEach(([cardTitle, count]) => {
+            if (count > 3) {
+                const card = cardDatabase.find(c => c.title === cardTitle);
+                issues.push(`Too many copies of ${card.title} (${count} copies, max 3).`);
+            }
+        });
+        return issues;
+    }
+
+    function generatePlainTextDeck() {
+        let text = `Wrestler: ${selectedWrestler.title}\n`;
+        text += `Manager: ${selectedManager.title}\n\n`;
+        text += `--- Starting Deck (${startingDeck.length}/24) ---\n`;
+        const startingCounts = startingDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(startingCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
+            text += `${count}x ${cardTitle}\n`;
+        });
+        text += `\n--- Purchase Deck (${purchaseDeck.length}/36+) ---\n`;
+        const purchaseCounts = purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
+        Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
+            text += `${count}x ${cardTitle}\n`;
+        });
+        return text;
+    }
+
+    function exportDeck() {
+        const validationIssues = validateDeck();
+        if (validationIssues.length > 0) {
+            alert("Deck is not valid and cannot be exported:\n\n" + validationIssues.join("\n"));
+            return;
+        }
+        const deckContent = generatePlainTextDeck();
+        const blob = new Blob([deckContent], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${toPascalCase(selectedWrestler.title)}Deck.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+
+    // 3. Fix JavaScript Event Listeners
+    function addEventListeners() {
+        searchInput.addEventListener('input', debounce(renderCardPool, 300));
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderCardPool();
+        });
+        showZeroCostCheckbox.addEventListener('change', (e) => {
+            showZeroCost = e.target.checked;
+            renderCardPool();
+        });
+        showNonZeroCostCheckbox.addEventListener('change', (e) => {
+            showNonZeroCost = e.target.checked;
+            renderCardPool();
+        });
+
+        searchResults.addEventListener('click', (e) => {
+            const target = e.target;
+            const cardTitle = target.dataset.title;
+            if (target.tagName === 'BUTTON' && cardTitle) {
+                addCardToDeck(cardTitle, target.dataset.deckTarget); 
+            } else {
+                const cardVisual = target.closest('[data-title]');
+                if (cardVisual) showCardModal(cardVisual.dataset.title);
+            }
+        });
+
+        [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
+            container.addEventListener('click', (e) => {
+                const target = e.target;
+                const cardTitle = target.dataset.title;
+                if (target.tagName === 'BUTTON' && cardTitle && target.dataset.deck) {
+                    removeCardFromDeck(cardTitle, target.dataset.deck);
+                } else if (target.closest('[data-title]')) {
+                    showCardModal(target.closest('[data-title]').dataset.title);
+                }
+            });
+        });
+
+        wrestlerSelect.addEventListener('change', (e) => {
+            selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
+            renderPersonaDisplay();
+            renderCardPool();
+            saveStateToCache();
+        });
+
+        managerSelect.addEventListener('change', (e) => {
+            selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
+            renderPersonaDisplay();
+            renderCardPool();
+            saveStateToCache();
+        });
+
+        viewModeToggle.addEventListener('click', () => {
+            currentViewMode = currentViewMode === 'list' ? 'grid' : 'list';
+            viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+            renderCardPool();
+        });
+
+        exportDeckBtn.addEventListener('click', exportDeck);
+
+        clearDeckBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear both decks? This cannot be undone.')) {
+                startingDeck = [];
+                purchaseDeck = [];
+                localStorage.removeItem(CACHE_KEY);
+                renderDecks();
+            }
+        });
+
+        modalCloseButton.addEventListener('click', () => {
+            cardModal.style.display = 'none';
+            if (lastFocusedElement) lastFocusedElement.focus();
+        });
+
+        cardModal.addEventListener('click', (e) => {
+            if (e.target === cardModal) {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+
+        // 8. Add Keyboard Shortcuts (already present, but confirmed)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+    }
+
+    loadGameData();
+});
 

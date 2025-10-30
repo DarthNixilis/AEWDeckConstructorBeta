@@ -34,11 +34,13 @@ async function loadGameData() {
     try {
         searchResults.innerHTML = '<p>Loading card data...</p>';
         
-        // THIS IS THE REAL FIX: Explicitly adding the repository name to the path.
-        const repoName = 'AEWDeckBuilder';
+        // FINAL FIX: Using the full, absolute URL to the raw files on GitHub.
+        const cardDbUrl = `https://raw.githubusercontent.com/darthnixilis/AEWDeckBuilder/main/cardDatabase.txt?v=${new Date().getTime()}`;
+        const keywordsUrl = `https://raw.githubusercontent.com/darthnixilis/AEWDeckBuilder/main/keywords.txt?v=${new Date().getTime()}`;
+
         const [cardResponse, keywordResponse] = await Promise.all([
-            fetch(`${repoName}/cardDatabase.txt?v=${new Date().getTime()}`),
-            fetch(`${repoName}/keywords.txt?v=${new Date().getTime()}`)
+            fetch(cardDbUrl),
+            fetch(keywordsUrl)
         ]);
 
         if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
@@ -92,7 +94,7 @@ async function loadGameData() {
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
-        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br>Could not load game data. Please ensure cardDatabase.txt and keywords.txt are in the repository and try refreshing the page.</div>`;
+        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br>Could not load game data. Please refresh the page. If the problem persists, the repository files may be unavailable.</div>`;
     }
 }
 
@@ -256,7 +258,7 @@ function setupEventListeners() {
             managerSelect.value = "";
             state.setSelectedWrestler(null);
             state.setSelectedManager(null);
-            localStorage.removeItem(state.CACHE_KEY);
+localStorage.removeItem(state.CACHE_KEY);
             state.setStartingDeck([]);
             state.setPurchaseDeck([]);
             ui.renderDecks();

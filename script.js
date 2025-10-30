@@ -30,6 +30,38 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSort = 'alpha-asc';
     let lastFocusedElement;
 
+    // --- NEW: CACHING LOGIC ---
+    const CACHE_KEY = 'aewDeckBuilderCache';
+
+    function saveStateToCache() {
+        const state = {
+            wrestler: selectedWrestler ? selectedWrestler.title : null,
+            manager: selectedManager ? selectedManager.title : null,
+            startingDeck: startingDeck,
+            purchaseDeck: purchaseDeck,
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+    }
+
+    function loadStateFromCache() {
+        const cachedState = localStorage.getItem(CACHE_KEY);
+        if (cachedState) {
+            const state = JSON.parse(cachedState);
+            startingDeck = state.startingDeck || [];
+            purchaseDeck = state.purchaseDeck || [];
+
+            // We need the full card database to be loaded before we can set these
+            if (state.wrestler) {
+                selectedWrestler = cardDatabase.find(c => c.title === state.wrestler);
+                if (selectedWrestler) wrestlerSelect.value = selectedWrestler.title;
+            }
+            if (state.manager) {
+                selectedManager = cardDatabase.find(c => c.title === state.manager);
+                if (selectedManager) managerSelect.value = selectedManager.title;
+            }
+        }
+    }
+
     // --- UTILITY FUNCTIONS ---
     function debounce(func, wait) {
         let timeout;
@@ -105,9 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZATION ---
     function initializeApp() {
-        viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         populatePersonaSelectors();
+        loadStateFromCache(); // Load saved data
+        viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         renderCascadingFilters();
+        renderPersonaDisplay(); // Render persona after loading cache
+        renderDecks(); // Render decks after loading cache
         renderCardPool();
         addDeckSearchFunctionality();
         addEventListeners();
@@ -412,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDeckList(startingDeckList, startingDeck, 'starting');
         renderDeckList(purchaseDeckList, purchaseDeck, 'purchase');
         updateDeckCounts();
+        saveStateToCache(); // Save state whenever decks are updated
     }
 
     function renderDeckList(element, deck, deckName) {
@@ -556,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(a.href);
     }
 
-    // --- EVENT LISTENERS (FIX IS HERE) ---
+    // --- EVENT LISTENERS ---
     function addEventListeners() {
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
         sortSelect.addEventListener('change', (e) => {
@@ -568,7 +604,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target;
             const cardTitle = target.dataset.title;
             if (target.tagName === 'BUTTON' && cardTitle) {
-                // This is the corrected line
                 addCardToDeck(cardTitle, target.dataset.deckTarget); 
             } else {
                 const cardVisual = target.closest('[data-title]');
@@ -588,9 +623,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         clearDeckBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear both decks?')) {
+            if (confirm('Are you sure you want to clear both decks? This cannot be undone.')) {
                 startingDeck = [];
                 purchaseDeck = [];
+                localStorage.removeItem(CACHE_KEY); // Clear the cache
                 renderDecks();
             }
         });
@@ -602,12 +638,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCardPool();
             renderPersonaDisplay();
             renderCascadingFilters();
+            saveStateToCache(); // Save state on change
         });
 
         managerSelect.addEventListener('change', (e) => {
             selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
             renderCardPool(); 
             renderPersonaDisplay();
+            saveStateToCache(); // Save state on change
         });
 
         viewModeToggle.addEventListener('click', () => {

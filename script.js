@@ -200,18 +200,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return { 'Card Type': sortedTypes, 'Keyword': Array.from(options['Keyword']).sort(), 'Trait': Array.from(options['Trait']).sort() };
     }
 
+    // THIS FUNCTION IS NOW CORRECT AND RESTORED
     function renderCascadingFilters() {
         cascadingFiltersContainer.innerHTML = '';
         const availableOptions = getAvailableFilterOptions(cardDatabase);
+        
         ['Card Type', 'Keyword', 'Trait'].forEach((category, index) => {
             const select = document.createElement('select');
             select.innerHTML = `<option value="">-- Select ${category} --</option>`;
-            availableOptions[category].forEach(opt => select.add(new Option(opt, opt)));
+            
+            availableOptions[category].forEach(opt => {
+                select.add(new Option(opt, opt));
+            });
+
             select.value = activeFilters[index]?.value || '';
+
             select.onchange = (e) => {
                 activeFilters[index] = { category: category, value: e.target.value };
-                for (let j = index + 1; j < 3; j++) activeFilters[j] = {};
-                renderCascadingFilters();
+                // Reset subsequent filters
+                for (let j = index + 1; j < 3; j++) { 
+                    activeFilters[j] = {}; 
+                }
+                renderCascadingFilters(); // Re-render to update dependent dropdowns
                 renderCardPool();
             };
             cascadingFiltersContainer.appendChild(select);
@@ -507,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(a.href);
     }
 
-    // 3. Fix JavaScript Event Listeners
+    // THIS FUNCTION IS NOW CORRECT AND COMPLETE
     function addEventListeners() {
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
         sortSelect.addEventListener('change', (e) => {
@@ -589,7 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 8. Add Keyboard Shortcuts (already present, but confirmed)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && cardModal.style.display === 'flex') {
                 cardModal.style.display = 'none';

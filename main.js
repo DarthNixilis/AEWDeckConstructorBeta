@@ -7,7 +7,7 @@ import * as filters from './filters.js';
 
 // --- DOM ELEMENT REFERENCES ---
 const searchInput = document.getElementById('searchInput');
-const exportDeckBtn = document.getElementById('exportDeck'); // This is the "Export as Text" button
+const exportDeckBtn = document.getElementById('exportDeck');
 const clearDeckBtn = document.getElementById('clearDeck');
 const wrestlerSelect = document.getElementById('wrestlerSelect');
 const managerSelect = document.getElementById('managerSelect');
@@ -27,7 +27,7 @@ const cardModal = document.getElementById('cardModal');
 const modalCloseButton = cardModal.querySelector('.modal-close-button');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
-const exportAsImageBtn = document.getElementById('exportAsImageBtn'); // This is the "Export as Image" button
+const exportAsImageBtn = document.getElementById('exportAsImageBtn');
 
 // --- DATA LOADING ---
 async function loadGameData() {
@@ -230,15 +230,17 @@ function setupEventListeners() {
         refreshCardPool();
     });
 
-    // THIS IS THE FIX: The validation check is removed from this event listener.
     exportDeckBtn.addEventListener('click', () => {
+        // Validation is removed.
         const text = deck.generatePlainTextDeck();
         const blob = new Blob([text], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
         a.download = `${wrestlerName}.txt`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     });
 

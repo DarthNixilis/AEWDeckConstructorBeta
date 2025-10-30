@@ -1,9 +1,8 @@
 // deck.js
 
 import * as state from './config.js';
-// Import UI functions that deck.js needs to call
 import { renderDecks, renderPersonaDisplay, generateCardVisualHTML } from './ui.js';
-import { toPascalCase } from './config.js'; // Import toPascalCase
+import { toPascalCase } from './config.js';
 
 // --- DECK MANIPULATION ---
 export function addCardToDeck(cardTitle, targetDeck) {
@@ -115,8 +114,10 @@ export function parseAndLoadDeck(text) {
                 if (wrestler) newWrestler = wrestler;
             } else if (trimmedLine.toLowerCase().startsWith('manager:')) {
                 const managerName = trimmedLine.substring(8).trim();
-                const manager = state.cardDatabase.find(c => c.title === managerName && c.card_type === 'Manager');
-                if (manager) newManager = manager;
+                if (managerName.toLowerCase() !== 'none') {
+                    const manager = state.cardDatabase.find(c => c.title === managerName && c.card_type === 'Manager');
+                    if (manager) newManager = manager;
+                }
             } else if (trimmedLine.startsWith('--- Starting Deck')) {
                 currentSection = 'starting';
             } else if (trimmedLine.startsWith('--- Purchase Deck')) {
@@ -166,7 +167,7 @@ export function parseAndLoadDeck(text) {
     }
 }
 
-// --- IMAGE EXPORT LOGIC ---
+// --- THIS IS THE KEY CHANGE FOR THIS FILE ---
 export async function exportDeckAsImage() {
     const issues = validateDeck();
     if (issues.length > 0) {
@@ -174,68 +175,95 @@ export async function exportDeckAsImage() {
         return;
     }
 
-    alert('Preparing to generate deck image. This may take a moment for large decks. Please do not close the window.');
-
     const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck]
         .map(title => state.cardDatabase.find(c => c.title === title))
         .sort((a, b) => a.title.localeCompare(b.title));
 
-    const CARD_WIDTH = 400;
-    const CARD_HEIGHT = 560;
-    const GUTTER = 20;
-    const COLUMNS = 9;
-
-    const numRows = Math.ceil(allCardsInDeck.length / COLUMNS);
-    const canvasWidth = (CARD_WIDTH * COLUMNS) + (GUTTER * (COLUMNS - 1));
-    const canvasHeight = (CARD_HEIGHT * numRows) + (GUTTER * (numRows - 1));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    for (let i = 0; i < allCardsInDeck.length; i++) {
-        const card = allCardsInDeck[i];
-        const row = Math.floor(i / COLUMNS);
-        const col = i % COLUMNS;
-
-        const x = col * (CARD_WIDTH + GUTTER);
-        const y = row * (CARD_HEIGHT + GUTTER);
-
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.width = `${CARD_WIDTH}px`;
-        tempContainer.innerHTML = generateCardVisualHTML(card);
-        document.body.appendChild(tempContainer);
-        
-        const placeholderElement = tempContainer.querySelector('.placeholder-card');
-        
-        try {
-            const cardCanvas = await html2canvas(placeholderElement, { scale: 1 });
-            ctx.drawImage(cardCanvas, x, y, CARD_WIDTH, CARD_HEIGHT);
-        } catch (error) {
-            console.error(`Failed to render card "${card.title}" to canvas:`, error);
-            ctx.fillStyle = 'red';
-            ctx.fillRect(x, y, CARD_WIDTH, CARD_HEIGHT);
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Error rendering ${card.title}`, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2);
-        }
-        
-        document.body.removeChild(tempContainer);
+    if (allCardsInDeck.length === 0) {
+        alert("There are no cards in the deck to export.");
+        return;
     }
 
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `${toPascalCase(state.selectedWrestler.title)}-Deck.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    alert('Deck image generated and download has started!');
+    const CARDS_PER_PAGE = 9;
+    const numPages = Math.ceil(allCardsInDeck.length / CARDS_PER_PAGE);
+    alert(`Preparing to generate ${numPages} print sheet(s). This may take a moment. Please wait for all downloads to complete.`);
+
+    // --- Print-Ready Constants (for 300 DPI) ---
+    const DPI = 300;
+    const PAPER_WIDTH_INCHES = 8.5;
+    const PAPER_HEIGHT_INCHES = 11;
+    const CARD_WIDTH_INCHES = 2.5;
+    const CARD_HEIGHT_INCHES = 3.5;
+    const MARGIN_INCHES = 0.5;
+
+    const CANVAS_WIDTH = PAPER_WIDTH_INCHES * DPI;
+    const CANVAS_HEIGHT = PAPER_HEIGHT_INCHES * DPI;
+    const CARD_RENDER_WIDTH_PX = CARD_WIDTH_INCHES * DPI;
+    const CARD_RENDER_HEIGHT_PX = CARD_HEIGHT_INCHES * DPI;
+    const MARGIN_PX = MARGIN_INCHES * DPI;
+
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    for (let page = 0; page < numPages; page++) {
+        const canvas = document.createElement('canvas');
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const startIndex = page * CARDS_PER_PAGE;
+        const endIndex = startIndex + CARDS_PER_PAGE;
+        const cardsOnThisPage = allCardsInDeck.slice(startIndex, endIndex);
+
+        for (let i = 0; i < cardsOnThisPage.length; i++) {
+            const card = cardsOnThisPage[i];
+            const row = Math.floor(i / 3);
+            const col = i % 3;
+
+            const x = MARGIN_PX + (col * CARD_RENDER_WIDTH_PX);
+            const y = MARGIN_PX + (row * CARD_RENDER_HEIGHT_PX);
+
+            tempContainer.innerHTML = generateCardVisualHTML(card);
+            const placeholderElement = tempContainer.querySelector('.placeholder-card');
+            
+            placeholderElement.style.width = `${CARD_RENDER_WIDTH_PX}px`;
+            placeholderElement.style.height = `${CARD_RENDER_HEIGHT_PX}px`;
+
+            try {
+                const cardCanvas = await html2canvas(placeholderElement, {
+                    width: CARD_RENDER_WIDTH_PX,
+                    height: CARD_RENDER_HEIGHT_PX,
+                    scale: 1,
+                    logging: false
+                });
+                ctx.drawImage(cardCanvas, x, y);
+            } catch (error) {
+                console.error(`Failed to render card "${card.title}" to canvas:`, error);
+                ctx.fillStyle = 'red';
+                ctx.fillRect(x, y, CARD_RENDER_WIDTH_PX, CARD_RENDER_HEIGHT_PX);
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.font = '48px Arial';
+                ctx.fillText(`Error: ${card.title}`, x + CARD_RENDER_WIDTH_PX / 2, y + CARD_RENDER_HEIGHT_PX / 2);
+            }
+        }
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${toPascalCase(state.selectedWrestler.title)}-Deck-Page-${page + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    document.body.removeChild(tempContainer);
+    alert('All print sheets have been generated and downloaded!');
 }
 

@@ -1,7 +1,8 @@
 // deck.js
 
 import * as state from './config.js';
-import { renderDecks, renderPersonaDisplay, renderCardPool } from './ui.js';
+// Import UI functions that deck.js needs to call
+import { renderDecks, renderPersonaDisplay, generateCardVisualHTML } from './ui.js';
 
 // --- DECK LOGIC HELPERS ---
 export function isKitCard(card) {
@@ -38,7 +39,6 @@ export function addCardToDeck(cardTitle, targetDeck) {
         state.purchaseDeck.push(cardTitle);
     }
     renderDecks();
-    state.saveStateToCache(); // Make sure to save after modification
 }
 
 export function removeCardFromDeck(cardTitle, deckName) {
@@ -47,7 +47,6 @@ export function removeCardFromDeck(cardTitle, deckName) {
     if (cardIndex > -1) {
         deck.splice(cardIndex, 1);
         renderDecks();
-        state.saveStateToCache(); // Make sure to save after modification
     }
 }
 
@@ -73,18 +72,33 @@ export function validateDeck() {
 }
 
 export function generatePlainTextDeck() {
+    const activePersonaTitles = [];
+    if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
+    if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
+    
+    const kitCards = state.cardDatabase.filter(card => 
+        isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
+    ).sort((a, b) => a.title.localeCompare(b.title));
+
     let text = `Wrestler: ${state.selectedWrestler.title}\n`;
-    text += `Manager: ${state.selectedManager.title}\n\n`;
-    text += `--- Starting Deck (${state.startingDeck.length}/24) ---\n`;
+    text += `Manager: ${state.selectedManager ? state.selectedManager.title : 'None'}\n`;
+    
+    kitCards.forEach((card, index) => {
+        text += `Kit${index + 1}: ${card.title}\n`;
+    });
+
+    text += `\n--- Starting Deck (${state.startingDeck.length}/24) ---\n`;
     const startingCounts = state.startingDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
     Object.entries(startingCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
         text += `${count}x ${cardTitle}\n`;
     });
+
     text += `\n--- Purchase Deck (${state.purchaseDeck.length}/36+) ---\n`;
     const purchaseCounts = state.purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
     Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
         text += `${count}x ${cardTitle}\n`;
     });
+    
     return text;
 }
 
@@ -105,7 +119,7 @@ export function parseAndLoadDeck(text) {
 
         lines.forEach(line => {
             const trimmedLine = line.trim();
-            if (!trimmedLine) return;
+            if (!trimmedLine || trimmedLine.toLowerCase().startsWith('kit')) return;
 
             if (trimmedLine.toLowerCase().startsWith('wrestler:')) {
                 const wrestlerName = trimmedLine.substring(9).trim();
@@ -151,7 +165,7 @@ export function parseAndLoadDeck(text) {
         
         renderDecks();
         renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
-        renderCardPool();
+        // The main script will call refreshCardPool after this.
 
         importStatus.textContent = 'Deck imported successfully!';
         importStatus.style.color = 'green';
@@ -163,3 +177,78 @@ export function parseAndLoadDeck(text) {
         importStatus.style.color = 'red';
     }
 }
+
+// --- NEW: IMAGE EXPORT LOGIC ---
+export async function exportDeckAsImage() {
+    const issues = validateDeck();
+    if (issues.length > 0) {
+        alert("Deck is not valid and cannot be exported:\n\n" + issues.join("\n"));
+        return;
+    }
+
+    alert('Preparing to generate deck image. This may take a moment for large decks. Please do not close the window.');
+
+    const allCardsInDeck = [...state.startingDeck, ...state.purchaseDeck]
+        .map(title => state.cardDatabase.find(c => c.title === title))
+        .sort((a, b) => a.title.localeCompare(b.title));
+
+    const CARD_WIDTH = 400; // Render at a higher resolution for better quality
+    const CARD_HEIGHT = 560;
+    const GUTTER = 20;
+    const COLUMNS = 9; // A standard 3x3 grid for cutting
+
+    const numRows = Math.ceil(allCardsInDeck.length / COLUMNS);
+    const canvasWidth = (CARD_WIDTH * COLUMNS) + (GUTTER * (COLUMNS - 1));
+    const canvasHeight = (CARD_HEIGHT * numRows) + (GUTTER * (numRows - 1));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    for (let i = 0; i < allCardsInDeck.length; i++) {
+        const card = allCardsInDeck[i];
+        const row = Math.floor(i / COLUMNS);
+        const col = i % COLUMNS;
+
+        const x = col * (CARD_WIDTH + GUTTER);
+        const y = row * (CARD_HEIGHT + GUTTER);
+
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.width = `${CARD_WIDTH}px`;
+        tempContainer.innerHTML = generateCardVisualHTML(card);
+        document.body.appendChild(tempContainer);
+        
+        const placeholderElement = tempContainer.querySelector('.placeholder-card');
+        
+        try {
+            const cardCanvas = await html2canvas(placeholderElement, { scale: 1 });
+            ctx.drawImage(cardCanvas, x, y, CARD_WIDTH, CARD_HEIGHT);
+        } catch (error) {
+            console.error(`Failed to render card "${card.title}" to canvas:`, error);
+            // Optionally draw an error state on the canvas
+            ctx.fillStyle = 'red';
+            ctx.fillRect(x, y, CARD_WIDTH, CARD_HEIGHT);
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Error rendering ${card.title}`, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2);
+        }
+        
+        document.body.removeChild(tempContainer);
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `${state.selectedWrestler.title}-Deck.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    alert('Deck image generated and download has started!');
+}
+

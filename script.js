@@ -3,6 +3,7 @@
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as deck from './deck.js';
+import { toPascalCase } from './utils.js';
 
 // --- DOM ELEMENT REFERENCES ---
 const searchInput = document.getElementById('searchInput');
@@ -27,7 +28,7 @@ const cardModal = document.getElementById('cardModal');
 const modalCloseButton = cardModal.querySelector('.modal-close-button');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
-
+const exportAsImageBtn = document.getElementById('exportAsImageBtn'); // New button reference
 
 // --- DATA LOADING ---
 async function loadGameData() {
@@ -96,16 +97,13 @@ function initializeApp() {
     setupEventListeners();
     addDeckSearchFunctionality();
     
-    // Set UI to match state
     viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
     gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
     gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`).classList.add('active');
 
-    // ** THE FIX IS HERE: Populate dropdowns first, THEN load cache **
     populatePersonaSelectors();
     loadStateFromCache(); 
     
-    // Initial render
     renderCascadingFilters();
     ui.renderDecks();
     ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
@@ -157,13 +155,11 @@ function refreshCardPool() {
         return query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
     });
 
-    // Apply cascading filters and sort
     const filterFunc = state.filterFunctions[state.activeFilters[0]?.category];
     if (filterFunc && state.activeFilters[0]?.value) {
         cards = cards.filter(card => filterFunc(card, state.activeFilters[0].value));
     }
-    // ... add more filter logic if needed ...
-
+    
     const [sortBy, direction] = state.currentSort.split('-');
     cards.sort((a, b) => {
         let valA, valB;
@@ -282,14 +278,14 @@ function setupEventListeners() {
         state.setSelectedWrestler(newWrestler);
         ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
         refreshCardPool();
-        saveStateToCache();
+        state.saveStateToCache();
     });
     managerSelect.addEventListener('change', (e) => {
         const newManager = state.cardDatabase.find(c => c.title === e.target.value) || null;
         state.setSelectedManager(newManager);
         ui.renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
         refreshCardPool();
-        saveStateToCache();
+        state.saveStateToCache();
     });
 
     viewModeToggle.addEventListener('click', () => {
@@ -312,6 +308,8 @@ function setupEventListeners() {
         a.click();
         URL.revokeObjectURL(a.href);
     });
+
+    exportAsImageBtn.addEventListener('click', deck.exportDeckAsImage);
 
     clearDeckBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to clear both decks and reset your persona?')) {
@@ -374,5 +372,4 @@ function setupEventListeners() {
 
 // --- START THE APP ---
 loadGameData();
-});
 

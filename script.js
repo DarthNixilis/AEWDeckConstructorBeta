@@ -20,8 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const showZeroCostCheckbox = document.getElementById('showZeroCost');
     const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
     const gridSizeControls = document.getElementById('gridSizeControls');
-    
-    // New Import Modal Elements
     const importDeckBtn = document.getElementById('importDeck');
     const importModal = document.getElementById('importModal');
     const importModalCloseBtn = importModal.querySelector('.modal-close-button');
@@ -29,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const deckTextInput = document.getElementById('deckTextInput');
     const processImportBtn = document.getElementById('processImportBtn');
     const importStatus = document.getElementById('importStatus');
-
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -43,27 +40,130 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSort = 'alpha-asc';
     let showZeroCost = true;
     let showNonZeroCost = true;
-alizeApp();
+    let numGridColumns = 2; // FIXED: Default grid size is now 2
+    let lastFocusedElement;
+
+    const CACHE_KEY = 'aewDeckBuilderCache';
+
+    function saveStateToCache() {
+        const state = {
+            wrestler: selectedWrestler ? selectedWrestler.title : null,
+            manager: selectedManager ? selectedManager.title : null,
+            startingDeck: startingDeck,
+            purchaseDeck: purchaseDeck,
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+    }
+
+    function loadStateFromCache() {
+        const cachedState = localStorage.getItem(CACHE_KEY);
+        if (cachedState) {
+            const state = JSON.parse(cachedState);
+            startingDeck = state.startingDeck || [];
+            purchaseDeck = state.purchaseDeck || [];
+            if (state.wrestler) {
+                const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === state.wrestler);
+                if (wrestlerExists) {
+                    wrestlerSelect.value = state.wrestler;
+                    selectedWrestler = cardDatabase.find(c => c.title === state.wrestler);
+                }
+            }
+            if (state.manager) {
+                const managerExists = Array.from(managerSelect.options).some(opt => opt.value === state.manager);
+                if (managerExists) {
+                    managerSelect.value = state.manager;
+                    selectedManager = cardDatabase.find(c => c.title === state.manager);
+                }
+            }
+        }
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => { clearTimeout(timeout); func(...args); };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    async function loadGameData() {
+        try {
+            searchResults.innerHTML = '<p>Loading card data...</p>';
+            const [cardResponse, keywordResponse] = await Promise.all([
+                fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
+                fetch(`./keywords.txt?v=${new Date().getTime()}`)
+            ]);
+            if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
+            if (!keywordResponse.ok) throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status})`);
+            
+            const tsvData = await cardResponse.text();
+            const cardLines = tsvData.trim().split(/\r?\n/);
+            const cardHeaders = cardLines.shift().trim().split('\t').map(h => h.trim());
+            cardDatabase = cardLines.map(line => {
+                const values = line.split('\t');
+                const card = {};
+                cardHeaders.forEach((header, index) => {
+                    const value = (values[index] || '').trim();
+                    if (value === 'null' || value === '') card[header] = null;
+                    else if (!isNaN(value) && value !== '') card[header] = Number(value);
+                    else card[header] = value;
+                });
+                card.title = card['Card Name'];
+                card.card_type = card['Type'];
+                card.cost = card['Cost'] === 'N/a' ? null : card['Cost'];
+                card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
+                card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
+                card.text_box = { raw_text: card['Card Raw Game Text'] };
+                if (card.Keywords) card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() })).filter(k => k.name);
+                else card.text_box.keywords = [];
+                if (card.Traits) card.text_box.traits = card.Traits.split(',').map(traitStr => {
+                    const [name, value] = traitStr.split(':');
+                    return { name: name.trim(), value: value ? value.trim() : undefined };
+                }).filter(t => t.name);
+                else card.text_box.traits = [];
+                return card;
+            }).filter(card => card.title);
+
+            const keywordText = await keywordResponse.text();
+            keywordDatabase = {};
+            const keywordLines = keywordText.trim().split(/\r?\n/);
+            keywordLines.forEach(line => {
+                const parts = line.split(':');
+                if (parts.length >= 2) {
+                    const key = parts[0].trim();
+                    const value = parts.slice(1).join(':').trim();
+                    keywordDatabase[key] = value;
+                }
+            });
+
+            initializeApp();
         } catch (error) {
             console.error("Fatal Error during data load:", error);
             searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Retry Loading Data</button></div>`;
         }
     }
 
+    // *** REWRITTEN INITIALIZATION FUNCTION ***
     function initializeApp() {
-        wrestlerSelect.value = "";
-        managerSelect.value = "";
-        selectedWrestler = null;
-        selectedManager = null;
-        populatePersonaSelectors();
-        loadStateFromCache();
+        // 1. Set up the UI controls first
         addEventListeners();
+        addDeckSearchFunctionality();
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        gridSizeControls.querySelector(`[data-columns="${numGridColumns}"]`).classList.add('active');
+
+
+        // 2. Populate dropdowns with data
+        populatePersonaSelectors();
+
+        // 3. Load saved state from cache (now that dropdowns exist)
+        loadStateFromCache();
+
+        // 4. Render everything based on the final state
         renderCascadingFilters();
         renderPersonaDisplay();
         renderDecks();
         renderCardPool();
-        addDeckSearchFunctionality();
     }
 
     function populatePersonaSelectors() {
@@ -418,7 +518,6 @@ alizeApp();
         URL.revokeObjectURL(a.href);
     }
     
-    // --- NEW: IMPORT LOGIC ---
     function parseAndLoadDeck(text) {
         try {
             const lines = text.trim().split(/\r?\n/);
@@ -467,92 +566,14 @@ alizeApp();
                 return;
             }
 
-            // Apply the new deck state
             selectedWrestler = newWrestler;
             selectedManager = newManager;
             startingDeck = newStartingDeck;
             purchaseDeck = newPurchaseDeck;
 
-            // Update the UI
             wrestlerSelect.value = selectedWrestler.title;
             managerSelect.value = selectedManager ? selectedManager.title : "";
             renderDecks();
             renderPersonaDisplay();
-            renderCardPool();
-
-            importStatus.textContent = 'Deck imported successfully!';
-            importStatus.style.color = 'green';
-            setTimeout(() => importModal.style.display = 'none', 1500);
-
-        } catch (e) {
-            importStatus.textContent = `An error occurred during import: ${e.message}`;
-            importStatus.style.color = 'red';
-        }
-    }
-
-
-    function addEventListeners() {
-        searchInput.addEventListener('input', debounce(renderCardPool, 300));
-        sortSelect.addEventListener('change', (e) => {
-            currentSort = e.target.value;
-            renderCardPool();
-        });
-        showZeroCostCheckbox.addEventListener('change', (e) => {
-            showZeroCost = e.target.checked;
-            renderCardPool();
-        });
-        showNonZeroCostCheckbox.addEventListener('change', (e) => {
-            showNonZeroCost = e.target.checked;
-            renderCardPool();
-        });
-
-        gridSizeControls.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                numGridColumns = e.target.dataset.columns;
-                gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                renderCardPool();
-            }
-        });
-
-        searchResults.addEventListener('click', (e) => {
-            const target = e.target;
-            const cardTitle = target.dataset.title;
-            if (target.tagName === 'BUTTON' && cardTitle) {
-                addCardToDeck(cardTitle, target.dataset.deckTarget); 
-            } else {
-                const cardVisual = target.closest('[data-title]');
-                if (cardVisual) showCardModal(cardVisual.dataset.title);
-            }
-        });
-
-        [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
-            container.addEventListener('click', (e) => {
-                const target = e.target;
-                const cardTitle = target.dataset.title;
-                if (target.tagName === 'BUTTON' && cardTitle && target.dataset.deck) {
-                    removeCardFromDeck(cardTitle, target.dataset.deck);
-                } else if (target.closest('[data-title]')) {
-                    showCardModal(target.closest('[data-title]').dataset.title);
-                }
-            });
-        });
-
-        wrestlerSelect.addEventListener('change', (e) => {
-            selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
-            renderPersonaDisplay();
-            renderCardPool();
-            saveStateToCache();
-        });
-
-        managerSelect.addEventListener('change', (e) => {
-            selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
-            renderPersonaDisplay();
-            renderCardPool();
-            saveStateToCache();
-        });
-
-        viewModeToggle.addEventListener('click', () => {
-            currentViewMode = currentViewMode === 'list' ? 'grid' : 'list';
-            viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to
+            renderCard
 

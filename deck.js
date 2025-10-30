@@ -217,11 +217,8 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     }
 
     const reminderBlock = traitsText + keywordsText;
-    
-    // THIS IS THE FIX: Re-added the logic to find the Target trait and its value
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
-
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
@@ -243,9 +240,13 @@ async function generatePlaytestCardHTML(card, tempContainer) {
                 ${titleHTML}
                 <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>
             </div>
-            <div style="flex-grow: 10; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
+            
+            <!-- THIS IS THE FIX: Art area has a fixed height, text box grows -->
+            <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
+            
             <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; overflow: hidden;">
+            
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
                 <p style="margin-top: 0;">${card.text_box?.raw_text || ''}</p>
                 ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
             </div>

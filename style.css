@@ -294,3 +294,36 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
     }
 }
 
+/* Add these styles to the end of your style.css file */
+
+.import-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.import-options textarea {
+    width: 95%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.import-options button {
+    padding: 10px 15px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    align-self: flex-end; /* Aligns button to the right */
+}
+
+.import-status {
+    margin-top: 15px;
+    font-size: 0.9em;
+}
+

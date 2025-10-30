@@ -17,16 +17,23 @@
         <div class="search-panel">
             <div class="panel-header">
                 <h2>Card Pool</h2>
-                <button id="viewModeToggle">Switch to List View</button>
+                <div class="view-controls-container">
+                    <div id="gridSizeControls">
+                        <label>Grid Columns:</label>
+                        <button data-columns="2">2</button>
+                        <button data-columns="3">3</button>
+                        <button data-columns="4" class="active">4</button>
+                    </div>
+                    <button id="viewModeToggle">Switch to List View</button>
+                </div>
             </div>
             <div class="filter-controls">
                 <input type="text" id="searchInput" placeholder="Search card name or text...">
+                <div id="cascadingFiltersContainer">
+                    <!-- This will be populated by script.js -->
+                </div>
                 
-                <!-- This container will now stack filters vertically -->
-                <div id="cascadingFiltersContainer"></div>
-                
-                <!-- NEW: Wrapper for all view controls -->
-                <div class="view-controls-container">
+                <div class="sort-filter-container">
                     <div class="sort-controls">
                         <label for="sortSelect">Sort by:</label>
                         <select id="sortSelect">
@@ -40,15 +47,6 @@
                             <option value="momentum-asc">Momentum (Low-High)</option>
                         </select>
                     </div>
-
-                    <!-- NEW: Grid Size Controls -->
-                    <div id="gridSizeControls" class="grid-size-controls">
-                        <label>Grid Columns:</label>
-                        <button data-columns="2">2</button>
-                        <button data-columns="3">3</button>
-                        <button data-columns="4" class="active">4</button>
-                    </div>
-
                     <div class="cost-filter-controls">
                         <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
                         <label><input type="checkbox" id="showNonZeroCost" checked> Show Non-0-Cost</label>
@@ -75,17 +73,34 @@
             <div id="purchaseDeckList" class="deck-list-small"></div>
 
             <div class="deck-actions">
+                <button id="importDeck">Import Deck</button>
                 <button id="exportDeck">Export Deck</button>
                 <button id="clearDeck">Clear Decks</button>
             </div>
         </div>
     </main>
 
-    <!-- Modal for displaying card details -->
+    <!-- Card Detail Modal -->
     <div id="cardModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
             <div id="modalCardContent"></div>
+        </div>
+    </div>
+
+    <!-- Import Deck Modal -->
+    <div id="importModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close-button">&times;</span>
+            <h3>Import Decklist</h3>
+            <p>You can either upload a .txt file or paste the decklist text below.</p>
+            
+            <div class="import-options">
+                <input type="file" id="deckFileInput" accept=".txt">
+                <textarea id="deckTextInput" rows="10" placeholder="Or paste decklist here..."></textarea>
+                <button id="processImportBtn">Import</button>
+            </div>
+            <div id="importStatus" class="import-status"></div>
         </div>
     </div>
 

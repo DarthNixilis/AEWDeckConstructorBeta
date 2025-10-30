@@ -300,3 +300,24 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .placeholder-type-line.type-strike { background-color: #4c82c8; color: white; } /* Blue */
 .placeholder-type-line.type-grapple { background-color: #e68a00; color: white; } /* Orange */
 
+/* Add this to the end of your style.css file */
+
+.sort-filter-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap; /* Allows wrapping on smaller screens */
+    gap: 10px;
+}
+
+.sort-controls, .cost-filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cost-filter-controls label {
+    cursor: pointer;
+}
+

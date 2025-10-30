@@ -34,17 +34,21 @@ async function loadGameData() {
     try {
         searchResults.innerHTML = '<p>Loading card data...</p>';
         
-        // FINAL FIX: Using the full, absolute URL to the raw files on GitHub.
-        const cardDbUrl = `https://raw.githubusercontent.com/darthnixilis/AEWDeckBuilder/main/cardDatabase.txt?v=${new Date().getTime()}`;
-        const keywordsUrl = `https://raw.githubusercontent.com/darthnixilis/AEWDeckBuilder/main/keywords.txt?v=${new Date().getTime()}`;
+        // THE CORRECT FIX: Using standard relative paths for deployment.
+        const cardDbUrl = `./cardDatabase.txt?v=${new Date().getTime()}`;
+        const keywordsUrl = `./keywords.txt?v=${new Date().getTime()}`;
 
         const [cardResponse, keywordResponse] = await Promise.all([
             fetch(cardDbUrl),
             fetch(keywordsUrl)
         ]);
 
-        if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
-        if (!keywordResponse.ok) throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status})`);
+        if (!cardResponse.ok) {
+            throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status}).`);
+        }
+        if (!keywordResponse.ok) {
+            throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status}).`);
+        }
         
         const tsvData = await cardResponse.text();
         const cardLines = tsvData.trim().split(/\r?\n/);
@@ -94,7 +98,18 @@ async function loadGameData() {
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
-        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br>Could not load game data. Please refresh the page. If the problem persists, the repository files may be unavailable.</div>`;
+        searchResults.innerHTML = `
+            <div style="color: red; padding: 20px; text-align: center;">
+                <strong>FATAL ERROR:</strong> ${error.message}<br><br>
+                <div style="font-size: 0.9em; margin: 10px 0; text-align: left; display: inline-block;">
+                    Troubleshooting steps:<br>
+                    1. Ensure <strong>cardDatabase.txt</strong> and <strong>keywords.txt</strong> are in the root of your GitHub repository.<br>
+                    2. Wait a minute for GitHub Pages to update after a new commit.<br>
+                    3. Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R).
+                </div>
+                <br>
+                <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px;">Retry</button>
+            </div>`;
     }
 }
 
@@ -258,7 +273,7 @@ function setupEventListeners() {
             managerSelect.value = "";
             state.setSelectedWrestler(null);
             state.setSelectedManager(null);
-localStorage.removeItem(state.CACHE_KEY);
+            localStorage.removeItem(state.CACHE_KEY);
             state.setStartingDeck([]);
             state.setPurchaseDeck([]);
             ui.renderDecks();

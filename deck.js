@@ -3,25 +3,13 @@
 import * as state from './config.js';
 // Import UI functions that deck.js needs to call
 import { renderDecks, renderPersonaDisplay, generateCardVisualHTML } from './ui.js';
-
-// --- DECK LOGIC HELPERS ---
-export function isKitCard(card) {
-    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
-}
-
-export function isSignatureFor(card) {
-    if (!card || !card['Signature For']) return false;
-    const activePersonaTitles = [];
-    if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
-    if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
-    return activePersonaTitles.includes(card['Signature For']);
-}
+import { toPascalCase } from './config.js'; // Import toPascalCase
 
 // --- DECK MANIPULATION ---
 export function addCardToDeck(cardTitle, targetDeck) {
     const card = state.cardDatabase.find(c => c.title === cardTitle);
     if (!card) return;
-    if (isKitCard(card)) {
+    if (state.isKitCard(card)) {
         alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
         return;
     }
@@ -77,7 +65,7 @@ export function generatePlainTextDeck() {
     if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
     
     const kitCards = state.cardDatabase.filter(card => 
-        isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
+        state.isKitCard(card) && activePersonaTitles.includes(card['Signature For'])
     ).sort((a, b) => a.title.localeCompare(b.title));
 
     let text = `Wrestler: ${state.selectedWrestler.title}\n`;
@@ -164,8 +152,8 @@ export function parseAndLoadDeck(text) {
         managerSelect.value = state.selectedManager ? state.selectedManager.title : "";
         
         renderDecks();
-        renderPersonaDisplay(state.selectedWrestler, state.selectedManager);
-        // The main script will call refreshCardPool after this.
+        renderPersonaDisplay();
+        document.dispatchEvent(new Event('filtersChanged'));
 
         importStatus.textContent = 'Deck imported successfully!';
         importStatus.style.color = 'green';
@@ -178,7 +166,7 @@ export function parseAndLoadDeck(text) {
     }
 }
 
-// --- NEW: IMAGE EXPORT LOGIC ---
+// --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
     const issues = validateDeck();
     if (issues.length > 0) {
@@ -192,10 +180,10 @@ export async function exportDeckAsImage() {
         .map(title => state.cardDatabase.find(c => c.title === title))
         .sort((a, b) => a.title.localeCompare(b.title));
 
-    const CARD_WIDTH = 400; // Render at a higher resolution for better quality
+    const CARD_WIDTH = 400;
     const CARD_HEIGHT = 560;
     const GUTTER = 20;
-    const COLUMNS = 9; // A standard 3x3 grid for cutting
+    const COLUMNS = 9;
 
     const numRows = Math.ceil(allCardsInDeck.length / COLUMNS);
     const canvasWidth = (CARD_WIDTH * COLUMNS) + (GUTTER * (COLUMNS - 1));
@@ -230,7 +218,6 @@ export async function exportDeckAsImage() {
             ctx.drawImage(cardCanvas, x, y, CARD_WIDTH, CARD_HEIGHT);
         } catch (error) {
             console.error(`Failed to render card "${card.title}" to canvas:`, error);
-            // Optionally draw an error state on the canvas
             ctx.fillStyle = 'red';
             ctx.fillRect(x, y, CARD_WIDTH, CARD_HEIGHT);
             ctx.fillStyle = 'white';
@@ -244,7 +231,7 @@ export async function exportDeckAsImage() {
     const dataUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `${state.selectedWrestler.title}-Deck.png`;
+    a.download = `${toPascalCase(state.selectedWrestler.title)}-Deck.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

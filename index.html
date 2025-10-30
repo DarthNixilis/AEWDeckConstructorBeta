@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
-    <!-- ADD THIS LINE FOR IMAGE GENERATION -->
+    <!-- The html2canvas library is required for the "Export as Image" feature -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
@@ -17,21 +17,21 @@
     <main class="container">
         <!-- Left Panel: Card Pool & Filters -->
         <div class="search-panel">
-            <div class="view-controls-container">
-                <div class="panel-header">
-                    <h2>Card Pool</h2>
+            <div class="panel-header">
+                <h2>Card Pool</h2>
+                <div class="view-controls-container">
+                    <div id="gridSizeControls" class="grid-size-controls">
+                        <label>Grid Columns:</label>
+                        <button data-columns="2">2</button>
+                        <button data-columns="3">3</button>
+                        <button data-columns="4">4</button>
+                    </div>
                     <button id="viewModeToggle">Switch to List View</button>
-                </div>
-                <div id="gridSizeControls" class="grid-size-controls">
-                    <label>Grid Columns:</label>
-                    <button data-columns="2">2</button>
-                    <button data-columns="3">3</button>
-                    <button data-columns="4" class="active">4</button>
                 </div>
             </div>
             <div class="filter-controls">
                 <input type="text" id="searchInput" placeholder="Search card name or text...">
-                <div id="cascadingFiltersContainer"></div>
+                <div id="cascadingFiltersContainer" class="cascading-filters"></div>
                 <div class="sort-filter-container">
                     <div class="sort-controls">
                         <label for="sortSelect">Sort by:</label>
@@ -73,14 +73,14 @@
 
             <div class="deck-actions">
                 <button id="importDeck">Import Deck</button>
-                <button id="exportDeck">Export .txt</button>
-                <button id="exportAsImageBtn">Export as Image</button> 
-                <button id="clearDeck">Clear Decks</button>
+                <button id="exportDeck">Export as Text</button>
+                <button id="exportAsImageBtn">Export as Image</button>
+                <button id="clearDeck">Clear Deck</button>
             </div>
         </div>
     </main>
 
-    <!-- Card Detail Modal -->
+    <!-- Modal for displaying card details -->
     <div id="cardModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
@@ -88,15 +88,13 @@
         </div>
     </div>
 
-    <!-- Import Modal -->
+    <!-- Modal for importing a deck -->
     <div id="importModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>Import Decklist</h3>
-                <span class="modal-close-button">&times;</span>
-            </div>
+            <span class="modal-close-button">&times;</span>
+            <h3>Import Decklist</h3>
             <div class="import-controls">
-                <p>Select a .txt file or paste a decklist in the correct format.</p>
+                <label for="deckFileInput">Import from .txt file:</label>
                 <input type="file" id="deckFileInput" accept=".txt">
                 <textarea id="deckTextInput" rows="10" placeholder="Or paste decklist here..."></textarea>
                 <button id="processImportBtn">Import</button>
@@ -105,7 +103,8 @@
         </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- This is the crucial change that makes the modular system work -->
+    <script type="module" src="main.js"></script>
 </body>
 </html>
 

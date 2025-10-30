@@ -1,8 +1,9 @@
 // ui.js
 
 import * as state from './config.js';
-import { toPascalCase } from './utils.js';
+import { toPascalCase } from './config.js'; // Import toPascalCase
 
+// --- DOM REFERENCES ---
 const searchResults = document.getElementById('searchResults');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
@@ -84,28 +85,23 @@ export function generateCardVisualHTML(card) {
     return `<img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
 }
 
-export function renderPersonaDisplay(wrestler, manager) {
-    if (!wrestler) {
-        personaDisplay.style.display = 'none';
-        return;
-    }
+export function renderPersonaDisplay() {
+    if (!state.selectedWrestler) { personaDisplay.style.display = 'none'; return; }
     personaDisplay.style.display = 'block';
     personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>';
     const list = personaDisplay.querySelector('.persona-card-list');
     list.innerHTML = ''; 
     const cardsToShow = new Set();
     const activePersona = [];
-    if (wrestler) activePersona.push(wrestler);
-    if (manager) activePersona.push(manager);
+    if (state.selectedWrestler) activePersona.push(state.selectedWrestler);
+    if (state.selectedManager) activePersona.push(state.selectedManager);
     activePersona.forEach(p => cardsToShow.add(p));
     const activePersonaTitles = activePersona.map(p => p.title);
     const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
     kitCards.forEach(card => cardsToShow.add(card));
     const sortedCards = Array.from(cardsToShow).sort((a, b) => {
-        if (a.card_type === 'Wrestler') return -1;
-        if (b.card_type === 'Wrestler') return 1;
-        if (a.card_type === 'Manager') return -1;
-        if (b.card_type === 'Manager') return 1;
+        if (a.card_type === 'Wrestler') return -1; if (b.card_type === 'Wrestler') return 1;
+        if (a.card_type === 'Manager') return -1; if (b.card_type === 'Manager') return 1;
         return a.title.localeCompare(b.title);
     });
     sortedCards.forEach(card => {

@@ -31,3 +31,46 @@ export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
+
+// --- UTILITY FUNCTIONS ---
+export function toPascalCase(str) {
+    if (!str) return '';
+    return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+}
+
+export function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- CACHING LOGIC ---
+export function saveStateToCache() {
+    const state = {
+        wrestler: selectedWrestler ? selectedWrestler.title : null,
+        manager: selectedManager ? selectedManager.title : null,
+        startingDeck: startingDeck,
+        purchaseDeck: purchaseDeck
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+}
+
+// --- NEW: SHARED HELPER FUNCTIONS ---
+export function isKitCard(card) {
+    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
+}
+
+export function isSignatureFor(card) {
+    if (!card || !card['Signature For']) return false;
+    const activePersonaTitles = [];
+    if (selectedWrestler) activePersonaTitles.push(selectedWrestler.title);
+    if (selectedManager) activePersonaTitles.push(selectedManager.title);
+    return activePersonaTitles.includes(card['Signature For']);
+}
+

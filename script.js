@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSort = 'alpha-asc';
     let showZeroCost = true;
     let showNonZeroCost = true;
-    let numGridColumns = 2; // FIXED: Default grid size is now 2
+    let numGridColumns = 2; // Default grid size
     let lastFocusedElement;
 
     const CACHE_KEY = 'aewDeckBuilderCache';
@@ -129,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             keywordDatabase = {};
             const keywordLines = keywordText.trim().split(/\r?\n/);
             keywordLines.forEach(line => {
+                if (line.trim() === '') return;
                 const parts = line.split(':');
                 if (parts.length >= 2) {
                     const key = parts[0].trim();
@@ -138,28 +139,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             initializeApp();
+
         } catch (error) {
             console.error("Fatal Error during data load:", error);
             searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Retry Loading Data</button></div>`;
         }
     }
 
-    // *** REWRITTEN INITIALIZATION FUNCTION ***
     function initializeApp() {
-        // 1. Set up the UI controls first
+        wrestlerSelect.value = "";
+        managerSelect.value = "";
+        selectedWrestler = null;
+        selectedManager = null;
+
         addEventListeners();
         addDeckSearchFunctionality();
-        viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        gridSizeControls.querySelector(`[data-columns="${numGridColumns}"]`).classList.add('active');
-
-
-        // 2. Populate dropdowns with data
+        
         populatePersonaSelectors();
-
-        // 3. Load saved state from cache (now that dropdowns exist)
         loadStateFromCache();
 
-        // 4. Render everything based on the final state
+        viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+        gridSizeControls.querySelector(`[data-columns="${numGridColumns}"]`).classList.add('active');
+
         renderCascadingFilters();
         renderPersonaDisplay();
         renderDecks();
@@ -302,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
             searchResults.appendChild(cardElement);
         });
     }
-
     function generateCardVisualHTML(card) {
         const imageName = toPascalCase(card.title);
         const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
@@ -552,8 +553,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (card) {
                             for (let i = 0; i < count; i++) {
-                                if (currentSection === 'starting') newStartingDeck.push(card.title);
-                                else if (currentSection === 'purchase') newPurchaseDeck.push(card.title);
+                                if (currentSection === 'starting') {
+                                    newStartingDeck.push(card.title);
+                                } else if (currentSection === 'purchase') {
+                                    newPurchaseDeck.push(card.title);
+                                }
                             }
                         }
                     }
@@ -561,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!newWrestler) {
-                importStatus.textContent = 'Error: Wrestler not found or invalid.';
+                importStatus.textContent = 'Error: Wrestler not found or invalid in the decklist.';
                 importStatus.style.color = 'red';
                 return;
             }
@@ -575,5 +579,152 @@ document.addEventListener('DOMContentLoaded', () => {
             managerSelect.value = selectedManager ? selectedManager.title : "";
             renderDecks();
             renderPersonaDisplay();
-            renderCard
+            renderCardPool();
+
+            importStatus.textContent = 'Deck imported successfully!';
+            importStatus.style.color = 'green';
+
+            setTimeout(() => {
+                importModal.style.display = 'none';
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error parsing decklist:', error);
+            importStatus.textContent = `An unexpected error occurred: ${error.message}`;
+            importStatus.style.color = 'red';
+        }
+    }
+
+    function addEventListeners() {
+        searchInput.addEventListener('input', debounce(renderCardPool, 300));
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderCardPool();
+        });
+
+        showZeroCostCheckbox.addEventListener('change', (e) => {
+            showZeroCost = e.target.checked;
+            renderCardPool();
+        });
+        showNonZeroCostCheckbox.addEventListener('change', (e) => {
+            showNonZeroCost = e.target.checked;
+            renderCardPool();
+        });
+
+        gridSizeControls.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                numGridColumns = e.target.dataset.columns;
+                gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                renderCardPool();
+            }
+        });
+
+        searchResults.addEventListener('click', (e) => {
+            const target = e.target;
+            const cardTitle = target.dataset.title;
+            if (target.tagName === 'BUTTON' && cardTitle) {
+                addCardToDeck(cardTitle, target.dataset.deckTarget); 
+            } else {
+                const cardVisual = target.closest('[data-title]');
+                if (cardVisual) showCardModal(cardVisual.dataset.title);
+            }
+        });
+
+        [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
+            container.addEventListener('click', (e) => {
+                const target = e.target;
+                const cardTitle = target.dataset.title;
+                if (target.tagName === 'BUTTON' && cardTitle && target.dataset.deck) {
+                    removeCardFromDeck(cardTitle, target.dataset.deck);
+                } else if (target.closest('[data-title]')) {
+                    showCardModal(target.closest('[data-title]').dataset.title);
+                }
+            });
+        });
+
+        wrestlerSelect.addEventListener('change', (e) => {
+            selectedWrestler = cardDatabase.find(c => c.title === e.target.value) || null;
+            renderPersonaDisplay();
+            renderCardPool();
+            saveStateToCache();
+        });
+
+        managerSelect.addEventListener('change', (e) => {
+            selectedManager = cardDatabase.find(c => c.title === e.target.value) || null;
+            renderPersonaDisplay();
+            renderCardPool();
+            saveStateToCache();
+        });
+
+        viewModeToggle.addEventListener('click', () => {
+            currentViewMode = currentViewMode === 'list' ? 'grid' : 'list';
+            viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+            renderCardPool();
+        });
+
+        exportDeckBtn.addEventListener('click', exportDeck);
+        clearDeckBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear both decks and reset your persona?')) {
+                wrestlerSelect.value = "";
+                managerSelect.value = "";
+                selectedWrestler = null;
+                selectedManager = null;
+                localStorage.removeItem(CACHE_KEY);
+                renderDecks();
+                renderPersonaDisplay();
+                renderCardPool();
+            }
+        });
+
+        importDeckBtn.addEventListener('click', () => {
+            importModal.style.display = 'flex';
+            importStatus.textContent = '';
+            deckTextInput.value = '';
+            deckFileInput.value = '';
+        });
+
+        importModalCloseBtn.addEventListener('click', () => {
+            importModal.style.display = 'none';
+        });
+
+        processImportBtn.addEventListener('click', () => {
+            const text = deckTextInput.value;
+            if (text) {
+                parseAndLoadDeck(text);
+            } else if (deckFileInput.files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    parseAndLoadDeck(e.target.result);
+                };
+                reader.readAsText(deckFileInput.files[0]);
+            } else {
+                importStatus.textContent = 'Please paste a decklist or select a file.';
+                importStatus.style.color = 'orange';
+            }
+        });
+
+        modalCloseButton.addEventListener('click', () => {
+            cardModal.style.display = 'none';
+            if (lastFocusedElement) lastFocusedElement.focus();
+        });
+
+        cardModal.addEventListener('click', (e) => {
+            if (e.target === cardModal) {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && (cardModal.style.display === 'flex' || importModal.style.display === 'flex')) {
+                cardModal.style.display = 'none';
+                importModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+    }
+
+    loadGameData();
+});
 

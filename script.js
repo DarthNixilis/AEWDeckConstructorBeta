@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES ---
+    // --- DOM ELEMENT REFERENCES (Corrected to be assigned at the top) ---
     const searchInput = document.getElementById('searchInput');
     const cascadingFiltersContainer = document.getElementById('cascadingFiltersContainer');
     const searchResults = document.getElementById('searchResults');
@@ -19,8 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortSelect = document.getElementById('sortSelect');
     const showZeroCostCheckbox = document.getElementById('showZeroCost');
     const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
-    // This variable is declared here, but the element is assigned inside addEventListeners
-    let gridSizeControls; 
+    const gridSizeControls = document.getElementById('gridSizeControls');
 
     // --- STATE MANAGEMENT ---
     let cardDatabase = [];
@@ -55,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const state = JSON.parse(cachedState);
             startingDeck = state.startingDeck || [];
             purchaseDeck = state.purchaseDeck || [];
-            
             if (state.wrestler) {
                 const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === state.wrestler);
                 if (wrestlerExists) {
@@ -85,27 +83,24 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadGameData() {
         try {
             searchResults.innerHTML = '<p>Loading card data...</p>';
-            
             const [cardResponse, keywordResponse] = await Promise.all([
                 fetch(`./cardDatabase.txt?v=${new Date().getTime()}`),
                 fetch(`./keywords.txt?v=${new Date().getTime()}`)
             ]);
-            
             if (!cardResponse.ok) throw new Error(`Could not load cardDatabase.txt (Status: ${cardResponse.status})`);
             if (!keywordResponse.ok) throw new Error(`Could not load keywords.txt (Status: ${keywordResponse.status})`);
             
             const tsvData = await cardResponse.text();
             const cardLines = tsvData.trim().split(/\r?\n/);
             const cardHeaders = cardLines.shift().trim().split('\t').map(h => h.trim());
-            
             cardDatabase = cardLines.map(line => {
                 const values = line.split('\t');
                 const card = {};
                 cardHeaders.forEach((header, index) => {
                     const value = (values[index] || '').trim();
-                    if (value === 'null' || value === '') { card[header] = null; }
-                    else if (!isNaN(value) && value !== '') { card[header] = Number(value); }
-                    else { card[header] = value; }
+                    if (value === 'null' || value === '') card[header] = null;
+                    else if (!isNaN(value) && value !== '') card[header] = Number(value);
+                    else card[header] = value;
                 });
                 card.title = card['Card Name'];
                 card.card_type = card['Type'];
@@ -113,15 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.damage = card['Damage'] === 'N/a' ? null : card['Damage'];
                 card.momentum = card['Momentum'] === 'N/a' ? null : card['Momentum'];
                 card.text_box = { raw_text: card['Card Raw Game Text'] };
-                if (card.Keywords) {
-                    card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() })).filter(k => k.name);
-                } else { card.text_box.keywords = []; }
-                if (card.Traits) {
-                    card.text_box.traits = card.Traits.split(',').map(traitStr => {
-                        const [name, value] = traitStr.split(':');
-                        return { name: name.trim(), value: value ? value.trim() : undefined };
-                    }).filter(t => t.name);
-                } else { card.text_box.traits = []; }
+                if (card.Keywords) card.text_box.keywords = card.Keywords.split(',').map(name => ({ name: name.trim() })).filter(k => k.name);
+                else card.text_box.keywords = [];
+                if (card.Traits) card.text_box.traits = card.Traits.split(',').map(traitStr => {
+                    const [name, value] = traitStr.split(':');
+                    return { name: name.trim(), value: value ? value.trim() : undefined };
+                }).filter(t => t.name);
+                else card.text_box.traits = [];
                 return card;
             }).filter(card => card.title);
 
@@ -140,14 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initializeApp();
         } catch (error) {
             console.error("Fatal Error during data load:", error);
-            searchResults.innerHTML = `
-                <div style="color: red; padding: 20px; text-align: center;">
-                    <strong>FATAL ERROR:</strong> ${error.message}
-                    <br><br>
-                    <button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Retry Loading Data
-                    </button>
-                </div>`;
+            searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Retry Loading Data</button></div>`;
         }
     }
 
@@ -158,13 +144,13 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedManager = null;
         populatePersonaSelectors();
         loadStateFromCache();
+        addEventListeners(); // Call this BEFORE rendering anything
         viewModeToggle.textContent = currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         renderCascadingFilters();
         renderPersonaDisplay();
         renderDecks();
         renderCardPool();
         addDeckSearchFunctionality();
-        addEventListeners();
     }
 
     function populatePersonaSelectors() {
@@ -176,15 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
         managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
     }
 
-    function toPascalCase(str) {
-        if (!str) return '';
-        return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
-    }
-
-    function isKitCard(card) {
-        return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
-    }
-
+    function toPascalCase(str) { if (!str) return ''; return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(''); }
+    function isKitCard(card) { return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE'; }
     function isSignatureFor(card) {
         if (!card || !card['Signature For']) return false;
         const activePersonaTitles = [];
@@ -225,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             select.onchange = (e) => {
                 activeFilters[index] = { category: category, value: e.target.value };
                 for (let j = index + 1; j < 3; j++) activeFilters[j] = {};
-                renderCascadingFilters();
+                renderCascadingFilters(); // Re-render to update dependent filters
                 renderCardPool();
             };
             cascadingFiltersContainer.appendChild(select);
@@ -278,11 +257,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCardPool() {
         searchResults.innerHTML = '';
         searchResults.className = `card-list ${currentViewMode}-view`;
-        if (currentViewMode === 'grid') {
-            searchResults.setAttribute('data-columns', numGridColumns);
-        } else {
-            searchResults.removeAttribute('data-columns');
-        }
+        if (currentViewMode === 'grid') searchResults.setAttribute('data-columns', numGridColumns);
+        else searchResults.removeAttribute('data-columns');
+        
         const finalCards = getFilteredAndSortedCardPool();
         if (finalCards.length === 0) {
             searchResults.innerHTML = '<p>No cards match the current filters.</p>';
@@ -527,9 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addEventListeners() {
-        // THIS IS THE FIX: Assign the element to the variable
-        gridSizeControls = document.getElementById('gridSizeControls');
-
         searchInput.addEventListener('input', debounce(renderCardPool, 300));
         sortSelect.addEventListener('change', (e) => {
             currentSort = e.target.value;
@@ -614,5 +588,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         modalCloseButton.addEventListener('click', () => {
             cardModal.style.display = 'none';
-            if (lastFocused
+            if (lastFocusedElement) lastFocusedElement.focus();
+        });
+
+        cardModal.addEventListener('click', (e) => {
+            if (e.target === cardModal) {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && cardModal.style.display === 'flex') {
+                cardModal.style.display = 'none';
+                if (lastFocusedElement) lastFocusedElement.focus();
+            }
+        });
+    }
+
+    loadGameData();
+});
 

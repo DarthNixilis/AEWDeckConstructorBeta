@@ -21,9 +21,12 @@
             </div>
             <div class="filter-controls">
                 <input type="text" id="searchInput" placeholder="Search card name or text...">
+                
+                <!-- This container will now stack filters vertically -->
                 <div id="cascadingFiltersContainer"></div>
                 
-                <div class="sort-filter-container">
+                <!-- NEW: Wrapper for all view controls -->
+                <div class="view-controls-container">
                     <div class="sort-controls">
                         <label for="sortSelect">Sort by:</label>
                         <select id="sortSelect">
@@ -37,6 +40,15 @@
                             <option value="momentum-asc">Momentum (Low-High)</option>
                         </select>
                     </div>
+
+                    <!-- NEW: Grid Size Controls -->
+                    <div id="gridSizeControls" class="grid-size-controls">
+                        <label>Grid Columns:</label>
+                        <button data-columns="2">2</button>
+                        <button data-columns="3">3</button>
+                        <button data-columns="4" class="active">4</button>
+                    </div>
+
                     <div class="cost-filter-controls">
                         <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
                         <label><input type="checkbox" id="showNonZeroCost" checked> Show Non-0-Cost</label>

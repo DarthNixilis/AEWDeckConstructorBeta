@@ -6,6 +6,7 @@ import * as deck from './deck.js';
 import * as filters from './filters.js';
 
 // --- DOM ELEMENT REFERENCES ---
+// It's safer to declare these here to ensure they are always available.
 const searchInput = document.getElementById('searchInput');
 const exportDeckBtn = document.getElementById('exportDeck');
 const clearDeckBtn = document.getElementById('clearDeck');
@@ -96,13 +97,18 @@ function initializeApp() {
     setupEventListeners();
     addDeckSearchFunctionality();
     
+    // Set default UI states FIRST
     viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
     gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
     gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`).classList.add('active');
 
+    // Reset and Populate Persona Selectors
     populatePersonaSelectors();
+    
+    // NOW, attempt to load from cache
     loadStateFromCache(); 
     
+    // Finally, render everything based on the final state
     filters.renderCascadingFilters();
     ui.renderDecks();
     ui.renderPersonaDisplay();
@@ -112,6 +118,8 @@ function initializeApp() {
 function populatePersonaSelectors() {
     wrestlerSelect.value = "";
     managerSelect.value = "";
+    state.setSelectedWrestler(null);
+    state.setSelectedManager(null);
     wrestlerSelect.length = 1;
     managerSelect.length = 1;
     const wrestlers = state.cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
@@ -298,3 +306,4 @@ function setupEventListeners() {
 
 // --- START THE APP ---
 loadGameData();
+

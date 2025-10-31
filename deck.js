@@ -114,7 +114,6 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    // THIS IS THE FIX: Gather ALL cards for printing, including Persona and Kit.
     const personaCards = [];
     const activePersonaTitles = [];
     if (state.selectedWrestler) {
@@ -126,20 +125,10 @@ export async function exportDeckAsImage() {
         activePersonaTitles.push(state.selectedManager.title);
     }
     const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    
     const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);
-    
-    // Combine all cards into one list
-    const allCardsToPrint = [
-        ...personaCards,
-        ...kitCards,
-        ...mainDeckCards
-    ].filter(card => card !== undefined);
-
-    // Remove duplicates for printing (e.g. if a kit card was somehow also in the deck)
+    const allCardsToPrint = [...personaCards, ...kitCards, ...mainDeckCards].filter(card => card !== undefined);
     const uniqueCardsToPrint = [...new Map(allCardsToPrint.map(card => [card.title, card])).values()];
 
-    // Sort the cards for a clean print layout
     uniqueCardsToPrint.sort((a, b) => {
         const getSortOrder = (card) => {
             if (card.card_type === 'Wrestler') return 1;
@@ -150,7 +139,7 @@ export async function exportDeckAsImage() {
         const orderA = getSortOrder(a);
         const orderB = getSortOrder(b);
         if (orderA !== orderB) return orderA - orderB;
-        return a.title.localeCompare(b.title); // Alphabetical sort within each group
+        return a.title.localeCompare(b.title);
     });
 
     if (uniqueCardsToPrint.length === 0) {
@@ -249,20 +238,12 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
+// --- THIS IS THE FIX: A new unified HTML generator for ALL card types ---
 async function generatePlaytestCardHTML(card, tempContainer) {
+    const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
     const reminderFontSize = '0.75em';
-
-    // Persona cards don't have game text, keywords, or traits in the same way
-    if (card.card_type === 'Wrestler' || card.card_type === 'Manager') {
-        return `
-            <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: black; font-family: Arial, sans-serif;">
-                <div style="font-size: 80px; font-weight: 900; text-align: center;">${card.title}</div>
-                <div style="font-size: 60px; font-weight: bold; color: #6c757d; margin-top: 20px;">${card.card_type}</div>
-            </div>
-        `;
-    }
 
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
@@ -292,21 +273,25 @@ async function generatePlaytestCardHTML(card, tempContainer) {
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
 
+    // Conditionally create parts of the card that might not exist
+    const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>'; // Placeholder for alignment
+    const typeLineHTML = !isPersona ? `<div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>` : `<div style="text-align: center; font-size: 52px; font-weight: bold; color: #6c757d; margin-bottom: 15px;">${card.card_type}</div>`;
+
     return `
         <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px; gap: 15px;">
-                <div style="font-size: 50px; font-weight: bold; line-height: 1.2; flex-shrink: 0;">
-                    <span>D: ${card.damage ?? '–'}</span><br>
+                <div style="font-size: 50px; font-weight: bold; line-height: 1.2; flex-shrink: 0; min-width: 120px;">
+                    ${!isPersona ? `<span>D: ${card.damage ?? '–'}</span><br>` : ''}
                     <span>M: ${card.momentum ?? '–'}</span>
                     ${targetValue ? `<br><span>T: ${targetValue}</span>` : ''}
                 </div>
                 ${titleHTML}
-                <div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>
+                ${costHTML}
             </div>
             
             <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             
-            <div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>
+            ${typeLineHTML}
             
             <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
                 <p style="margin-top: 0;">${formattedRawText}</p>

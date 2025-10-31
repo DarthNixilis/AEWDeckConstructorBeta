@@ -114,42 +114,38 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    const personaCards = [];
+    // --- BUGFIX #2: Correctly gather all cards, preserving quantities ---
+    const uniquePersonaAndKit = [];
     const activePersonaTitles = [];
     if (state.selectedWrestler) {
-        personaCards.push(state.selectedWrestler);
+        uniquePersonaAndKit.push(state.selectedWrestler);
         activePersonaTitles.push(state.selectedWrestler.title);
     }
     if (state.selectedManager) {
-        personaCards.push(state.selectedManager);
+        uniquePersonaAndKit.push(state.selectedManager);
         activePersonaTitles.push(state.selectedManager.title);
     }
     const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    uniquePersonaAndKit.push(...kitCards);
+    
+    // Create a truly unique list of these cards to avoid printing a Wrestler twice
+    const finalUniquePersonaAndKit = [...new Map(uniquePersonaAndKit.map(card => [card.title, card])).values()];
+
+    // Get the full, non-unique list of all cards from the decks
     const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);
-    const allCardsToPrint = [...personaCards, ...kitCards, ...mainDeckCards].filter(card => card !== undefined);
-    const uniqueCardsToPrint = [...new Map(allCardsToPrint.map(card => [card.title, card])).values()];
 
-    uniqueCardsToPrint.sort((a, b) => {
-        const getSortOrder = (card) => {
-            if (card.card_type === 'Wrestler') return 1;
-            if (card.card_type === 'Manager') return 2;
-            if (state.isKitCard(card)) return 3;
-            return 4;
-        };
-        const orderA = getSortOrder(a);
-        const orderB = getSortOrder(b);
-        if (orderA !== orderB) return orderA - orderB;
-        return a.title.localeCompare(b.title);
-    });
+    // Combine the unique persona/kit cards with the full deck list
+    const allCardsToPrint = [...finalUniquePersonaAndKit, ...mainDeckCards].filter(card => card !== undefined);
+    // --- END BUGFIX #2 ---
 
-    if (uniqueCardsToPrint.length === 0) {
+    if (allCardsToPrint.length === 0) {
         alert("There are no cards in the deck to export.");
         return;
     }
 
     const CARDS_PER_PAGE = 9;
-    const numPages = Math.ceil(uniqueCardsToPrint.length / CARDS_PER_PAGE);
-    if (!confirm(`This will generate ${numPages} print sheet(s) for ${uniqueCardsToPrint.length} unique cards (including Persona and Kit). This may take a moment. Continue?`)) {
+    const numPages = Math.ceil(allCardsToPrint.length / CARDS_PER_PAGE);
+    if (!confirm(`This will generate ${numPages} print sheet(s) for ${allCardsToPrint.length} total cards (including Persona, Kit, and all copies). This may take a moment. Continue?`)) {
         return;
     }
 
@@ -173,7 +169,7 @@ export async function exportDeckAsImage() {
 
         const startIndex = page * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
-        const cardsOnThisPage = uniqueCardsToPrint.slice(startIndex, endIndex);
+        const cardsOnThisPage = allCardsToPrint.slice(startIndex, endIndex);
 
         for (let i = 0; i < cardsOnThisPage.length; i++) {
             const card = cardsOnThisPage[i];
@@ -261,17 +257,37 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
     let rawText = card.text_box?.raw_text || '';
-    
-    // THIS IS THE FIX: The new regex ignores keywords that are preceded by a single quote.
-    const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Tie-Up Enters', 'Ready Enters'];
-    // The (?<!') is a "negative lookbehind". It ensures the matched keyword is NOT preceded by a single quote.
-    const regex = new RegExp(`(?<!')\\b(${abilityKeywords.join('|')})\\b`, 'g');
-    // We also need to make sure we don't add a break if the keyword is the very first thing in the text.
-    const formattedRawText = rawText.replace(regex, (match, p1, offset) => {
-        return offset === 0 ? match : '<br><br>' + match;
+    const quotes = [];
+    rawText = rawText.replace(/'[^']*'/g, (match) => {
+        quotes.push(match);
+        return `__QUOTE_${quotes.length - 1}__`;
     });
 
-    const fullText = formattedRawText + reminderBlock;
+    // --- BUGFIX #1: Smarter line breaking ---
+    const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Recovery Action', 'Tie-Up Enters', 'Ready Enters'];
+    // This list prevents breaks like "Chris Jericho Enters..."
+    const personaExceptions = ['Chris Jericho']; 
+    const regex = new RegExp(`\\b(${abilityKeywords.join('|')})\\b`, 'g');
+    
+    let formattedText = rawText.replace(regex, (match, p1, offset) => {
+        // Find the word right before the match
+        const precedingText = rawText.substring(0, offset);
+        const lastWord = precedingText.trim().split(/\s+/).pop();
+        
+        // If the keyword is at the start, or the preceding word is not a persona name, add a break.
+        if (offset === 0 || !personaExceptions.includes(lastWord)) {
+            return '<br><br>' + match;
+        }
+        // Otherwise, it's a persona ability, so don't add a break.
+        return match;
+    });
+    // --- END BUGFIX #1 ---
+
+    formattedText = formattedText.replace(/__QUOTE_(\d+)__/g, (match, index) => {
+        return quotes[parseInt(index, 10)];
+    });
+
+    const fullText = formattedText + reminderBlock;
     let textBoxFontSize = 42;
     if (fullText.length > 250) { textBoxFontSize = 34; } 
     else if (fullText.length > 180) { textBoxFontSize = 38; }
@@ -298,7 +314,7 @@ async function generatePlaytestCardHTML(card, tempContainer) {
             ${typeLineHTML}
             
             <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
-                <p style="margin-top: 0;">${formattedRawText}</p>
+                <p style="margin-top: 0;">${formattedText}</p>
                 ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
             </div>
         </div>

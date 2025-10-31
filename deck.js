@@ -114,7 +114,6 @@ export function parseAndLoadDeck(text) {
 
 // --- IMAGE EXPORT LOGIC ---
 export async function exportDeckAsImage() {
-    // --- BUGFIX #2: Correctly gather all cards, preserving quantities ---
     const uniquePersonaAndKit = [];
     const activePersonaTitles = [];
     if (state.selectedWrestler) {
@@ -127,16 +126,9 @@ export async function exportDeckAsImage() {
     }
     const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
     uniquePersonaAndKit.push(...kitCards);
-    
-    // Create a truly unique list of these cards to avoid printing a Wrestler twice
     const finalUniquePersonaAndKit = [...new Map(uniquePersonaAndKit.map(card => [card.title, card])).values()];
-
-    // Get the full, non-unique list of all cards from the decks
     const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);
-
-    // Combine the unique persona/kit cards with the full deck list
     const allCardsToPrint = [...finalUniquePersonaAndKit, ...mainDeckCards].filter(card => card !== undefined);
-    // --- END BUGFIX #2 ---
 
     if (allCardsToPrint.length === 0) {
         alert("There are no cards in the deck to export.");
@@ -234,6 +226,7 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
+// --- FINAL, "DUMB BUT IT WORKS" HTML GENERATOR ---
 async function generatePlaytestCardHTML(card, tempContainer) {
     const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
@@ -256,36 +249,57 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
+    // --- NEW BRUTE-FORCE FORMATTING LOGIC ---
     let rawText = card.text_box?.raw_text || '';
-    const quotes = [];
-    rawText = rawText.replace(/'[^']*'/g, (match) => {
-        quotes.push(match);
-        return `__QUOTE_${quotes.length - 1}__`;
-    });
-
-    // --- BUGFIX #1: Smarter line breaking ---
     const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Recovery Action', 'Tie-Up Enters', 'Ready Enters'];
-    // This list prevents breaks like "Chris Jericho Enters..."
-    const personaExceptions = ['Chris Jericho']; 
-    const regex = new RegExp(`\\b(${abilityKeywords.join('|')})\\b`, 'g');
-    
-    let formattedText = rawText.replace(regex, (match, p1, offset) => {
-        // Find the word right before the match
-        const precedingText = rawText.substring(0, offset);
-        const lastWord = precedingText.trim().split(/\s+/).pop();
-        
-        // If the keyword is at the start, or the preceding word is not a persona name, add a break.
-        if (offset === 0 || !personaExceptions.includes(lastWord)) {
-            return '<br><br>' + match;
-        }
-        // Otherwise, it's a persona ability, so don't add a break.
-        return match;
-    });
-    // --- END BUGFIX #1 ---
+    const personaExceptions = ['Chris Jericho'];
+    const delimiter = '|||';
 
-    formattedText = formattedText.replace(/__QUOTE_(\d+)__/g, (match, index) => {
-        return quotes[parseInt(index, 10)];
+    // Temporarily replace keywords with a unique delimiter
+    let tempText = rawText;
+    abilityKeywords.forEach(kw => {
+        // Use a regex that matches the keyword at the beginning of a string or with a space before it
+        const regex = new RegExp(`(^|\\s)(${kw})`, 'g');
+        tempText = tempText.replace(regex, `$1${delimiter}${kw}`);
     });
+
+    // Split the text by the delimiter
+    let lines = tempText.split(delimiter).map(line => line.trim()).filter(line => line);
+
+    // Manually handle exceptions
+    const finalLines = [];
+    for (let i = 0; i < lines.length; i++) {
+        let currentLine = lines[i];
+        // Check if the current line starts with a keyword that follows a persona name
+        let isException = false;
+        if (finalLines.length > 0) {
+            const previousLine = finalLines[finalLines.length - 1];
+            for (const persona of personaExceptions) {
+                if (previousLine.endsWith(persona) && abilityKeywords.some(kw => currentLine.startsWith(kw))) {
+                    isException = true;
+                    break;
+                }
+            }
+        }
+        
+        // Also check for the quoted text case (Marina Shafir)
+        if (finalLines.length > 0) {
+             const previousLine = finalLines[finalLines.length - 1];
+             if (previousLine.includes("gains '") && abilityKeywords.some(kw => currentLine.startsWith(kw))) {
+                 isException = true;
+             }
+        }
+
+        if (isException) {
+            // Merge this line with the previous one
+            finalLines[finalLines.length - 1] += ` ${currentLine}`;
+        } else {
+            finalLines.push(currentLine);
+        }
+    }
+    
+    const formattedText = finalLines.join('<br><br>');
+    // --- END OF NEW LOGIC ---
 
     const fullText = formattedText + reminderBlock;
     let textBoxFontSize = 42;

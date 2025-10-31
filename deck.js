@@ -238,7 +238,6 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
-// --- THIS IS THE FIX: A new unified HTML generator for ALL card types ---
 async function generatePlaytestCardHTML(card, tempContainer) {
     const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
@@ -262,9 +261,15 @@ async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
     let rawText = card.text_box?.raw_text || '';
-    const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Enters', 'Ready Enters'];
-    const regex = new RegExp(`(?!^)\\b(${abilityKeywords.join('|')})\\b`, 'g');
-    const formattedRawText = rawText.replace(regex, '<br><br>$1');
+    
+    // THIS IS THE FIX: The new regex ignores keywords that are preceded by a single quote.
+    const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Tie-Up Enters', 'Ready Enters'];
+    // The (?<!') is a "negative lookbehind". It ensures the matched keyword is NOT preceded by a single quote.
+    const regex = new RegExp(`(?<!')\\b(${abilityKeywords.join('|')})\\b`, 'g');
+    // We also need to make sure we don't add a break if the keyword is the very first thing in the text.
+    const formattedRawText = rawText.replace(regex, (match, p1, offset) => {
+        return offset === 0 ? match : '<br><br>' + match;
+    });
 
     const fullText = formattedRawText + reminderBlock;
     let textBoxFontSize = 42;
@@ -273,8 +278,7 @@ async function generatePlaytestCardHTML(card, tempContainer) {
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
 
-    // Conditionally create parts of the card that might not exist
-    const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>'; // Placeholder for alignment
+    const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>';
     const typeLineHTML = !isPersona ? `<div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>` : `<div style="text-align: center; font-size: 52px; font-weight: bold; color: #6c757d; margin-bottom: 15px;">${card.card_type}</div>`;
 
     return `

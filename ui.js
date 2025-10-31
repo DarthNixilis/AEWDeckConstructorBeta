@@ -1,7 +1,7 @@
 // ui.js
 
 import * as state from './config.js';
-import { toPascalCase } from './config.js'; // Import toPascalCase
+import { generateCardVisualHTML } from './card-renderer.js'; // UPDATED IMPORT
 
 // --- DOM REFERENCES ---
 const searchResults = document.getElementById('searchResults');
@@ -51,38 +51,6 @@ export function renderCardPool(cards) {
         }
         searchResults.appendChild(cardElement);
     });
-}
-
-export function generateCardVisualHTML(card) {
-    const imageName = toPascalCase(card.title);
-    const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
-    const keywords = card.text_box?.keywords || [];
-    const traits = card.text_box?.traits || [];
-    let keywordsText = keywords.map(kw => `<strong>${kw.name.trim()}:</strong> ${state.keywordDatabase[kw.name.trim()] || 'Definition not found.'}`).join('<br>');
-    let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>${tr.value ? `: ${tr.value}` : ''}`).join('<br>');
-    const targetTrait = traits.find(t => t.name.trim() === 'Target');
-    const targetValue = targetTrait ? targetTrait.value : null;
-    const typeClass = `type-${card.card_type.toLowerCase()}`;
-    const placeholderHTML = `
-        <div class="placeholder-card">
-            <div class="placeholder-header"><span>${card.title}</span></div>
-            <div class="placeholder-stats-line">
-                <div class="stats-left">
-                    <span>D: ${card.damage ?? 'N/A'}</span>
-                    <span>M: ${card.momentum ?? 'N/A'}</span>
-                    ${targetValue ? `<span>T: ${targetValue}</span>` : ''}
-                </div>
-                <div class="cost-right"><span>C: ${card.cost ?? 'N/A'}</span></div>
-            </div>
-            <div class="placeholder-art-area"><span>Art Missing</span></div>
-            <div class="placeholder-type-line ${typeClass}"><span>${card.card_type}</span></div>
-            <div class="placeholder-text-box">
-                <p>${card.text_box?.raw_text || ''}</p>
-                ${keywordsText ? `<hr><p>${keywordsText}</p>` : ''}
-                ${traitsText ? `<hr><p>${traitsText}</p>` : ''}
-            </div>
-        </div>`;
-    return `<img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
 }
 
 export function renderPersonaDisplay() {

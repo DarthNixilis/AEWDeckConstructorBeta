@@ -1,8 +1,8 @@
 // listeners/listeners-deck.js
-import * as state from '../config.js';
-import * as ui from '../ui.js';
-import * as deck from '../deck.js';
-import { generatePlainTextDeck, exportDeckAsImage } from '../import-export/deck-exporter.js';
+import * as state from './config.js'; // CORRECTED PATH
+import * as ui from './ui.js'; // CORRECTED PATH
+import * as deck from './deck.js'; // CORRECTED PATH
+import { generatePlainTextDeck, exportDeckAsImage } from './import-export/deck-exporter.js'; // CORRECTED PATH
 
 export function initializeDeckListeners(refreshCardPool) {
     const wrestlerSelect = document.getElementById('wrestlerSelect');
@@ -66,3 +66,4 @@ export function initializeDeckListeners(refreshCardPool) {
 
     exportAsImageBtn.addEventListener('click', exportDeckAsImage);
 }
+

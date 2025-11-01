@@ -8,3 +8,4 @@ export function initializeAllEventListeners(refreshCardPool) {
     initializeDeckListeners(refreshCardPool);
     initializeModalListeners();
 }
+

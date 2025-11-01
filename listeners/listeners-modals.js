@@ -1,6 +1,6 @@
 // listeners/listeners-modals.js
-import * as state from '../config.js';
-import { parseAndLoadDeck } from '../import-export/deck-importer.js';
+import * as state from './config.js'; // CORRECTED PATH
+import { parseAndLoadDeck } from './import-export/deck-importer.js'; // CORRECTED PATH
 
 export function initializeModalListeners() {
     const importDeckBtn = document.getElementById('importDeck');
@@ -58,3 +58,4 @@ export function initializeModalListeners() {
         }
     });
 }
+

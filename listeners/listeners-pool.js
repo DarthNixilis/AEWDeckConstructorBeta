@@ -1,7 +1,7 @@
 // listeners/listeners-pool.js
-import * as state from '../config.js';
-import * as ui from '../ui.js';
-import * as deck from '../deck.js';
+import * as state from './config.js'; // CORRECTED PATH
+import * as ui from './ui.js'; // CORRECTED PATH
+import * as deck from './deck.js'; // CORRECTED PATH
 
 export function initializePoolListeners(refreshCardPool) {
     const searchInput = document.getElementById('searchInput');
@@ -57,3 +57,4 @@ export function initializePoolListeners(refreshCardPool) {
         }
     });
 }
+

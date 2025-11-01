@@ -2,7 +2,7 @@
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as filters from './filters.js';
-import { initializeAllEventListeners } from './listeners/listeners-main.js';
+import { initializeAllEventListeners } from './listeners.js'; // Corrected path
 
 export function initializeApp() {
     populatePersonaSelectors();

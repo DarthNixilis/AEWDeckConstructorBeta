@@ -1,6 +1,6 @@
 // import-export/deck-importer.js
-import * as state from '../config.js';
-import { renderDecks, renderPersonaDisplay } from '../ui.js';
+import * as state from './config.js'; // CORRECTED PATH
+import { renderDecks, renderPersonaDisplay } from './ui.js'; // CORRECTED PATH
 
 export function parseAndLoadDeck(text) {
     const importStatus = document.getElementById('importStatus');

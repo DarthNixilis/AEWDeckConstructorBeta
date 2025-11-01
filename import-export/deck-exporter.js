@@ -1,7 +1,7 @@
 // import-export/deck-exporter.js
-import * as state from '../config.js';
-import { generatePlaytestCardHTML } from '../card-renderer.js';
-import { toPascalCase } from '../config.js';
+import * as state from './config.js'; // CORRECTED PATH
+import { generatePlaytestCardHTML } from './card-renderer.js'; // CORRECTED PATH
+import { toPascalCase } from './config.js'; // CORRECTED PATH
 
 export function generatePlainTextDeck() {
     const activePersonaTitles = [];
@@ -99,3 +99,4 @@ export async function exportDeckAsImage() {
     document.body.removeChild(tempContainer);
     alert('All print sheets have been generated and downloaded!');
 }
+

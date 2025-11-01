@@ -109,7 +109,7 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const typeLineHTML = !isPersona ? `<div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>` : `<div style="text-align: center; font-size: 52px; font-weight: bold; color: #6c757d; margin-bottom: 15px;">${card.card_type}</div>`;
 
     return `
-        <div style="background-color: white; border: 10px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
+        <div style="background-color: white; border: 15px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid black; padding-bottom: 15px; margin-bottom: 15px; gap: 15px;">
                 <div style="font-size: 50px; font-weight: bold; line-height: 1.2; flex-shrink: 0; min-width: 120px;">
                     ${!isPersona ? `<span>D: ${card.damage ?? '–'}</span><br>` : ''}

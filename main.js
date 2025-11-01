@@ -3,35 +3,10 @@
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as filters from './filters.js';
-import * as deckState from './deck-state.js'; // NEW
-import * as deckActions from './deck-actions.js'; // NEW
+import { initializeEventListeners } from './listeners.js';
 
-// --- DOM ELEMENT REFERENCES ---
-const searchInput = document.getElementById('searchInput');
-const exportDeckBtn = document.getElementById('exportDeck');
-const clearDeckBtn = document.getElementById('clearDeck');
-const wrestlerSelect = document.getElementById('wrestlerSelect');
-const managerSelect = document.getElementById('managerSelect');
-const viewModeToggle = document.getElementById('viewModeToggle');
-const sortSelect = document.getElementById('sortSelect');
-const showZeroCostCheckbox = document.getElementById('showZeroCost');
-const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
-const gridSizeControls = document.getElementById('gridSizeControls');
-const importDeckBtn = document.getElementById('importDeck');
-const importModal = document.getElementById('importModal');
-const importModalCloseBtn = importModal.querySelector('.modal-close-button');
-const deckFileInput = document.getElementById('deckFileInput');
-const deckTextInput = document.getElementById('deckTextInput');
-const processImportBtn = document.getElementById('processImportBtn');
-const searchResults = document.getElementById('searchResults');
-const cardModal = document.getElementById('cardModal');
-const modalCloseButton = cardModal.querySelector('.modal-close-button');
-const startingDeckList = document.getElementById('startingDeckList');
-const purchaseDeckList = document.getElementById('purchaseDeckList');
-const exportAsImageBtn = document.getElementById('exportAsImageBtn');
-
-// --- DATA LOADING ---
 async function loadGameData() {
+    const searchResults = document.getElementById('searchResults');
     try {
         searchResults.innerHTML = '<p>Loading card data...</p>';
         const cardDbUrl = `./cardDatabase.txt?v=${new Date().getTime()}`;
@@ -88,7 +63,7 @@ async function loadGameData() {
         });
         state.setKeywordDatabase(parsedKeywords);
         
-        state.buildCardTitleCache(); // Build the cache after loading
+        state.buildCardTitleCache();
         initializeApp();
 
     } catch (error) {
@@ -97,72 +72,31 @@ async function loadGameData() {
     }
 }
 
-// --- INITIALIZATION & EVENT LISTENERS ---
 function initializeApp() {
-    setupEventListeners();
-    addDeckSearchFunctionality();
-    
-    viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-    gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-    const activeGridButton = gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`);
-    if (activeGridButton) activeGridButton.classList.add('active');
+    const wrestlerSelect = document.getElementById('wrestlerSelect');
+    const managerSelect = document.getElementById('managerSelect');
+    const gridSizeControls = document.getElementById('gridSizeControls');
+    const viewModeToggle = document.getElementById('viewModeToggle');
+    const startingDeckList = document.getElementById('startingDeckList');
+    const purchaseDeckList = document.getElementById('purchaseDeckList');
 
-    populatePersonaSelectors();
-    loadStateFromCache(); 
-    
-    filters.renderCascadingFilters();
-    ui.renderDecks();
-    ui.renderPersonaDisplay();
-    refreshCardPool();
-}
-
-function populatePersonaSelectors() {
-    wrestlerSelect.value = "";
-    managerSelect.value = "";
-    state.setSelectedWrestler(null);
-    state.setSelectedManager(null);
+    // Populate dropdowns
     wrestlerSelect.length = 1;
     managerSelect.length = 1;
     const wrestlers = state.cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
     const managers = state.cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
-}
 
-function loadStateFromCache() {
-    const cachedState = localStorage.getItem(state.CACHE_KEY);
-    if (cachedState) {
-        try {
-            const parsed = JSON.parse(cachedState);
-            state.setStartingDeck(parsed.startingDeck || []);
-            state.setPurchaseDeck(parsed.purchaseDeck || []);
-            if (parsed.wrestler) {
-                const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === parsed.wrestler);
-                if (wrestlerExists) {
-                    wrestlerSelect.value = parsed.wrestler;
-                    state.setSelectedWrestler(state.cardDatabase.find(c => c.title === parsed.wrestler));
-                }
-            }
-            if (parsed.manager) {
-                const managerExists = Array.from(managerSelect.options).some(opt => opt.value === parsed.manager);
-                if (managerExists) {
-                    managerSelect.value = parsed.manager;
-                    state.setSelectedManager(state.cardDatabase.find(c => c.title === parsed.manager));
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load from cache:", e);
-            localStorage.removeItem(state.CACHE_KEY); // Clear corrupted cache
-        }
-    }
-}
-
-function refreshCardPool() {
-    const finalCards = filters.getFilteredAndSortedCardPool();
-    ui.renderCardPool(finalCards);
-}
-
-function addDeckSearchFunctionality() {
+    // Load state from cache
+    loadStateFromCache();
+    
+    // Initial UI setup
+    viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+    const activeGridButton = gridSizeControls.querySelector(`[data-columns="${state.numGridColumns}"]`);
+    if (activeGridButton) activeGridButton.classList.add('active');
+    
+    // Add deck search inputs
     const startingDeckSearch = document.createElement('input');
     startingDeckSearch.type = 'text';
     startingDeckSearch.placeholder = 'Search starting deck...';
@@ -177,133 +111,52 @@ function addDeckSearchFunctionality() {
     
     startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
     purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
+
+    // Render initial state
+    filters.renderCascadingFilters();
+    ui.renderDecks();
+    ui.renderPersonaDisplay();
+    
+    // Initialize all event listeners
+    initializeEventListeners(refreshCardPool);
+    
+    // Trigger initial card pool render
+    refreshCardPool();
 }
 
-function setupEventListeners() {
-    document.addEventListener('filtersChanged', refreshCardPool);
-    searchInput.addEventListener('input', state.debounce(refreshCardPool, 300));
-    sortSelect.addEventListener('change', (e) => {
-        state.setCurrentSort(e.target.value);
-        refreshCardPool();
-    });
-    showZeroCostCheckbox.addEventListener('change', (e) => {
-        state.setShowZeroCost(e.target.checked);
-        refreshCardPool();
-    });
-    showNonZeroCostCheckbox.addEventListener('change', (e) => {
-        state.setShowNonZeroCost(e.target.checked);
-        refreshCardPool();
-    });
-    gridSizeControls.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            state.setNumGridColumns(e.target.dataset.columns);
-            gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            refreshCardPool();
+function loadStateFromCache() {
+    const cachedState = localStorage.getItem(state.CACHE_KEY);
+    if (cachedState) {
+        try {
+            const parsed = JSON.parse(cachedState);
+            state.setStartingDeck(parsed.startingDeck || []);
+            state.setPurchaseDeck(parsed.purchaseDeck || []);
+            if (parsed.wrestler) {
+                const wrestlerSelect = document.getElementById('wrestlerSelect');
+                const wrestlerExists = Array.from(wrestlerSelect.options).some(opt => opt.value === parsed.wrestler);
+                if (wrestlerExists) {
+                    wrestlerSelect.value = parsed.wrestler;
+                    state.setSelectedWrestler(state.cardDatabase.find(c => c.title === parsed.wrestler));
+                }
+            }
+            if (parsed.manager) {
+                const managerSelect = document.getElementById('managerSelect');
+                const managerExists = Array.from(managerSelect.options).some(opt => opt.value === parsed.manager);
+                if (managerExists) {
+                    managerSelect.value = parsed.manager;
+                    state.setSelectedManager(state.cardDatabase.find(c => c.title === parsed.manager));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load from cache:", e);
+            localStorage.removeItem(state.CACHE_KEY);
         }
-    });
+    }
+}
 
-    searchResults.addEventListener('click', (e) => {
-        const target = e.target;
-        const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
-        if (!cardTitle) return;
-        if (target.tagName === 'BUTTON') deckState.addCardToDeck(cardTitle, target.dataset.deckTarget);
-        else ui.showCardModal(cardTitle);
-    });
-
-    [startingDeckList, purchaseDeckList, document.getElementById('personaDisplay')].forEach(container => {
-        container.addEventListener('click', (e) => {
-            const target = e.target;
-            const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
-            if (!cardTitle) return;
-            if (target.tagName === 'BUTTON' && target.dataset.deck) deckState.removeCardFromDeck(cardTitle, target.dataset.deck);
-            else ui.showCardModal(cardTitle);
-        });
-    });
-
-    wrestlerSelect.addEventListener('change', (e) => {
-        const newWrestler = state.cardDatabase.find(c => c.title === e.target.value) || null;
-        state.setSelectedWrestler(newWrestler);
-        ui.renderPersonaDisplay();
-        refreshCardPool();
-        state.saveStateToCache();
-    });
-    managerSelect.addEventListener('change', (e) => {
-        const newManager = state.cardDatabase.find(c => c.title === e.target.value) || null;
-        state.setSelectedManager(newManager);
-        ui.renderPersonaDisplay();
-        refreshCardPool();
-        state.saveStateToCache();
-    });
-
-    viewModeToggle.addEventListener('click', () => {
-        const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
-        state.setCurrentViewMode(newMode);
-        viewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        refreshCardPool();
-    });
-
-    clearDeckBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the entire deck?')) {
-            state.setStartingDeck([]);
-            state.setPurchaseDeck([]);
-            ui.renderDecks();
-        }
-    });
-
-    exportDeckBtn.addEventListener('click', () => {
-        const text = deckActions.generatePlainTextDeck();
-        const blob = new Blob([text], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
-        a.download = `${wrestlerName}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-    });
-
-    exportAsImageBtn.addEventListener('click', deckActions.exportDeckAsImage);
-
-    importDeckBtn.addEventListener('click', () => {
-        importModal.style.display = 'flex';
-        document.getElementById('importStatus').textContent = '';
-        deckTextInput.value = '';
-        deckFileInput.value = '';
-    });
-    importModalCloseBtn.addEventListener('click', () => importModal.style.display = 'none');
-    processImportBtn.addEventListener('click', () => {
-        if (deckTextInput.value) {
-            deckActions.parseAndLoadDeck(deckTextInput.value);
-        }
-    });
-    deckFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                deckActions.parseAndLoadDeck(event.target.result);
-            };
-            reader.readAsText(file);
-        }
-    });
-
-    modalCloseButton.addEventListener('click', () => cardModal.style.display = 'none');
-    cardModal.addEventListener('click', (e) => {
-        if (e.target === cardModal) cardModal.style.display = 'none';
-    });
-    importModal.addEventListener('click', (e) => {
-        if (e.target === importModal) importModal.style.display = 'none';
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && (cardModal.style.display === 'flex' || importModal.style.display === 'flex')) {
-            cardModal.style.display = 'none';
-            importModal.style.display = 'none';
-            if (state.lastFocusedElement) state.lastFocusedElement.focus();
-        }
-    });
+function refreshCardPool() {
+    const finalCards = filters.getFilteredAndSortedCardPool();
+    ui.renderCardPool(finalCards);
 }
 
 // --- START THE APP ---

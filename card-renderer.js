@@ -3,10 +3,30 @@
 import * as state from './config.js';
 import { toPascalCase } from './config.js';
 
-// --- PRIVATE: Renders the small placeholder visual for the grid view ---
-function generateCardPlaceholderHTML(card) {
+function getFittedTitleHTML(title, container) {
+    let fontSize = 64;
+    const MAX_WIDTH = 400;
+    const MIN_FONT_SIZE = 32;
+    const ruler = document.createElement('span');
+    ruler.style.visibility = 'hidden';
+    ruler.style.position = 'absolute';
+    ruler.style.whiteSpace = 'nowrap';
+    ruler.style.fontWeight = '900';
+    ruler.style.fontFamily = 'Arial, sans-serif';
+    ruler.textContent = title;
+    container.appendChild(ruler);
+    while (fontSize > MIN_FONT_SIZE) {
+        ruler.style.fontSize = `${fontSize}px`;
+        if (ruler.offsetWidth <= MAX_WIDTH) break;
+        fontSize -= 2;
+    }
+    container.removeChild(ruler);
+    return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
+}
+
+export function generateCardVisualHTML(card) {
     const imageName = toPascalCase(card.title);
-    const imagePath = `card-images/${imageName}.png?v=${new Date().getTime()}`;
+    const imagePath = `./card-images/${imageName}.png`;
     const typeClass = `type-${card.card_type.toLowerCase()}`;
     const targetTrait = card.text_box?.traits?.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
@@ -31,34 +51,6 @@ function generateCardPlaceholderHTML(card) {
     return `<img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
 }
 
-// --- PUBLIC: Used by ui.js to render cards in the main card pool ---
-export function generateCardVisualHTML(card) {
-    return generateCardPlaceholderHTML(card);
-}
-
-// --- PRIVATE: Helper for fitting titles on playtest cards ---
-function getFittedTitleHTML(title, container) {
-    let fontSize = 64;
-    const MAX_WIDTH = 400;
-    const MIN_FONT_SIZE = 32;
-    const ruler = document.createElement('span');
-    ruler.style.visibility = 'hidden';
-    ruler.style.position = 'absolute';
-    ruler.style.whiteSpace = 'nowrap';
-    ruler.style.fontWeight = '900';
-    ruler.style.fontFamily = 'Arial, sans-serif';
-    ruler.textContent = title;
-    container.appendChild(ruler);
-    while (fontSize > MIN_FONT_SIZE) {
-        ruler.style.fontSize = `${fontSize}px`;
-        if (ruler.offsetWidth <= MAX_WIDTH) break;
-        fontSize -= 2;
-    }
-    container.removeChild(ruler);
-    return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
-}
-
-// --- PUBLIC: The main playtest card HTML generator, used by deck-actions.js ---
 export async function generatePlaytestCardHTML(card, tempContainer) {
     const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
@@ -81,7 +73,6 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
-    // --- Brute-force formatting logic ---
     let rawText = card.text_box?.raw_text || '';
     const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Recovery Action', 'Tie-Up Enters', 'Ready Enters'];
     const personaExceptions = ['Chris Jericho'];
@@ -118,7 +109,6 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
         }
     }
     const formattedText = finalLines.join('<br><br>');
-    // --- End of logic ---
 
     const fullText = formattedText + reminderBlock;
     let textBoxFontSize = 42;
@@ -149,3 +139,4 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
         </div>
     `;
 }
+

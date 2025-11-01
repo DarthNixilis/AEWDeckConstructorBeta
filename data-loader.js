@@ -1,6 +1,5 @@
 // data-loader.js
 import * as state from './config.js';
-import { initializeApp } from './app-init.js';
 
 export async function loadGameData() {
     const searchResults = document.getElementById('searchResults');
@@ -61,11 +60,12 @@ export async function loadGameData() {
         state.setKeywordDatabase(parsedKeywords);
         
         state.buildCardTitleCache();
-        initializeApp();
+        return true; // Signal success
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
         searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()">Retry</button></div>`;
+        return false; // Signal failure
     }
 }
 

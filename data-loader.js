@@ -68,3 +68,4 @@ export async function loadGameData() {
         searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;"><strong>FATAL ERROR:</strong> ${error.message}<br><br><button onclick="location.reload()">Retry</button></div>`;
     }
 }
+

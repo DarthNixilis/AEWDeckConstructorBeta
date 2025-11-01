@@ -1,6 +1,4 @@
 // config.js
-
-// --- STATE MANAGEMENT ---
 export let cardDatabase = [];
 export let keywordDatabase = {};
 export let cardTitleCache = {};
@@ -15,10 +13,7 @@ export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let numGridColumns = 2;
 export let lastFocusedElement;
-
 export const CACHE_KEY = 'aewDeckBuilderCache';
-
-// --- SETTERS ---
 export function setCardDatabase(db) { cardDatabase = db; }
 export function setKeywordDatabase(db) { keywordDatabase = db; }
 export function setStartingDeck(deck) { startingDeck = deck; }
@@ -32,13 +27,10 @@ export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
-
-// --- UTILITY FUNCTIONS ---
 export function toPascalCase(str) {
     if (!str) return '';
     return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
 }
-
 export function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -50,7 +42,6 @@ export function debounce(func, wait) {
         timeout = setTimeout(later, wait);
     };
 }
-
 export function saveStateToCache() {
     const state = {
         wrestler: selectedWrestler ? selectedWrestler.title : null,
@@ -60,7 +51,6 @@ export function saveStateToCache() {
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
 }
-
 export function buildCardTitleCache() {
     cardTitleCache = {};
     cardDatabase.forEach(card => {
@@ -69,11 +59,9 @@ export function buildCardTitleCache() {
         }
     });
 }
-
 export function isKitCard(card) {
     return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }
-
 export function isSignatureFor(card) {
     if (!card || !card['Signature For']) return false;
     const activePersonaTitles = [];

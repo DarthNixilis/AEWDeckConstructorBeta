@@ -1,5 +1,4 @@
 // card-renderer.js
-
 import * as state from './config.js';
 import { toPascalCase } from './config.js';
 
@@ -73,48 +72,32 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
     const typeColor = typeColors[card.card_type] || '#6c757d';
 
-    // --- START OF THE FIX ---
     let rawText = card.text_box?.raw_text || '';
     const abilityKeywords = ['Ongoing', 'Enters', 'Finisher', 'Tie-Up Action', 'Recovery Action', 'Tie-Up Enters', 'Ready Enters'];
-    
-    // List of persona names that can precede an ability word without a line break.
     const personaExceptions = ['Chris Jericho']; 
     const delimiter = '|||';
-
     let tempText = rawText;
-    
-    // 1. Add delimiters before ability keywords
     abilityKeywords.forEach(kw => {
         const regex = new RegExp(`(^|\\s)(${kw})`, 'g');
         tempText = tempText.replace(regex, `$1${delimiter}$2`);
     });
-
-    // 2. Split the text into potential lines
     let lines = tempText.split(delimiter).map(line => line.trim()).filter(line => line);
-    
-    // 3. Re-join lines that are exceptions
     const finalLines = [];
     if (lines.length > 0) {
-        finalLines.push(lines[0]); // Always add the first line
+        finalLines.push(lines[0]);
         for (let i = 1; i < lines.length; i++) {
             const previousLine = finalLines[finalLines.length - 1];
             const currentLine = lines[i];
-
-            // Check if the previous line ends with a persona exception OR contains "gains '"
             const endsWithPersona = personaExceptions.some(persona => previousLine.endsWith(persona));
             const isGainQuote = previousLine.includes("gains '");
-
             if (endsWithPersona || isGainQuote) {
-                // If it's an exception, merge the current line with the previous one
                 finalLines[finalLines.length - 1] += ` ${currentLine}`;
             } else {
-                // Otherwise, it's a new line
                 finalLines.push(currentLine);
             }
         }
     }
     const formattedText = finalLines.join('<br><br>');
-    // --- END OF THE FIX ---
 
     const fullText = formattedText + reminderBlock;
     let textBoxFontSize = 42;

@@ -3,6 +3,7 @@
 // --- STATE MANAGEMENT ---
 export let cardDatabase = [];
 export let keywordDatabase = {};
+export let cardTitleCache = {};
 export let startingDeck = [];
 export let purchaseDeck = [];
 export let selectedWrestler = null;
@@ -14,7 +15,6 @@ export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let numGridColumns = 2;
 export let lastFocusedElement;
-export let cardTitleCache = {}; // NEW: For performance
 
 export const CACHE_KEY = 'aewDeckBuilderCache';
 
@@ -32,16 +32,6 @@ export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
-
-// NEW: Build the card cache for faster lookups
-export function buildCardTitleCache() {
-    cardTitleCache = {};
-    cardDatabase.forEach(card => {
-        if (card && card.title) {
-            cardTitleCache[card.title] = card;
-        }
-    });
-}
 
 // --- UTILITY FUNCTIONS ---
 export function toPascalCase(str) {
@@ -61,7 +51,6 @@ export function debounce(func, wait) {
     };
 }
 
-// --- CACHING LOGIC ---
 export function saveStateToCache() {
     const state = {
         wrestler: selectedWrestler ? selectedWrestler.title : null,
@@ -72,7 +61,15 @@ export function saveStateToCache() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
 }
 
-// --- SHARED HELPER FUNCTIONS ---
+export function buildCardTitleCache() {
+    cardTitleCache = {};
+    cardDatabase.forEach(card => {
+        if (card && card.title) {
+            cardTitleCache[card.title] = card;
+        }
+    });
+}
+
 export function isKitCard(card) {
     return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }

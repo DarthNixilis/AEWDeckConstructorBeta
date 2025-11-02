@@ -37,13 +37,16 @@ function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) 
     ruler.innerHTML = htmlContent;
     container.appendChild(ruler);
 
+    let measuredHeight = 0;
     while (fontSize > MIN_FONT_SIZE) {
         ruler.style.fontSize = `${fontSize}px`;
-        if (ruler.offsetHeight <= maxHeight) break;
+        measuredHeight = ruler.offsetHeight;
+        if (measuredHeight <= maxHeight) break;
         fontSize -= 1;
     }
     container.removeChild(ruler);
-    return { html: htmlContent, fontSize: fontSize };
+    // Return the final calculated height along with the content and font size
+    return { html: htmlContent, fontSize: fontSize, measuredHeight: measuredHeight };
 }
 
 export function generateCardVisualHTML(card) {
@@ -124,10 +127,20 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const reminderSeparator = reminderBlockHTML ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;">` : '';
     const fullTextHTML = gameTextBlock + reminderSeparator + reminderBlockHTML;
     
-    // --- THIS IS THE FIX ---
-    // Define a fixed height for the text box and use it for measurement.
     const TEXT_BOX_HEIGHT = 450; 
     const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, TEXT_BOX_HEIGHT);
+
+    // --- ADAPTIVE LAYOUT LOGIC ---
+    const CENTERING_THRESHOLD = 150; // Height in pixels
+    let textBoxStyle;
+    if (fittedText.measuredHeight < CENTERING_THRESHOLD) {
+        // For short text, center it vertically and horizontally
+        textBoxStyle = `display: flex; align-items: center; justify-content: center;`;
+    } else {
+        // For long text, align it to the top
+        textBoxStyle = `overflow-y: auto;`;
+    }
+    // --- END ADAPTIVE LAYOUT LOGIC ---
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
     const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>';
@@ -146,7 +159,7 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
             </div>
             <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             ${typeLineHTML}
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; height: ${TEXT_BOX_HEIGHT}px; overflow-y: auto;">
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; height: ${TEXT_BOX_HEIGHT}px; ${textBoxStyle}">
                 ${fittedText.html}
             </div>
         </div>

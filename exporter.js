@@ -3,6 +3,7 @@ import * as state from './config.js';
 import { generatePlaytestCardHTML } from './card-renderer.js';
 import { toPascalCase } from './config.js';
 
+// --- Text Export (No Changes) ---
 export function generatePlainTextDeck() {
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
@@ -20,58 +21,55 @@ export function generatePlainTextDeck() {
     return text;
 }
 
-export async function exportDeckAsImage() {
-    const uniquePersonaAndKit = [];
-    const activePersonaTitles = [];
-    if (state.selectedWrestler) {
-        uniquePersonaAndKit.push(state.selectedWrestler);
-        activePersonaTitles.push(state.selectedWrestler.title);
-    }
-    if (state.selectedManager) {
-        uniquePersonaAndKit.push(state.selectedManager);
-        activePersonaTitles.push(state.selectedManager.title);
-    }
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    uniquePersonaAndKit.push(...kitCards);
-    const finalUniquePersonaAndKit = [...new Map(uniquePersonaAndKit.map(card => [card.title, card])).values()];
-    const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);
-    const allCardsToPrint = [...finalUniquePersonaAndKit, ...mainDeckCards].filter(card => card !== undefined);
 
-    if (allCardsToPrint.length === 0) {
-        alert("There are no cards in the deck to export.");
-        return;
-    }
+// --- NEW, REBUILT IMAGE EXPORT LOGIC ---
 
-    const CARDS_PER_PAGE = 9;
-    const numPages = Math.ceil(allCardsToPrint.length / CARDS_PER_PAGE);
-    if (!confirm(`This will generate ${numPages} print sheet(s) for ${allCardsToPrint.length} total cards. Continue?`)) {
-        return;
-    }
+/**
+ * A helper function to generate print sheets for a specific list of cards.
+ * @param {Array<Object>} cardsToPrint - The array of card objects to print.
+ * @param {string} title - The title for this section (e.g., "Persona & Kit").
+ * @param {HTMLElement} tempContainer - The temporary DOM element for rendering.
+ * @param {string} wrestlerName - The name of the wrestler for the file name.
+ */
+async function generatePrintSheets(cardsToPrint, title, tempContainer, wrestlerName) {
+    if (cardsToPrint.length === 0) return; // Don't generate empty sheets
 
     const DPI = 300;
+    const CARDS_PER_PAGE = 9;
     const CARD_RENDER_WIDTH_PX = 2.5 * DPI;
     const CARD_RENDER_HEIGHT_PX = 3.5 * DPI;
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    document.body.appendChild(tempContainer);
+    const PAGE_WIDTH_PX = 8.5 * DPI;
+    const PAGE_HEIGHT_PX = 11 * DPI;
+    const MARGIN_PX = 0.5 * DPI;
+
+    const numPages = Math.ceil(cardsToPrint.length / CARDS_PER_PAGE);
 
     for (let page = 0; page < numPages; page++) {
         const canvas = document.createElement('canvas');
-        canvas.width = 8.5 * DPI;
-        canvas.height = 11 * DPI;
+        canvas.width = PAGE_WIDTH_PX;
+        canvas.height = PAGE_HEIGHT_PX;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // --- Add the Page Label ---
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        const pageLabel = `${title} - Page ${page + 1} of ${numPages}`;
+        ctx.fillText(pageLabel, PAGE_WIDTH_PX / 2, MARGIN_PX / 2);
+        // -------------------------
+
         const startIndex = page * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
-        const cardsOnThisPage = allCardsToPrint.slice(startIndex, endIndex);
+        const cardsOnThisPage = cardsToPrint.slice(startIndex, endIndex);
 
         for (let i = 0; i < cardsOnThisPage.length; i++) {
             const card = cardsOnThisPage[i];
-            const row = Math.floor(i / 3), col = i % 3;
-            const x = (0.5 * DPI) + (col * CARD_RENDER_WIDTH_PX), y = (0.5 * DPI) + (row * CARD_RENDER_HEIGHT_PX);
+            const row = Math.floor(i / 3);
+            const col = i % 3;
+            const x = MARGIN_PX + (col * CARD_RENDER_WIDTH_PX);
+            const y = MARGIN_PX + (row * CARD_RENDER_HEIGHT_PX);
             
             const playtestHTML = await generatePlaytestCardHTML(card, tempContainer);
             tempContainer.innerHTML = playtestHTML;
@@ -88,14 +86,64 @@ export async function exportDeckAsImage() {
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = dataUrl;
-        const wrestlerName = state.selectedWrestler ? toPascalCase(state.selectedWrestler.title) : "Deck";
-        a.download = `${wrestlerName}-Page-${page + 1}.png`;
+        // Sanitize title for filename
+        const safeTitle = title.replace(/[^a-zA-Z0-9]/g, ''); 
+        a.download = `${wrestlerName}-${safeTitle}-Page-${page + 1}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Stagger downloads
+    }
+}
+
+/**
+ * Main function to orchestrate the multi-page deck export.
+ */
+export async function exportDeckAsImage() {
+    // 1. Gather and sort cards for each section
+    const personaAndKitCards = [];
+    const activePersonaTitles = [];
+    if (state.selectedWrestler) {
+        personaAndKitCards.push(state.selectedWrestler);
+        activePersonaTitles.push(state.selectedWrestler.title);
+    }
+    if (state.selectedManager) {
+        personaAndKitCards.push(state.selectedManager);
+        activePersonaTitles.push(state.selectedManager.title);
+    }
+    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    personaAndKitCards.push(...kitCards);
+    const uniquePersonaAndKit = [...new Map(personaAndKitCards.map(card => [card.title, card])).values()];
+
+    const startingDeckCards = state.startingDeck.map(title => state.cardTitleCache[title]).filter(Boolean);
+    const purchaseDeckCards = state.purchaseDeck.map(title => state.cardTitleCache[title]).filter(Boolean);
+
+    const totalCards = uniquePersonaAndKit.length + startingDeckCards.length + purchaseDeckCards.length;
+    if (totalCards === 0) {
+        alert("There are no cards in the deck to export.");
+        return;
     }
 
-    document.body.removeChild(tempContainer);
-    alert('All print sheets have been generated and downloaded!');
+    if (!confirm(`This will generate separate print sheets for Persona, Starting, and Purchase decks. Continue?`)) {
+        return;
+    }
+
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    const wrestlerName = state.selectedWrestler ? toPascalCase(state.selectedWrestler.title) : "Deck";
+
+    try {
+        // 2. Generate sheets for each section sequentially
+        await generatePrintSheets(uniquePersonaAndKit, "Persona and Kit", tempContainer, wrestlerName);
+        await generatePrintSheets(startingDeckCards, "Starting Deck", tempContainer, wrestlerName);
+        await generatePrintSheets(purchaseDeckCards, "Purchase Deck", tempContainer, wrestlerName);
+    } finally {
+        // 3. Clean up and notify user
+        document.body.removeChild(tempContainer);
+        alert('All print sheets have been generated and downloaded!');
+    }
 }
+

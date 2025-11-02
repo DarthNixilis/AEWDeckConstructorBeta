@@ -23,6 +23,31 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
+// --- NEW DYNAMIC FONT SIZING FOR TEXT BLOCKS ---
+function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) {
+    let fontSize = initialFontSize;
+    const MIN_FONT_SIZE = 20; // Set a minimum readable font size
+    const ruler = document.createElement('div');
+    ruler.style.visibility = 'hidden';
+    ruler.style.position = 'absolute';
+    ruler.style.width = '620px'; // Approx width of the text box minus padding
+    ruler.style.fontFamily = 'Arial, sans-serif';
+    ruler.style.lineHeight = '1.4';
+    ruler.style.textAlign = 'center';
+    ruler.style.whiteSpace = 'pre-wrap';
+    ruler.innerHTML = htmlContent;
+    container.appendChild(ruler);
+
+    while (fontSize > MIN_FONT_SIZE) {
+        ruler.style.fontSize = `${fontSize}px`;
+        if (ruler.offsetHeight <= maxHeight) break;
+        fontSize -= 1;
+    }
+    container.removeChild(ruler);
+    return { html: htmlContent, fontSize: fontSize };
+}
+
+
 export function generateCardVisualHTML(card) {
     const imageName = toPascalCase(card.title);
     const imagePath = `./card-images/${imageName}.png`;
@@ -54,19 +79,18 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
-    const reminderFontSize = '0.75em';
-
+    
+    // Build the HTML for the reminder block first
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
-        return `<strong>${kw.name.trim()}:</strong> <span style="font-size: ${reminderFontSize}; font-style: italic;">${definition}</span>`;
+        return `<strong>${kw.name.trim()}:</strong> <span style="font-style: italic;">${definition}</span>`;
     }).join('<br><br>');
-
     let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>`).join(', ');
     if (traitsText) {
-        traitsText = `<p style="margin-bottom: 25px;"><span style="font-size: ${reminderFontSize}; font-style: italic;">${traitsText}</span></p>`;
+        traitsText = `<p style="margin-bottom: 15px; font-style: italic;">${traitsText}</p>`;
     }
+    const reminderBlockHTML = traitsText + keywordsText;
 
-    const reminderBlock = traitsText + keywordsText;
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
@@ -97,12 +121,15 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
             }
         }
     }
-    const formattedText = finalLines.join('<br><br>');
+    const formattedGameText = finalLines.join('<br><br>');
 
-    const fullText = formattedText + reminderBlock;
-    let textBoxFontSize = 42;
-    if (fullText.length > 250) { textBoxFontSize = 34; } 
-    else if (fullText.length > 180) { textBoxFontSize = 38; }
+    // --- DYNAMIC FONT SIZING LOGIC ---
+    const gameTextBlock = `<p style="margin-top: 0;">${formattedGameText}</p>`;
+    const reminderSeparator = reminderBlockHTML ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;">` : '';
+    const fullTextHTML = gameTextBlock + reminderSeparator + reminderBlockHTML;
+    
+    // Use the new helper function to get the correct font size
+    const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, 450); // Max height of ~450px for the text box
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
     const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>';
@@ -121,9 +148,8 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
             </div>
             <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             ${typeLineHTML}
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
-                <p style="margin-top: 0;">${formattedText}</p>
-                ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
+                ${fittedText.html}
             </div>
         </div>
     `;

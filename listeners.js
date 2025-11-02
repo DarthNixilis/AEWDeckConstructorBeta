@@ -3,6 +3,7 @@ import * as state from './config.js';
 import * as ui from './ui.js';
 import * as deck from './deck.js';
 import { parseAndLoadDeck } from './importer.js';
+// CORRECTED: Import the specific functions we need
 import { generatePlainTextDeck, exportDeckAsImage } from './exporter.js';
 
 export function initializeAllEventListeners(refreshCardPool) {
@@ -94,7 +95,11 @@ export function initializeAllEventListeners(refreshCardPool) {
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     });
+    
+    // --- THIS IS THE CRITICAL FIX ---
+    // This now correctly points to the new export function.
     exportAsImageBtn.addEventListener('click', exportDeckAsImage);
+    // --------------------------------
 
     // MODAL LISTENERS
     const importDeckBtn = document.getElementById('importDeck');
@@ -133,3 +138,4 @@ export function initializeAllEventListeners(refreshCardPool) {
         }
     });
 }
+

@@ -43,7 +43,6 @@ function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) 
         fontSize -= 1;
     }
     container.removeChild(ruler);
-    // Return only the necessary information
     return { html: htmlContent, fontSize: fontSize };
 }
 
@@ -121,9 +120,8 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     }
     const formattedGameText = finalLines.join('<br><br>');
 
-    const gameTextBlock = `<p style="margin-top: 0;">${formattedGameText}</p>`;
     const reminderSeparator = reminderBlockHTML ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;">` : '';
-    const fullTextHTML = gameTextBlock + reminderSeparator + reminderBlockHTML;
+    const fullTextHTML = formattedGameText + reminderSeparator + reminderBlockHTML;
     
     const TEXT_BOX_HEIGHT = 450; 
     const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, TEXT_BOX_HEIGHT);

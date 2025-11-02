@@ -23,14 +23,13 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
-// --- NEW DYNAMIC FONT SIZING FOR TEXT BLOCKS ---
 function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) {
     let fontSize = initialFontSize;
-    const MIN_FONT_SIZE = 20; // Set a minimum readable font size
+    const MIN_FONT_SIZE = 20;
     const ruler = document.createElement('div');
     ruler.style.visibility = 'hidden';
     ruler.style.position = 'absolute';
-    ruler.style.width = '620px'; // Approx width of the text box minus padding
+    ruler.style.width = '620px';
     ruler.style.fontFamily = 'Arial, sans-serif';
     ruler.style.lineHeight = '1.4';
     ruler.style.textAlign = 'center';
@@ -46,7 +45,6 @@ function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) 
     container.removeChild(ruler);
     return { html: htmlContent, fontSize: fontSize };
 }
-
 
 export function generateCardVisualHTML(card) {
     const imageName = toPascalCase(card.title);
@@ -80,7 +78,6 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
     
-    // Build the HTML for the reminder block first
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
         return `<strong>${kw.name.trim()}:</strong> <span style="font-style: italic;">${definition}</span>`;
@@ -123,13 +120,14 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
     }
     const formattedGameText = finalLines.join('<br><br>');
 
-    // --- DYNAMIC FONT SIZING LOGIC ---
     const gameTextBlock = `<p style="margin-top: 0;">${formattedGameText}</p>`;
     const reminderSeparator = reminderBlockHTML ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;">` : '';
     const fullTextHTML = gameTextBlock + reminderSeparator + reminderBlockHTML;
     
-    // Use the new helper function to get the correct font size
-    const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, 450); // Max height of ~450px for the text box
+    // --- THIS IS THE FIX ---
+    // Define a fixed height for the text box and use it for measurement.
+    const TEXT_BOX_HEIGHT = 450; 
+    const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, TEXT_BOX_HEIGHT);
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
     const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>';
@@ -148,7 +146,7 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
             </div>
             <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
             ${typeLineHTML}
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; height: ${TEXT_BOX_HEIGHT}px; overflow-y: auto;">
                 ${fittedText.html}
             </div>
         </div>

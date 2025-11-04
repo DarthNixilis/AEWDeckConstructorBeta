@@ -54,7 +54,58 @@ export function initializeEventListeners() {
     const personaDisplay = document.getElementById('personaDisplay');
     const clearDeckBtn = document.getElementById('clearDeck');
     const importDeckBtn = document.getElementById('importDeck');
-    const exportSelect = document.getElementById('exportSelect'); // THE NEW DROPDOWN
+    
+    // --- NEW TWO-STEP EXPORT LOGIC ---
+    const exportSelect = document.getElementById('exportSelect');
+    const confirmExportBtn = document.getElementById('confirmExportBtn');
+    const confirmExportBtnText = document.getElementById('confirmExportBtnText');
+    let pendingExportAction = null;
+
+    // Step 1: Listen for changes on the dropdown
+    exportSelect.addEventListener('change', (e) => {
+        pendingExportAction = e.target.value;
+        const selectedOption = e.target.options[e.target.selectedIndex];
+
+        if (pendingExportAction) {
+            // An option was selected, so configure and show the confirm button
+            confirmExportBtnText.textContent = `Export as ${selectedOption.text}`;
+            confirmExportBtn.classList.add('visible');
+        } else {
+            // The placeholder was selected, so hide the button
+            confirmExportBtn.classList.remove('visible');
+        }
+    });
+
+    // Step 2: Listen for clicks on the new confirm button
+    confirmExportBtn.addEventListener('click', () => {
+        if (!pendingExportAction) return; // Safety check
+
+        // Execute the stored action
+        switch (pendingExportAction) {
+            case 'export-text':
+                exporter.exportDeckAsText();
+                break;
+            case 'export-full':
+                exporter.exportFull();
+                break;
+            case 'export-printer-friendly':
+                exporter.exportPrinterFriendly();
+                break;
+            case 'export-paper-friendly':
+                exporter.exportPaperFriendly();
+                break;
+            case 'export-both-friendly':
+                exporter.exportBothFriendly();
+                break;
+        }
+
+        // Reset the UI for the next export
+        confirmExportBtn.classList.remove('visible');
+        exportSelect.value = "";
+        pendingExportAction = null;
+    });
+    // --- END OF NEW LOGIC ---
+
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -109,34 +160,6 @@ export function initializeEventListeners() {
         document.getElementById('deckTextInput').value = '';
         document.getElementById('deckFileInput').value = '';
     });
-
-    // --- THE NEW, UNBREAKABLE EXPORT LISTENER ---
-    exportSelect.addEventListener('change', (e) => {
-        const selectedAction = e.target.value;
-        if (!selectedAction) return; // Ignore the placeholder option
-
-        switch (selectedAction) {
-            case 'export-text':
-                exporter.exportDeckAsText();
-                break;
-            case 'export-full':
-                exporter.exportFull();
-                break;
-            case 'export-printer-friendly':
-                exporter.exportPrinterFriendly();
-                break;
-            case 'export-paper-friendly':
-                exporter.exportPaperFriendly();
-                break;
-            case 'export-both-friendly':
-                exporter.exportBothFriendly();
-                break;
-        }
-
-        // Reset the dropdown to the placeholder
-        e.target.value = "";
-    });
-
 
     // --- MODAL LISTENERS ---
     const importModal = document.getElementById('importModal');

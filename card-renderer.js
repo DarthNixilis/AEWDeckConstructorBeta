@@ -2,6 +2,7 @@
 import * as state from './config.js';
 import { toPascalCase } from './config.js';
 
+// ... (getFittedTitleHTML function remains the same)
 function getFittedTitleHTML(title, container) {
     let fontSize = 64;
     const MAX_WIDTH = 400;
@@ -23,30 +24,9 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
-function getFittedTextBlock(htmlContent, container, initialFontSize, maxHeight) {
-    let fontSize = initialFontSize;
-    const MIN_FONT_SIZE = 20;
-    const ruler = document.createElement('div');
-    ruler.style.visibility = 'hidden';
-    ruler.style.position = 'absolute';
-    ruler.style.width = '620px';
-    ruler.style.fontFamily = 'Arial, sans-serif';
-    ruler.style.lineHeight = '1.4';
-    ruler.style.textAlign = 'center';
-    ruler.style.whiteSpace = 'pre-wrap';
-    ruler.innerHTML = htmlContent;
-    container.appendChild(ruler);
 
-    while (fontSize > MIN_FONT_SIZE) {
-        ruler.style.fontSize = `${fontSize}px`;
-        if (ruler.offsetHeight <= maxHeight) break;
-        fontSize -= 1;
-    }
-    container.removeChild(ruler);
-    return { html: htmlContent, fontSize: fontSize };
-}
-
-export function generateCardVisualHTML(card) {
+// --- MODIFIED FUNCTION ---
+export function generateCardVisualHTML(card, usePlaceholders = false) {
     const imageName = toPascalCase(card.title);
     const imagePath = `./card-images/${imageName}.png`;
     const typeClass = `type-${card.card_type.toLowerCase()}`;
@@ -70,24 +50,34 @@ export function generateCardVisualHTML(card) {
                 <p>${card.text_box?.raw_text || ''}</p>
             </div>
         </div>`;
+
+    // If usePlaceholders is true, ONLY return the placeholder.
+    if (usePlaceholders) {
+        return placeholderHTML;
+    }
+
+    // Otherwise, return the image with the placeholder as a fallback.
     return `<img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
 }
 
-export async function generatePlaytestCardHTML(card, tempContainer) {
+
+export async function generatePlaytestCardHTML(card, tempContainer, usePlaceholders = false) {
     const isPersona = card.card_type === 'Wrestler' || card.card_type === 'Manager';
     const keywords = card.text_box?.keywords || [];
     const traits = card.text_box?.traits || [];
-    
+    const reminderFontSize = '0.75em';
+
     let keywordsText = keywords.map(kw => {
         const definition = state.keywordDatabase[kw.name.trim()] || 'Definition not found.';
-        return `<strong>${kw.name.trim()}:</strong> <span style="font-style: italic;">${definition}</span>`;
+        return `<strong>${kw.name.trim()}:</strong> <span style="font-size: ${reminderFontSize}; font-style: italic;">${definition}</span>`;
     }).join('<br><br>');
+
     let traitsText = traits.map(tr => `<strong>${tr.name.trim()}</strong>`).join(', ');
     if (traitsText) {
-        traitsText = `<p style="margin-bottom: 15px; font-style: italic;">${traitsText}</p>`;
+        traitsText = `<p style="margin-bottom: 25px;"><span style="font-size: ${reminderFontSize}; font-style: italic;">${traitsText}</span></p>`;
     }
-    const reminderBlockHTML = traitsText + keywordsText;
 
+    const reminderBlock = traitsText + keywordsText;
     const targetTrait = traits.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
     const typeColors = { 'Action': '#9c5a9c', 'Response': '#c84c4c', 'Submission': '#5aa05a', 'Strike': '#4c82c8', 'Grapple': '#e68a00' };
@@ -118,17 +108,22 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
             }
         }
     }
-    const formattedGameText = finalLines.join('<br><br>');
+    const formattedText = finalLines.join('<br><br>');
 
-    const reminderSeparator = reminderBlockHTML ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;">` : '';
-    const fullTextHTML = formattedGameText + reminderSeparator + reminderBlockHTML;
-    
-    const TEXT_BOX_HEIGHT = 450; 
-    const fittedText = getFittedTextBlock(fullTextHTML, tempContainer, 42, TEXT_BOX_HEIGHT);
+    const fullText = formattedText + reminderBlock;
+    let textBoxFontSize = 42;
+    if (fullText.length > 250) { textBoxFontSize = 34; } 
+    else if (fullText.length > 180) { textBoxFontSize = 38; }
 
     const titleHTML = getFittedTitleHTML(card.title, tempContainer);
     const costHTML = !isPersona ? `<div style="font-size: 60px; font-weight: bold; border: 3px solid black; padding: 15px 35px; border-radius: 15px; flex-shrink: 0;">${card.cost ?? '–'}</div>` : '<div style="width: 120px; flex-shrink: 0;"></div>';
     const typeLineHTML = !isPersona ? `<div style="padding: 15px; text-align: center; font-size: 52px; font-weight: bold; border-radius: 15px; margin-bottom: 15px; color: white; background-color: ${typeColor};">${card.card_type}</div>` : `<div style="text-align: center; font-size: 52px; font-weight: bold; color: #6c757d; margin-bottom: 15px;">${card.card_type}</div>`;
+    
+    // --- NEW: Conditionally render Art Area ---
+    const artAreaHTML = usePlaceholders 
+        ? `<div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>`
+        : `<div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; background-image: url('./card-images/${toPascalCase(card.title)}.png'); background-size: cover; background-position: center;"></div>`;
+
 
     return `
         <div style="background-color: white; border: 15px solid black; border-radius: 35px; box-sizing: border-box; width: 750px; height: 1050px; padding: 30px; display: flex; flex-direction: column; color: black; font-family: Arial, sans-serif;">
@@ -141,10 +136,11 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
                 ${titleHTML}
                 ${costHTML}
             </div>
-            <div style="height: 200px; border: 3px solid #ccc; border-radius: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-style: italic; font-size: 40px; color: #888;">Art Area</div>
+            ${artAreaHTML}
             ${typeLineHTML}
-            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${fittedText.fontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; height: ${TEXT_BOX_HEIGHT}px; overflow-y: auto;">
-                ${fittedText.html}
+            <div style="background-color: #f8f9fa; border: 2px solid #ccc; border-radius: 20px; padding: 25px; font-size: ${textBoxFontSize}px; line-height: 1.4; text-align: center; white-space: pre-wrap; flex-grow: 1; overflow-y: auto;">
+                <p style="margin-top: 0;">${formattedText}</p>
+                ${reminderBlock ? `<hr style="border-top: 2px solid #ccc; margin: 25px 0;"><div style="margin-bottom: 0;">${reminderBlock}</div>` : ''}
             </div>
         </div>
     `;

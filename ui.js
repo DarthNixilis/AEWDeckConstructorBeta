@@ -8,8 +8,6 @@ const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
 const startingDeckCount = document.getElementById('startingDeckCount');
 const purchaseDeckCount = document.getElementById('purchaseDeckCount');
-const startingDeckHeader = document.getElementById('startingDeckHeader');
-const purchaseDeckHeader = document.getElementById('purchaseDeckHeader');
 const personaDisplay = document.getElementById('personaDisplay');
 const cardModal = document.getElementById('cardModal');
 const modalCardContent = document.getElementById('modalCardContent');
@@ -104,8 +102,6 @@ export function renderDecks() {
     state.saveStateToCache();
 }
 
-// --- THIS IS THE KEY CHANGE #2 ---
-// The function now conditionally renders a "Move to Starting" button as well.
 function renderDeckList(element, deck, isStartingDeck) {
     element.innerHTML = '';
     const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
@@ -120,10 +116,8 @@ function renderDeckList(element, deck, isStartingDeck) {
         let buttonsHTML = `<button class="btn-remove" data-title="${cardTitle}" data-action="remove">Remove</button>`;
         
         if (isStartingDeck) {
-            // For starting deck, always show "Move to Purchase"
             buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToPurchase">Move</button>`;
         } else if (card.cost === 0) {
-            // For purchase deck, ONLY show "Move to Starting" if it's a 0-cost card
             buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToStart">Move</button>`;
         }
 
@@ -134,15 +128,33 @@ function renderDeckList(element, deck, isStartingDeck) {
         element.appendChild(cardElement);
     });
 }
-// --- END OF KEY CHANGE #2 ---
 
+/**
+ * Updates the deck count numbers and applies color-coding based on validity.
+ */
 function updateDeckCounts() {
+    // Update the text content
     startingDeckCount.textContent = state.startingDeck.length;
     purchaseDeckCount.textContent = state.purchaseDeck.length;
-    startingDeckCount.parentElement.style.color = state.startingDeck.length === 24 ? 'green' : 'red';
-    startingDeckHeader.style.color = state.startingDeck.length === 24 ? 'green' : 'inherit';
-    purchaseDeckCount.parentElement.style.color = state.purchaseDeck.length >= 36 ? 'green' : 'red';
-    purchaseDeckHeader.style.color = state.purchaseDeck.length >= 36 ? 'green' : 'inherit';
+
+    // --- THIS IS THE ENTIRE CHANGE ---
+
+    // Apply color logic for the Starting Deck count
+    if (state.startingDeck.length > 24) {
+        startingDeckCount.style.color = 'red'; // Over limit
+    } else if (state.startingDeck.length === 24) {
+        startingDeckCount.style.color = 'green'; // Valid
+    } else {
+        startingDeckCount.style.color = 'black'; // In progress
+    }
+
+    // Apply color logic for the Purchase Deck count
+    if (state.purchaseDeck.length >= 36) {
+        purchaseDeckCount.style.color = 'green'; // Valid
+    } else {
+        purchaseDeckCount.style.color = 'black'; // In progress
+    }
+    // --- END OF CHANGE ---
 }
 
 export function filterDeckList(deckListElement, query) {

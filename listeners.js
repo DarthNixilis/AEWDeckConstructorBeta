@@ -53,8 +53,7 @@ export function initializeEventListeners() {
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const personaDisplay = document.getElementById('personaDisplay');
     const clearDeckBtn = document.getElementById('clearDeck');
-    const exportDeckBtn = document.getElementById('exportDeck');
-    const exportAsImageBtn = document.getElementById('exportAsImageBtn');
+    const deckActions = document.querySelector('.deck-actions'); // Get the container for the new listener
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -69,8 +68,6 @@ export function initializeEventListeners() {
         state.saveStateToCache();
     });
 
-    // --- THIS IS THE KEY CHANGE #3 ---
-    // The listener now handles all four possible actions: remove, moveToPurchase, moveToStart, and view.
     [startingDeckList, purchaseDeckList].forEach(container => {
         container.addEventListener('click', (e) => {
             const target = e.target;
@@ -86,12 +83,10 @@ export function initializeEventListeners() {
             } else if (action === 'moveToStart') {
                 deck.moveCardToStarting(cardTitle);
             } else {
-                // If no action button was clicked, assume user wants to view the card
                 ui.showCardModal(cardTitle);
             }
         });
     });
-    // --- END OF KEY CHANGE #3 ---
 
     personaDisplay.addEventListener('click', (e) => {
         const cardTitle = e.target.dataset.title || e.target.closest('[data-title]')?.dataset.title;
@@ -105,55 +100,14 @@ export function initializeEventListeners() {
             ui.renderDecks();
         }
     });
-    exportDeckBtn.addEventListener('click', exporter.exportDeckAsText);
-    exportAsImageBtn.addEventListener('click', exporter.exportDeckAsImage);
 
-    // --- MODAL LISTENERS ---
-    const importDeckBtn = document.getElementById('importDeck');
-    const importModal = document.getElementById('importModal');
-    const deckFileInput = document.getElementById('deckFileInput');
-    const processImportBtn = document.getElementById('processImportBtn');
-    const cardModal = document.getElementById('cardModal');
+    // --- NEW UNIFIED EXPORT LISTENER ---
+    deckActions.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target.tagName !== 'BUTTON') return;
 
-    importDeckBtn.addEventListener('click', () => {
-        importModal.style.display = 'flex';
-        document.getElementById('importStatus').textContent = '';
-        document.getElementById('deckTextInput').value = '';
-        deckFileInput.value = '';
-    });
-    processImportBtn.addEventListener('click', () => {
-        const text = document.getElementById('deckTextInput').value;
-        if (text) importer.parseAndLoadDeck(text);
-    });
-    deckFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => importer.parseAndLoadDeck(event.target.result);
-            reader.readAsText(file);
-        }
-    });
-    
-    [cardModal, importModal].forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target.classList.contains('modal-close-button')) {
-                modal.style.display = 'none';
-            }
-        });
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            cardModal.style.display = 'none';
-            importModal.style.display = 'none';
-            if (state.lastFocusedElement) {
-                state.lastFocusedElement.focus();
-            }
-        }
-    });
-}
-
-function refreshCardPool() {
-    const finalCards = filters.getFilteredAndSortedCardPool();
-    ui.renderCardPool(finalCards);
-}
+        const action = target.dataset.action;
+        switch (action) {
+            case 'export-text':
+                exporter.exportDeckAsText
 

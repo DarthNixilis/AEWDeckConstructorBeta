@@ -3,51 +3,66 @@ import { setCardDatabase, setKeywordDatabase } from './state.js';
 import { initializeApp } from './app-init.js';
 
 /**
- * Parses Tab-Separated Value (TSV) text into an array of objects.
+ * A robustly parses Tab-Separated Value (TSV) text into an array of objects.
+ * It handles missing values and lines with fewer columns than the header.
  * @param {string} text The raw TSV text content.
  * @returns {Array<Object>} An array of JavaScript objects.
  */
 function parseTSV(text) {
+    // Defensive check: if text is not a string or is empty, return empty array.
+    if (typeof text !== 'string' || !text) {
+        return [];
+    }
+
     const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split('\t').map(h => h.trim());
+    const headers = lines[0].split('\t').map(h => h ? h.trim() : '');
     const data = [];
 
     for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim() === '') continue;
-        const values = lines[i].split('\t').map(v => v.trim());
+        if (!lines[i] || lines[i].trim() === '') continue; // Skip empty or whitespace-only lines
+
+        const values = lines[i].split('\t');
         const obj = {};
+
         for (let j = 0; j < headers.length; j++) {
             const key = headers[j];
-            let value = values[j];
-            if (key !== 'title' && key !== 'text' && !isNaN(value) && value.trim() !== '') {
-                value = Number(value);
-            } else if (value === 'TRUE') {
-                value = true;
-            } else if (value === 'FALSE') {
-                value = false;
-            } else if (key === 'traits' || key === 'keywords') {
-                value = value ? value.split('|').map(t => t.trim()).filter(t => t) : [];
+            // --- THIS IS THE BULLETPROOF FIX ---
+            // 1. Check if the value exists. If not, use an empty string.
+            const rawValue = values[j] || '';
+            // 2. Now it is safe to call .trim()
+            let value = rawValue.trim();
+            // --- END OF BULLETPROOF FIX ---
+
+            if (key) { // Only process if the header key is not empty
+                if (key !== 'title' && key !== 'text' && !isNaN(value) && value !== '') {
+                    value = Number(value);
+                } else if (value === 'TRUE') {
+                    value = true;
+                } else if (value === 'FALSE') {
+                    value = false;
+                } else if (key === 'traits' || key === 'keywords') {
+                    value = value ? value.split('|').map(t => t.trim()).filter(t => t) : [];
+                }
+                obj[key] = value;
             }
-            obj[key] = value;
         }
-        data.push(obj);
+        // Only add the object if it has at least one key (e.g., a title)
+        if (obj.title) {
+            data.push(obj);
+        }
     }
     return data;
 }
 
 export function loadGameData() {
     try {
-        // --- THIS IS THE NEW LOGIC ---
-        // Read the data directly from the global variables defined in index.html
-        // This completely bypasses the 'fetch' API.
         const cardData = parseTSV(window.CARD_DATABASE_TEXT);
         const keywordData = parseTSV(window.KEYWORDS_TEXT);
-        // --- END OF NEW LOGIC ---
 
         if (!Array.isArray(cardData) || cardData.length === 0) {
-            throw new Error("Parsing the embedded card data resulted in an empty array.");
+            throw new Error("Parsing the embedded card data resulted in an empty array. Please verify the data in index.html.");
         }
 
         setCardDatabase(cardData);
@@ -60,7 +75,6 @@ export function loadGameData() {
         }, {});
         setKeywordDatabase(keywordObject);
 
-        // Run the app initializer
         initializeApp();
 
     } catch (error) {

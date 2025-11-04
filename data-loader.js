@@ -4,10 +4,21 @@ import { initializeApp } from './app-init.js';
 
 function parseTSV(text) {
     if (typeof text !== 'string' || !text) return [];
+
+    // --- THIS IS THE BOM FIX ---
+    // Check for and remove the UTF-8 Byte Order Mark (BOM) if it exists.
+    // The BOM is an invisible character at the start of the file that can break parsers.
+    if (text.charCodeAt(0) === 0xFEFF) {
+        text = text.substring(1);
+    }
+    // --- END OF BOM FIX ---
+
     const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
     if (lines.length < 2) return [];
+
     const headers = lines[0].split('\t').map(h => h ? h.trim() : '');
     const data = [];
+
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i] || lines[i].trim() === '') continue;
         const values = lines[i].split('\t');
@@ -38,8 +49,6 @@ function parseTSV(text) {
 
 export async function loadGameData() {
     try {
-        // --- THIS IS THE ROBUST DYNAMIC LOADING LOGIC ---
-        // Add a cache-busting query parameter to ensure we always get the latest file.
         const cacheBuster = `?t=${new Date().getTime()}`;
         
         const [cardResponse, keywordResponse] = await Promise.all([
@@ -47,12 +56,8 @@ export async function loadGameData() {
             fetch(`./Keywords.txt${cacheBuster}`)
         ]);
 
-        if (!cardResponse.ok) {
-            throw new Error(`Failed to fetch cardDatabase.txt. Server responded with status: ${cardResponse.status} ${cardResponse.statusText}`);
-        }
-        if (!keywordResponse.ok) {
-            throw new Error(`Failed to fetch Keywords.txt. Server responded with status: ${keywordResponse.status} ${keywordResponse.statusText}`);
-        }
+        if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt: ${cardResponse.status} ${cardResponse.statusText}`);
+        if (!keywordResponse.ok) throw new Error(`Failed to fetch Keywords.txt: ${keywordResponse.status} ${keywordResponse.statusText}`);
 
         const cardText = await cardResponse.text();
         const keywordText = await keywordResponse.text();
@@ -62,10 +67,9 @@ export async function loadGameData() {
 
         const cardData = parseTSV(cardText);
         const keywordData = parseTSV(keywordText);
-        // --- END OF DYNAMIC LOADING LOGIC ---
 
         if (!Array.isArray(cardData) || cardData.length === 0) {
-            throw new Error("Parsing cardDatabase.txt resulted in an empty array. Please verify the file's TSV format.");
+            throw new Error("Parsing cardDatabase.txt resulted in an empty array. This can happen if the file is not valid TSV or has a character encoding issue (like a BOM).");
         }
 
         setCardDatabase(cardData);

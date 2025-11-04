@@ -1,59 +1,67 @@
 // importer.js
-import * as state from './config.js';
-import { renderDecks, renderPersonaDisplay } from './ui.js';
+import * as state from './state.js';
+import { renderDecks } from './ui-renderer.js';
+import { renderPersonaDisplay } from './ui-renderer.js';
+import { closeAllModals } from './ui-modal.js';
 
 export function parseAndLoadDeck(text) {
-    const importStatus = document.getElementById('importStatus');
-    const importModal = document.getElementById('importModal');
-    const wrestlerSelect = document.getElementById('wrestlerSelect');
-    const managerSelect = document.getElementById('managerSelect');
-    try {
-        const lines = text.trim().split(/\r?\n/);
-        let newWrestler = null, newManager = null, newStartingDeck = [], newPurchaseDeck = [], currentSection = '';
-        lines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || trimmedLine.toLowerCase().startsWith('kit')) return;
-            if (trimmedLine.toLowerCase().startsWith('wrestler:')) {
-                const wrestlerName = trimmedLine.substring(9).trim();
-                const wrestler = state.cardTitleCache[wrestlerName];
-                if (wrestler && wrestler.card_type === 'Wrestler') newWrestler = wrestler;
-            } else if (trimmedLine.toLowerCase().startsWith('manager:')) {
-                const managerName = trimmedLine.substring(8).trim();
-                if (managerName.toLowerCase() !== 'none') {
-                    const manager = state.cardTitleCache[managerName];
-                    if (manager && manager.card_type === 'Manager') newManager = manager;
-                }
-            } else if (trimmedLine.startsWith('--- Starting Deck')) { currentSection = 'starting'; }
-            else if (trimmedLine.startsWith('--- Purchase Deck')) { currentSection = 'purchase'; }
-            else {
-                const match = trimmedLine.match(/^(\d+)x\s+(.+)/);
-                if (match) {
-                    const count = parseInt(match[1], 10);
-                    const cardName = match[2].trim();
-                    if (state.cardTitleCache[cardName]) {
-                        for (let i = 0; i < count; i++) {
-                            if (currentSection === 'starting') newStartingDeck.push(cardName);
-                            else if (currentSection === 'purchase') newPurchaseDeck.push(cardName);
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    const statusEl = document.getElementById('importStatus');
+    statusEl.textContent = 'Processing...';
+
+    let newWrestler = null;
+    let newManager = null;
+    const newStartingDeck = [];
+    const newPurchaseDeck = [];
+
+    let currentSection = '';
+
+    lines.forEach(line => {
+        if (line.toLowerCase().startsWith('wrestler:')) {
+            const wrestlerName = line.substring(9).trim();
+            const wrestlerCard = state.cardTitleCache[wrestlerName];
+            if (wrestlerCard) newWrestler = wrestlerCard;
+        } else if (line.toLowerCase().startsWith('manager:')) {
+            const managerName = line.substring(8).trim();
+            const managerCard = state.cardTitleCache[managerName];
+            if (managerCard) newManager = managerCard;
+        } else if (line.includes('--- Starting Deck')) {
+            currentSection = 'starting';
+        } else if (line.includes('--- Purchase Deck')) {
+            currentSection = 'purchase';
+        } else {
+            const match = line.match(/^(\d)x\s+(.+)/);
+            if (match) {
+                const count = parseInt(match[1], 10);
+                const cardTitle = match[2].trim();
+                if (state.cardTitleCache[cardTitle]) {
+                    for (let i = 0; i < count; i++) {
+                        if (currentSection === 'starting') {
+                            newStartingDeck.push(cardTitle);
+                        } else if (currentSection === 'purchase') {
+                            newPurchaseDeck.push(cardTitle);
                         }
                     }
                 }
             }
-        });
-        state.setSelectedWrestler(newWrestler);
-        state.setSelectedManager(newManager);
-        wrestlerSelect.value = newWrestler ? newWrestler.title : "";
-        managerSelect.value = newManager ? newManager.title : "";
-        state.setStartingDeck(newStartingDeck);
-        state.setPurchaseDeck(newPurchaseDeck);
-        renderDecks();
-        renderPersonaDisplay();
-        document.dispatchEvent(new Event('filtersChanged'));
-        importStatus.textContent = 'Deck imported successfully!';
-        importStatus.style.color = 'green';
-        setTimeout(() => { importModal.style.display = 'none'; }, 1500);
-    } catch (error) {
-        console.error('Error parsing decklist:', error);
-        importStatus.textContent = `An unexpected error occurred: ${error.message}`;
-        importStatus.style.color = 'red';
-    }
+        }
+    });
+
+    // Update state
+    state.setSelectedWrestler(newWrestler);
+    state.setSelectedManager(newManager);
+    state.setStartingDeck(newStartingDeck);
+    state.setPurchaseDeck(newPurchaseDeck);
+
+    // Update UI
+    document.getElementById('wrestlerSelect').value = newWrestler ? newWrestler.title : '';
+    document.getElementById('managerSelect').value = newManager ? newManager.title : '';
+    renderPersonaDisplay();
+    renderDecks();
+
+    statusEl.textContent = 'Import successful!';
+    setTimeout(() => {
+        closeAllModals();
+    }, 1000);
 }
+

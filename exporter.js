@@ -1,9 +1,8 @@
 // exporter.js
-import * as state from './config.js';
+import * as state from './state.js';
 import { generatePlaytestCardHTML } from './card-renderer.js';
-import { toPascalCase } from './config.js';
+import { toPascalCase, isKitCard } from './config.js';
 
-// --- HELPER: The core image generation logic, now highly reusable ---
 async function generateImagePages(cardSets, usePlaceholders = false) {
     const allCardsToPrint = cardSets.flatMap(set => set.cards);
     if (allCardsToPrint.length === 0) {
@@ -33,7 +32,6 @@ async function generateImagePages(cardSets, usePlaceholders = false) {
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Add the label at the top of the page
             ctx.fillStyle = 'black';
             ctx.font = 'bold 48px Arial';
             ctx.textAlign = 'center';
@@ -48,7 +46,7 @@ async function generateImagePages(cardSets, usePlaceholders = false) {
                 const row = Math.floor(i / 3);
                 const col = i % 3;
                 const x = (0.5 * DPI) + (col * CARD_RENDER_WIDTH_PX);
-                const y = (0.5 * DPI) + (row * CARD_RENDER_HEIGHT_PX); // Start below the label
+                const y = (0.5 * DPI) + (row * CARD_RENDER_HEIGHT_PX);
                 
                 const playtestHTML = await generatePlaytestCardHTML(card, tempContainer, usePlaceholders);
                 tempContainer.innerHTML = playtestHTML;
@@ -66,7 +64,8 @@ async function generateImagePages(cardSets, usePlaceholders = false) {
             const a = document.createElement('a');
             a.href = dataUrl;
             const wrestlerName = state.selectedWrestler ? toPascalCase(state.selectedWrestler.title) : "Deck";
-            a.download = `${wrestlerName}-${toPascalCase(cardSet.label)}-Page-${page + 1}.png`;
+            const filename = cardSet.label === 'Full Database' ? 'AEW-TCG-Full-Set' : wrestlerName;
+            a.download = `${filename}-${toPascalCase(cardSet.label)}-Page-${page + 1}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -78,15 +77,11 @@ async function generateImagePages(cardSets, usePlaceholders = false) {
     alert('All print sheets have been generated and downloaded!');
 }
 
-
-// --- PUBLIC EXPORT FUNCTIONS ---
-
-// 1. Text Export (No changes needed)
 export function exportDeckAsText() {
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
     if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For'])).sort((a, b) => a.title.localeCompare(b.title));
+    const kitCards = state.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For'])).sort((a, b) => a.title.localeCompare(b.title));
     let text = `Wrestler: ${state.selectedWrestler ? state.selectedWrestler.title : 'None'}\n`;
     text += `Manager: ${state.selectedManager ? state.selectedManager.title : 'None'}\n`;
     kitCards.forEach((card, index) => { text += `Kit${index + 1}: ${card.title}\n`; });
@@ -96,81 +91,61 @@ export function exportDeckAsText() {
     text += `\n--- Purchase Deck (${state.purchaseDeck.length}/36+) ---\n`;
     const purchaseCounts = state.purchaseDeck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
     Object.entries(purchaseCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => { text += `${count}x ${cardTitle}\n`; });
-    
     const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     const wrestlerName = state.selectedWrestler ? toPascalCase(state.selectedWrestler.title) : "Deck";
-    a.download = `${wrestlerName}.txt`;
-    document.body.appendChild(a);
+    a.download = `${wrestlerName}-Decklist.txt`;
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(url);
 }
 
-// 2. Full Export (Separated, with Images)
+function getDeckCards() {
+    const starting = [...new Set(state.startingDeck)].map(title => state.cardTitleCache[title]);
+    const purchase = [...new Set(state.purchaseDeck)].map(title => state.cardTitleCache[title]);
+    return { starting, purchase };
+}
+
 export function exportFull() {
-    const personaAndKit = [];
-    if (state.selectedWrestler) personaAndKit.push(state.selectedWrestler);
-    if (state.selectedManager) personaAndKit.push(state.selectedManager);
-    const activePersonaTitles = personaAndKit.map(p => p.title);
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    personaAndKit.push(...kitCards);
-
-    const cardSets = [
-        { label: 'Persona and Kit', cards: [...new Map(personaAndKit.map(c => [c.title, c])).values()] },
-        { label: 'Starting Deck', cards: state.startingDeck.map(title => state.cardTitleCache[title]) },
-        { label: 'Purchase Deck', cards: state.purchaseDeck.map(title => state.cardTitleCache[title]) }
-    ].filter(set => set.cards.length > 0);
-
-    generateImagePages(cardSets, false);
+    const { starting, purchase } = getDeckCards();
+    generateImagePages([
+        { label: 'Starting Deck', cards: starting },
+        { label: 'Purchase Deck', cards: purchase }
+    ], false);
 }
 
-// 3. Printer Friendly (Separated, No Images)
 export function exportPrinterFriendly() {
-    const personaAndKit = [];
-    if (state.selectedWrestler) personaAndKit.push(state.selectedWrestler);
-    if (state.selectedManager) personaAndKit.push(state.selectedManager);
-    const activePersonaTitles = personaAndKit.map(p => p.title);
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    personaAndKit.push(...kitCards);
-
-    const cardSets = [
-        { label: 'Persona and Kit', cards: [...new Map(personaAndKit.map(c => [c.title, c])).values()] },
-        { label: 'Starting Deck', cards: state.startingDeck.map(title => state.cardTitleCache[title]) },
-        { label: 'Purchase Deck', cards: state.purchaseDeck.map(title => state.cardTitleCache[title]) }
-    ].filter(set => set.cards.length > 0);
-
-    generateImagePages(cardSets, true); // The only difference is this 'true'
+    const { starting, purchase } = getDeckCards();
+    generateImagePages([
+        { label: 'Starting Deck', cards: starting },
+        { label: 'Purchase Deck', cards: purchase }
+    ], true);
 }
 
-// 4. Paper Friendly (Compacted, with Images)
 export function exportPaperFriendly() {
-    const allCards = [
-        ...(state.selectedWrestler ? [state.selectedWrestler] : []),
-        ...(state.selectedManager ? [state.selectedManager] : []),
-        ...state.cardDatabase.filter(card => state.isKitCard(card) && [state.selectedWrestler?.title, state.selectedManager?.title].includes(card['Signature For'])),
-        ...state.startingDeck.map(title => state.cardTitleCache[title]),
-        ...state.purchaseDeck.map(title => state.cardTitleCache[title])
-    ];
-    const uniqueCards = [...new Map(allCards.map(c => [c.title, c])).values()].sort((a,b) => a.title.localeCompare(b.title));
-
-    const cardSets = [{ label: 'Compacted Deck', cards: uniqueCards }];
-    generateImagePages(cardSets, false);
+    const { starting, purchase } = getDeckCards();
+    const combined = [...starting, ...purchase];
+    generateImagePages([
+        { label: 'Combined Deck', cards: combined }
+    ], true);
 }
 
-// 5. Both Friendly (Compacted, No Images)
 export function exportBothFriendly() {
-    const allCards = [
-        ...(state.selectedWrestler ? [state.selectedWrestler] : []),
-        ...(state.selectedManager ? [state.selectedManager] : []),
-        ...state.cardDatabase.filter(card => state.isKitCard(card) && [state.selectedWrestler?.title, state.selectedManager?.title].includes(card['Signature For'])),
-        ...state.startingDeck.map(title => state.cardTitleCache[title]),
-        ...state.purchaseDeck.map(title => state.cardTitleCache[title])
-    ];
-    const uniqueCards = [...new Map(allCards.map(c => [c.title, c])).values()].sort((a,b) => a.title.localeCompare(b.title));
+    const { starting, purchase } = getDeckCards();
+    generateImagePages([
+        { label: 'Starting Deck', cards: starting },
+        { label: 'Purchase Deck', cards: purchase }
+    ], true);
+}
 
-    const cardSets = [{ label: 'Compacted Deck (Printer Friendly)', cards: uniqueCards }];
-    generateImagePages(cardSets, true); // The only difference is this 'true'
+export function exportAllCards() {
+    if (!confirm("This will generate print sheets for ALL cards in the database. This may be slow and download many files. Are you sure?")) {
+        return;
+    }
+    const allCards = state.cardDatabase.filter(c => c).sort((a, b) => a.title.localeCompare(b.title));
+    generateImagePages([
+        { label: 'Full Database', cards: allCards }
+    ], true);
 }
 

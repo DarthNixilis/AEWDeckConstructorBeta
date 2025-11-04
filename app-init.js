@@ -1,33 +1,33 @@
 // app-init.js
-import * as state from './config.js';
-import * as ui from './ui.js';
+import * as state from './state.js';
+import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
-import { initializeEventListeners } from './listeners.js'; // Corrected call
+import { initializeEventListeners } from './listeners.js';
 
 export function initializeApp() {
-    // Populate dropdowns
+    // Populate dropdowns from the state
     populatePersonaSelectors();
 
-    // Load state from cache
-    loadStateFromCache();
+    // Load cached state
+    state.loadStateFromCache();
     
     // Initial UI setup
     setupInitialUI();
     
-    // Add deck search inputs
+    // Add deck search inputs (this is a UI setup task)
     addDeckSearchFunctionality();
 
-    // Render initial state from data
+    // Initial renders
     filters.renderCascadingFilters();
-    ui.renderDecks();
-    ui.renderPersonaDisplay();
+    renderer.renderDecks();
+    renderer.renderPersonaDisplay();
     
     // Initialize all event listeners for the entire application
-    // CRITICAL FIX: No longer passes refreshCardPool as an argument
     initializeEventListeners(); 
     
     // Trigger initial card pool render
-    refreshCardPool();
+    const finalCards = filters.getFilteredAndSortedCardPool();
+    renderer.renderCardPool(finalCards);
 }
 
 function populatePersonaSelectors() {
@@ -39,30 +39,6 @@ function populatePersonaSelectors() {
     const managers = state.cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
-}
-
-function loadStateFromCache() {
-    const cachedState = localStorage.getItem(state.CACHE_KEY);
-    if (cachedState) {
-        try {
-            const parsed = JSON.parse(cachedState);
-            state.setStartingDeck(parsed.startingDeck || []);
-            state.setPurchaseDeck(parsed.purchaseDeck || []);
-            if (parsed.wrestler) {
-                const wrestlerSelect = document.getElementById('wrestlerSelect');
-                wrestlerSelect.value = parsed.wrestler;
-                state.setSelectedWrestler(state.cardTitleCache[parsed.wrestler] || null);
-            }
-            if (parsed.manager) {
-                const managerSelect = document.getElementById('managerSelect');
-                managerSelect.value = parsed.manager;
-                state.setSelectedManager(state.cardTitleCache[parsed.manager] || null);
-            }
-        } catch (e) {
-            console.error("Failed to load from cache:", e);
-            localStorage.removeItem(state.CACHE_KEY);
-        }
-    }
 }
 
 function setupInitialUI() {
@@ -81,13 +57,13 @@ function addDeckSearchFunctionality() {
     startingDeckSearch.type = 'text';
     startingDeckSearch.placeholder = 'Search starting deck...';
     startingDeckSearch.className = 'deck-search-input';
-    startingDeckSearch.addEventListener('input', state.debounce(() => ui.filterDeckList(startingDeckList, startingDeckSearch.value), 300));
+    startingDeckSearch.addEventListener('input', state.debounce(() => renderer.filterDeckList(startingDeckList, startingDeckSearch.value), 300));
     
     const purchaseDeckSearch = document.createElement('input');
     purchaseDeckSearch.type = 'text';
     purchaseDeckSearch.placeholder = 'Search purchase deck...';
     purchaseDeckSearch.className = 'deck-search-input';
-    purchaseDeckSearch.addEventListener('input', state.debounce(() => ui.filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
+    purchaseDeckSearch.addEventListener('input', state.debounce(() => renderer.filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
     
     if (!startingDeckList.previousElementSibling?.classList.contains('deck-search-input')) {
         startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
@@ -95,10 +71,5 @@ function addDeckSearchFunctionality() {
     if (!purchaseDeckList.previousElementSibling?.classList.contains('deck-search-input')) {
         purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
     }
-}
-
-function refreshCardPool() {
-    const finalCards = filters.getFilteredAndSortedCardPool();
-    ui.renderCardPool(finalCards);
 }
 

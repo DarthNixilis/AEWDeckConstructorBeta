@@ -1,9 +1,8 @@
 // ui.js
-
 import * as state from './config.js';
-import { generateCardVisualHTML } from './card-renderer.js'; // UPDATED IMPORT
+import { generateCardVisualHTML } from './card-renderer.js';
 
-// --- DOM REFERENCES ---
+// DOM References are grouped here for clarity
 const searchResults = document.getElementById('searchResults');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
@@ -14,15 +13,15 @@ const purchaseDeckHeader = document.getElementById('purchaseDeckHeader');
 const personaDisplay = document.getElementById('personaDisplay');
 const cardModal = document.getElementById('cardModal');
 const modalCardContent = document.getElementById('modalCardContent');
-const modalCloseButton = cardModal.querySelector('.modal-close-button');
-
-// --- RENDERING FUNCTIONS ---
 
 export function renderCardPool(cards) {
     searchResults.innerHTML = '';
     searchResults.className = `card-list ${state.currentViewMode}-view`;
-    if (state.currentViewMode === 'grid') searchResults.setAttribute('data-columns', state.numGridColumns);
-    else searchResults.removeAttribute('data-columns');
+    if (state.currentViewMode === 'grid') {
+        searchResults.setAttribute('data-columns', state.numGridColumns);
+    } else {
+        searchResults.removeAttribute('data-columns');
+    }
     
     if (cards.length === 0) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
@@ -31,22 +30,30 @@ export function renderCardPool(cards) {
     cards.forEach(card => {
         const cardElement = document.createElement('div');
         cardElement.className = state.currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
-        if (state.isSignatureFor(card)) cardElement.classList.add('signature-highlight');
+        if (state.isSignatureFor(card)) {
+            cardElement.classList.add('signature-highlight');
+        }
         cardElement.dataset.title = card.title;
         if (state.currentViewMode === 'list') {
             cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            else buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            if (card.cost === 0) {
+                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            } else {
+                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            }
             cardElement.appendChild(buttonsDiv);
         } else {
             const visualHTML = generateCardVisualHTML(card);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            else buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            if (card.cost === 0) {
+                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            } else {
+                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            }
             cardElement.appendChild(buttonsDiv);
         }
         searchResults.appendChild(cardElement);
@@ -54,17 +61,18 @@ export function renderCardPool(cards) {
 }
 
 export function renderPersonaDisplay() {
-    if (!state.selectedWrestler) { personaDisplay.style.display = 'none'; return; }
+    if (!state.selectedWrestler) {
+        personaDisplay.style.display = 'none';
+        return;
+    }
     personaDisplay.style.display = 'block';
     personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>';
     const list = personaDisplay.querySelector('.persona-card-list');
     list.innerHTML = ''; 
     const cardsToShow = new Set();
-    const activePersona = [];
-    if (state.selectedWrestler) activePersona.push(state.selectedWrestler);
-    if (state.selectedManager) activePersona.push(state.selectedManager);
-    activePersona.forEach(p => cardsToShow.add(p));
-    const activePersonaTitles = activePersona.map(p => p.title);
+    if (state.selectedWrestler) cardsToShow.add(state.selectedWrestler);
+    if (state.selectedManager) cardsToShow.add(state.selectedManager);
+    const activePersonaTitles = Array.from(cardsToShow).map(p => p.title);
     const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
     kitCards.forEach(card => cardsToShow.add(card));
     const sortedCards = Array.from(cardsToShow).sort((a, b) => {
@@ -83,35 +91,50 @@ export function renderPersonaDisplay() {
 
 export function showCardModal(cardTitle) {
     state.setLastFocusedElement(document.activeElement);
-    const card = state.cardDatabase.find(c => c.title === cardTitle);
+    const card = state.cardTitleCache[cardTitle];
     if (!card) return;
     modalCardContent.innerHTML = generateCardVisualHTML(card);
     cardModal.style.display = 'flex';
-    cardModal.setAttribute('role', 'dialog');
-    cardModal.setAttribute('aria-modal', 'true');
-    modalCloseButton.focus();
 }
 
 export function renderDecks() {
-    renderDeckList(startingDeckList, state.startingDeck);
-    renderDeckList(purchaseDeckList, state.purchaseDeck);
+    renderDeckList(startingDeckList, state.startingDeck, true);
+    renderDeckList(purchaseDeckList, state.purchaseDeck, false);
     updateDeckCounts();
     state.saveStateToCache();
 }
 
-function renderDeckList(element, deck) {
+// --- THIS IS THE KEY CHANGE #2 ---
+// The function now conditionally renders a "Move to Starting" button as well.
+function renderDeckList(element, deck, isStartingDeck) {
     element.innerHTML = '';
     const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-    Object.entries(cardCounts).forEach(([cardTitle, count]) => {
-        const card = state.cardDatabase.find(c => c.title === cardTitle);
+    
+    Object.entries(cardCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
+        const card = state.cardTitleCache[cardTitle];
         if (!card) return;
+
         const cardElement = document.createElement('div');
         cardElement.className = 'card-item';
-        const deckName = element === startingDeckList ? 'starting' : 'purchase';
-        cardElement.innerHTML = `<span data-title="${card.title}">${count}x ${card.title}</span><button data-title="${card.title}" data-deck="${deckName}">Remove</button>`;
+        
+        let buttonsHTML = `<button class="btn-remove" data-title="${cardTitle}" data-action="remove">Remove</button>`;
+        
+        if (isStartingDeck) {
+            // For starting deck, always show "Move to Purchase"
+            buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToPurchase">Move</button>`;
+        } else if (card.cost === 0) {
+            // For purchase deck, ONLY show "Move to Starting" if it's a 0-cost card
+            buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToStart">Move</button>`;
+        }
+
+        cardElement.innerHTML = `
+            <span data-title="${cardTitle}">${count}x ${card.title}</span>
+            <div class="card-item-buttons">${buttonsHTML}</div>
+        `;
         element.appendChild(cardElement);
     });
 }
+// --- END OF KEY CHANGE #2 ---
 
 function updateDeckCounts() {
     startingDeckCount.textContent = state.startingDeck.length;

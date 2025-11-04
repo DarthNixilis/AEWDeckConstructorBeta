@@ -2,12 +2,12 @@
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as deck from './deck.js';
-import { parseAndLoadDeck } from './importer.js';
-// CORRECTED: Import the specific functions we need
-import { generatePlainTextDeck, exportDeckAsImage } from './exporter.js';
+import * as filters from './filters.js';
+import * as importer from './importer.js';
+import * as exporter from './exporter.js';
 
-export function initializeAllEventListeners(refreshCardPool) {
-    // POOL LISTENERS
+export function initializeEventListeners() {
+    // --- POOL LISTENERS ---
     const searchInput = document.getElementById('searchInput');
     const sortSelect = document.getElementById('sortSelect');
     const showZeroCostCheckbox = document.getElementById('showZeroCost');
@@ -23,9 +23,9 @@ export function initializeAllEventListeners(refreshCardPool) {
     showNonZeroCostCheckbox.addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); refreshCardPool(); });
     gridSizeControls.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
-            state.setNumGridColumns(e.target.dataset.columns);
             gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
+            state.setNumGridColumns(e.target.dataset.columns);
             refreshCardPool();
         }
     });
@@ -39,11 +39,14 @@ export function initializeAllEventListeners(refreshCardPool) {
         const target = e.target;
         const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
         if (!cardTitle) return;
-        if (target.tagName === 'BUTTON') { deck.addCardToDeck(cardTitle, target.dataset.deckTarget); } 
-        else { ui.showCardModal(cardTitle); }
+        if (target.tagName === 'BUTTON') {
+            deck.addCardToDeck(cardTitle, target.dataset.deckTarget);
+        } else {
+            ui.showCardModal(cardTitle);
+        }
     });
 
-    // DECK LISTENERS
+    // --- DECK LISTENERS ---
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
     const startingDeckList = document.getElementById('startingDeckList');
@@ -57,25 +60,44 @@ export function initializeAllEventListeners(refreshCardPool) {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
         state.setSelectedWrestler(newWrestler);
         ui.renderPersonaDisplay();
-        refreshCardPool();
         state.saveStateToCache();
     });
     managerSelect.addEventListener('change', (e) => {
         const newManager = state.cardTitleCache[e.target.value] || null;
         state.setSelectedManager(newManager);
         ui.renderPersonaDisplay();
-        refreshCardPool();
         state.saveStateToCache();
     });
-    [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
+
+    // --- THIS IS THE KEY CHANGE #3 ---
+    // The listener now handles all four possible actions: remove, moveToPurchase, moveToStart, and view.
+    [startingDeckList, purchaseDeckList].forEach(container => {
         container.addEventListener('click', (e) => {
             const target = e.target;
             const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
             if (!cardTitle) return;
-            if (target.tagName === 'BUTTON' && target.dataset.deck) { deck.removeCardFromDeck(cardTitle, target.dataset.deck); } 
-            else { ui.showCardModal(cardTitle); }
+
+            const action = target.dataset.action;
+            if (action === 'remove') {
+                const deckName = container === startingDeckList ? 'starting' : 'purchase';
+                deck.removeCardFromDeck(cardTitle, deckName);
+            } else if (action === 'moveToPurchase') {
+                deck.moveCardToPurchase(cardTitle);
+            } else if (action === 'moveToStart') {
+                deck.moveCardToStarting(cardTitle);
+            } else {
+                // If no action button was clicked, assume user wants to view the card
+                ui.showCardModal(cardTitle);
+            }
         });
     });
+    // --- END OF KEY CHANGE #3 ---
+
+    personaDisplay.addEventListener('click', (e) => {
+        const cardTitle = e.target.dataset.title || e.target.closest('[data-title]')?.dataset.title;
+        if (cardTitle) ui.showCardModal(cardTitle);
+    });
+
     clearDeckBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to clear the entire deck?')) {
             state.setStartingDeck([]);
@@ -83,59 +105,55 @@ export function initializeAllEventListeners(refreshCardPool) {
             ui.renderDecks();
         }
     });
-    exportDeckBtn.addEventListener('click', () => {
-        const text = generatePlainTextDeck();
-        const blob = new Blob([text], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
-        a.download = `${wrestlerName}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-    });
-    
-    // --- THIS IS THE CRITICAL FIX ---
-    // This now correctly points to the new export function.
-    exportAsImageBtn.addEventListener('click', exportDeckAsImage);
-    // --------------------------------
+    exportDeckBtn.addEventListener('click', exporter.exportDeckAsText);
+    exportAsImageBtn.addEventListener('click', exporter.exportDeckAsImage);
 
-    // MODAL LISTENERS
+    // --- MODAL LISTENERS ---
     const importDeckBtn = document.getElementById('importDeck');
     const importModal = document.getElementById('importModal');
-    const importModalCloseBtn = importModal.querySelector('.modal-close-button');
     const deckFileInput = document.getElementById('deckFileInput');
-    const deckTextInput = document.getElementById('deckTextInput');
     const processImportBtn = document.getElementById('processImportBtn');
     const cardModal = document.getElementById('cardModal');
-    const modalCloseButton = cardModal.querySelector('.modal-close-button');
 
     importDeckBtn.addEventListener('click', () => {
         importModal.style.display = 'flex';
         document.getElementById('importStatus').textContent = '';
-        deckTextInput.value = '';
+        document.getElementById('deckTextInput').value = '';
         deckFileInput.value = '';
     });
-    importModalCloseBtn.addEventListener('click', () => importModal.style.display = 'none');
-    processImportBtn.addEventListener('click', () => { if (deckTextInput.value) { parseAndLoadDeck(deckTextInput.value); } });
+    processImportBtn.addEventListener('click', () => {
+        const text = document.getElementById('deckTextInput').value;
+        if (text) importer.parseAndLoadDeck(text);
+    });
     deckFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => { parseAndLoadDeck(event.target.result); };
+            reader.onload = (event) => importer.parseAndLoadDeck(event.target.result);
             reader.readAsText(file);
         }
     });
-    modalCloseButton.addEventListener('click', () => cardModal.style.display = 'none');
-    cardModal.addEventListener('click', (e) => { if (e.target === cardModal) cardModal.style.display = 'none'; });
-    importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.style.display = 'none'; });
+    
+    [cardModal, importModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target.classList.contains('modal-close-button')) {
+                modal.style.display = 'none';
+            }
+        });
+    });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             cardModal.style.display = 'none';
             importModal.style.display = 'none';
-            if (state.lastFocusedElement) { state.lastFocusedElement.focus(); }
+            if (state.lastFocusedElement) {
+                state.lastFocusedElement.focus();
+            }
         }
     });
+}
+
+function refreshCardPool() {
+    const finalCards = filters.getFilteredAndSortedCardPool();
+    ui.renderCardPool(finalCards);
 }
 

@@ -30,7 +30,7 @@ header {
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     position: sticky;
     top: 0;
-    z-index: 1000; /* Increased z-index */
+    z-index: 1000;
 }
 
 h1, h2, h3 { font-size: 1.5rem; }
@@ -70,9 +70,10 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .deck-list-small .card-item-buttons { display: flex; gap: 5px; }
 .deck-search-input { width: 95%; padding: 8px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px; }
 .deck-actions { margin-top: auto; padding-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-.deck-actions button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 0; }
-#importDeck { background-color: var(--success-color); color: white; }
-#clearDeck { background-color: var(--secondary-color); color: white; }
+.deck-actions button, .deck-actions select { padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 1em; }
+#importDeck { background-color: var(--success-color); color: white; border-color: var(--success-color); }
+#clearDeck { background-color: var(--secondary-color); color: white; border-color: var(--secondary-color); }
+#exportSelect { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
 .persona-display-container { border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; margin-bottom: 15px; display: none; }
 .persona-display-container h3 { margin-top: 0; font-size: 1.1em; }
 .persona-card-list { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -105,71 +106,6 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .import-controls textarea { width: 95%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; resize: vertical; font-family: inherit; }
 .import-controls button { padding: 10px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-end; }
 .import-status { margin-top: 15px; font-size: 0.9em; }
-
-/* --- NEW, ROBUST DROPDOWN STYLES --- */
-.dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.dropbtn {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.dropdown-content {
-    display: none; /* Hide by default */
-    position: absolute;
-    bottom: 100%; /* Position above the button */
-    right: 0; /* Align to the right */
-    background-color: #f1f1f1;
-    min-width: 240px; /* Increased width */
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1;
-    border-radius: 4px;
-    margin-bottom: 5px; /* Add some space between button and menu */
-}
-
-.dropdown-content button {
-    color: black;
-    background-color: white;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block; /* Make them stack vertically */
-    width: 100%;
-    text-align: left;
-    border: none;
-    border-bottom: 1px solid #ddd;
-    margin-left: 0;
-    border-radius: 0;
-}
-
-.dropdown-content button:last-child {
-    border-bottom: none;
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
-}
-
-.dropdown-content button:first-child {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-}
-
-.dropdown-content button:hover {
-    background-color: #ddd;
-}
-
-.dropdown:hover .dropdown-content {
-    display: block; /* Show on hover */
-}
-
-.dropdown:hover .dropbtn {
-    background-color: #0056b3;
-}
 
 @media (max-width: 768px) { .container { flex-direction: column; padding: 10px; } .search-panel, .deck-panel { min-width: 100%; width: 100%; } .view-controls-container { align-items: flex-start; } .card-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; } }
 

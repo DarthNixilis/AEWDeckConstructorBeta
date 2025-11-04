@@ -52,7 +52,9 @@ export function initializeEventListeners() {
     const startingDeckList = document.getElementById('startingDeckList');
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const personaDisplay = document.getElementById('personaDisplay');
-    const deckActions = document.querySelector('.deck-actions');
+    const clearDeckBtn = document.getElementById('clearDeck');
+    const importDeckBtn = document.getElementById('importDeck');
+    const exportSelect = document.getElementById('exportSelect'); // THE NEW DROPDOWN
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -92,13 +94,28 @@ export function initializeEventListeners() {
         if (cardTitle) ui.showCardModal(cardTitle);
     });
 
-    // --- NEW UNIFIED ACTIONS LISTENER (IMPORT, EXPORT, CLEAR) ---
-    deckActions.addEventListener('click', (e) => {
-        const target = e.target;
-        if (target.tagName !== 'BUTTON') return;
+    clearDeckBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear the entire deck?')) {
+            state.setStartingDeck([]);
+            state.setPurchaseDeck([]);
+            ui.renderDecks();
+        }
+    });
 
-        const action = target.dataset.action;
-        switch (action) {
+    importDeckBtn.addEventListener('click', () => {
+        const importModal = document.getElementById('importModal');
+        importModal.style.display = 'flex';
+        document.getElementById('importStatus').textContent = '';
+        document.getElementById('deckTextInput').value = '';
+        document.getElementById('deckFileInput').value = '';
+    });
+
+    // --- THE NEW, UNBREAKABLE EXPORT LISTENER ---
+    exportSelect.addEventListener('change', (e) => {
+        const selectedAction = e.target.value;
+        if (!selectedAction) return; // Ignore the placeholder option
+
+        switch (selectedAction) {
             case 'export-text':
                 exporter.exportDeckAsText();
                 break;
@@ -116,20 +133,8 @@ export function initializeEventListeners() {
                 break;
         }
 
-        // Handle non-dropdown buttons
-        if (target.id === 'clearDeck') {
-            if (confirm('Are you sure you want to clear the entire deck?')) {
-                state.setStartingDeck([]);
-                state.setPurchaseDeck([]);
-                ui.renderDecks();
-            }
-        } else if (target.id === 'importDeck') {
-            const importModal = document.getElementById('importModal');
-            importModal.style.display = 'flex';
-            document.getElementById('importStatus').textContent = '';
-            document.getElementById('deckTextInput').value = '';
-            document.getElementById('deckFileInput').value = '';
-        }
+        // Reset the dropdown to the placeholder
+        e.target.value = "";
     });
 
 

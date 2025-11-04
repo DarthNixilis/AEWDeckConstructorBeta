@@ -2,17 +2,31 @@
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as filters from './filters.js';
-import { initializeAllEventListeners } from './listeners.js'; // Corrected path
+import { initializeEventListeners } from './listeners.js'; // Corrected call
 
 export function initializeApp() {
+    // Populate dropdowns
     populatePersonaSelectors();
+
+    // Load state from cache
     loadStateFromCache();
+    
+    // Initial UI setup
     setupInitialUI();
+    
+    // Add deck search inputs
     addDeckSearchFunctionality();
+
+    // Render initial state from data
     filters.renderCascadingFilters();
     ui.renderDecks();
     ui.renderPersonaDisplay();
-    initializeAllEventListeners(refreshCardPool);
+    
+    // Initialize all event listeners for the entire application
+    // CRITICAL FIX: No longer passes refreshCardPool as an argument
+    initializeEventListeners(); 
+    
+    // Trigger initial card pool render
     refreshCardPool();
 }
 
@@ -75,8 +89,12 @@ function addDeckSearchFunctionality() {
     purchaseDeckSearch.className = 'deck-search-input';
     purchaseDeckSearch.addEventListener('input', state.debounce(() => ui.filterDeckList(purchaseDeckList, purchaseDeckSearch.value), 300));
     
-    startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
-    purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
+    if (!startingDeckList.previousElementSibling?.classList.contains('deck-search-input')) {
+        startingDeckList.parentNode.insertBefore(startingDeckSearch, startingDeckList);
+    }
+    if (!purchaseDeckList.previousElementSibling?.classList.contains('deck-search-input')) {
+        purchaseDeckList.parentNode.insertBefore(purchaseDeckSearch, purchaseDeckList);
+    }
 }
 
 function refreshCardPool() {

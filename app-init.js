@@ -28,8 +28,13 @@ function populatePersonaSelectors() {
     const managerSelect = document.getElementById('managerSelect');
     wrestlerSelect.length = 1;
     managerSelect.length = 1;
-    const wrestlers = state.cardDatabase.filter(c => c && c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
-    const managers = state.cardDatabase.filter(c => c && c.card_type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
+    
+    // --- THIS IS THE FIX ---
+    // The parser now creates 'card_type', not 'Card Type'. We must use the standardized name.
+    const wrestlers = state.cardDatabase.filter(c => c && c.type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
+    const managers = state.cardDatabase.filter(c => c && c.type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
+    // --- END OF FIX ---
+
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
 }

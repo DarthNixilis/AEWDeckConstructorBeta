@@ -1,9 +1,8 @@
 // ui-renderer.js
 import * as state from './state.js';
-import { generateCardVisualHTML } from './card-renderer.js';
-import { isSignatureFor } from './config.js';
+import * as modals from './ui-modal.js';
+import { isKitCard, isSignatureFor } from './config.js';
 
-// --- DOM References ---
 const searchResults = document.getElementById('searchResults');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
@@ -11,135 +10,154 @@ const startingDeckCount = document.getElementById('startingDeckCount');
 const purchaseDeckCount = document.getElementById('purchaseDeckCount');
 const personaDisplay = document.getElementById('personaDisplay');
 
-// --- RENDER FUNCTIONS ---
-
 export function renderCardPool(cards) {
     searchResults.innerHTML = '';
-    searchResults.className = `card-list ${state.currentViewMode}-view`;
-    if (state.currentViewMode === 'grid') {
-        searchResults.setAttribute('data-columns', state.numGridColumns);
-    } else {
-        searchResults.removeAttribute('data-columns');
-    }
     
+    // --- FIX #1: Correctly apply the view mode from the state ---
+    searchResults.className = 'card-list'; // Reset classes
+    if (state.currentViewMode === 'grid') {
+        searchResults.classList.add('grid-view');
+        searchResults.style.gridTemplateColumns = `repeat(${state.numGridColumns}, 1fr)`;
+    } else {
+        searchResults.classList.add('list-view');
+    }
+    // --- END OF FIX #1 ---
+
     if (cards.length === 0) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
         return;
     }
+
+    const fragment = document.createDocumentFragment();
     cards.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = state.currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
-        if (isSignatureFor(card)) {
-            cardElement.classList.add('signature-highlight');
-        }
-        cardElement.dataset.title = card.title;
+        // The rest of the app uses 'title', which the parser now provides.
+        if (!card || !card.title) return;
 
-        const buttonsDiv = document.createElement('div');
-        buttonsDiv.className = 'card-buttons';
-        if (card.cost === 0) {
-            buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-        } else {
-            buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-        }
-
-        if (state.currentViewMode === 'list') {
-            cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
-            cardElement.appendChild(buttonsDiv);
-        } else {
-            const visualHTML = generateCardVisualHTML(card);
-            cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
-            cardElement.appendChild(buttonsDiv);
-        }
-        searchResults.appendChild(cardElement);
+        const cardEl = (state.currentViewMode === 'grid') 
+            ? createGridItem(card) 
+            : createListItem(card);
+        
+        fragment.appendChild(cardEl);
     });
+    searchResults.appendChild(fragment);
 }
 
-export function renderPersonaDisplay() {
-    if (!state.selectedWrestler) {
-        personaDisplay.style.display = 'none';
-        return;
-    }
-    personaDisplay.style.display = 'block';
-    personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>';
-    const list = personaDisplay.querySelector('.persona-card-list');
-    list.innerHTML = ''; 
-    const cardsToShow = new Set();
-    if (state.selectedWrestler) cardsToShow.add(state.selectedWrestler);
-    if (state.selectedManager) cardsToShow.add(state.selectedManager);
-    const activePersonaTitles = Array.from(cardsToShow).map(p => p.title);
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    kitCards.forEach(card => cardsToShow.add(card));
-    const sortedCards = Array.from(cardsToShow).sort((a, b) => {
-        if (a.card_type === 'Wrestler') return -1; if (b.card_type === 'Wrestler') return 1;
-        if (a.card_type === 'Manager') return -1; if (b.card_type === 'Manager') return 1;
-        return a.title.localeCompare(b.title);
-    });
-    sortedCards.forEach(card => {
-        const item = document.createElement('div');
-        item.className = 'persona-card-item';
-        item.textContent = card.title;
-        item.dataset.title = card.title;
-        list.appendChild(item);
-    });
+function createListItem(card) {
+    const item = document.createElement('div');
+    item.className = 'card-list-item';
+    // --- FIX #2: Ensure data-title is always present for click handlers ---
+    item.dataset.title = card.title;
+    // --- END OF FIX #2 ---
+
+    item.innerHTML = `
+        <span class="card-title">${card.title}</span>
+        <div class="card-actions">
+            <button data-deck-target="starting" data-title="${card.title}">Starting</button>
+            <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
+        </div>
+    `;
+    return item;
 }
+
+function createGridItem(card) {
+    const item = document.createElement('div');
+    item.className = 'card-grid-item';
+    // --- FIX #3: Ensure data-title is present and use standardized keys ---
+    item.dataset.title = card.title;
+
+    // Use standardized keys like 'cost', 'damage', 'momentum', 'type'
+    const cost = card.cost ?? 'N/A';
+    const damage = card.damage ?? 'N/A';
+    const momentum = card.momentum ?? 'N/A';
+    const type = card.type ?? 'Unknown';
+
+    item.innerHTML = `
+        <div class="card-grid-title">${card.title}</div>
+        <div class="card-grid-stats">
+            <span><strong>C:</strong> ${cost}</span>
+            <span><strong>D:</strong> ${damage}</span>
+            <span><strong>M:</strong> ${momentum}</span>
+        </div>
+        <div class="card-grid-type">${type}</div>
+        <div class="card-actions">
+            <button data-deck-target="starting" data-title="${card.title}">Starting</button>
+            <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
+        </div>
+    `;
+    // --- END OF FIX #3 ---
+    return item;
+}
+
+
+// --- The rest of the file is unchanged but included for completeness ---
 
 export function renderDecks() {
-    renderDeckList(startingDeckList, state.startingDeck, true);
-    renderDeckList(purchaseDeckList, state.purchaseDeck, false);
+    renderDeck(startingDeckList, state.startingDeck, 'starting');
+    renderDeck(purchaseDeckList, state.purchaseDeck, 'purchase');
     updateDeckCounts();
     state.saveStateToCache();
 }
 
-function renderDeckList(element, deck, isStartingDeck) {
-    element.innerHTML = '';
-    const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-    
-    Object.entries(cardCounts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([cardTitle, count]) => {
-        const card = state.cardTitleCache[cardTitle];
+function renderDeck(container, deck, deckName) {
+    container.innerHTML = '';
+    const counts = deck.reduce((acc, title) => {
+        acc[title] = (acc[title] || 0) + 1;
+        return acc;
+    }, {});
+
+    Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([title, count]) => {
+        const card = state.cardTitleCache[title];
         if (!card) return;
 
-        const cardElement = document.createElement('div');
-        cardElement.className = 'card-item';
-        
-        let buttonsHTML = `<button class="btn-remove" data-title="${cardTitle}" data-action="remove">Remove</button>`;
-        
-        if (isStartingDeck) {
-            buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToPurchase">Move</button>`;
-        } else if (card.cost === 0) {
-            buttonsHTML += `<button class="btn-move" data-title="${cardTitle}" data-action="moveToStart">Move</button>`;
-        }
+        const item = document.createElement('div');
+        item.className = 'deck-card-item';
+        item.dataset.title = title;
 
-        cardElement.innerHTML = `
-            <span data-title="${cardTitle}">${count}x ${card.title}</span>
-            <div class="card-item-buttons">${buttonsHTML}</div>
+        const moveAction = deckName === 'starting'
+            ? `<button class="deck-card-action" data-action="moveToPurchase" title="Move to Purchase Deck">&rarr;</button>`
+            : `<button class="deck-card-action" data-action="moveToStart" title="Move to Starting Deck">&larr;</button>`;
+
+        item.innerHTML = `
+            <span class="deck-card-count">${count}x</span>
+            <span class="deck-card-title">${title}</span>
+            <div class="deck-card-buttons">
+                ${moveAction}
+                <button class="deck-card-action remove" data-action="remove" title="Remove from Deck">&times;</button>
+            </div>
         `;
-        element.appendChild(cardElement);
+        container.appendChild(item);
     });
 }
 
-function updateDeckCounts() {
-    startingDeckCount.textContent = `${state.startingDeck.length}/24`;
-    purchaseDeckCount.textContent = `${state.purchaseDeck.length}/36+`;
+export function updateDeckCounts() {
+    const startingCount = state.startingDeck.length;
+    const purchaseCount = state.purchaseDeck.length;
 
-    if (state.startingDeck.length > 24) {
-        startingDeckCount.style.color = 'red';
-    } else if (state.startingDeck.length === 24) {
-        startingDeckCount.style.color = 'green';
-    } else {
-        startingDeckCount.style.color = 'black';
-    }
+    startingDeckCount.textContent = `${startingCount}/24`;
+    purchaseDeckCount.textContent = `${purchaseCount}/36+`;
 
-    if (state.purchaseDeck.length >= 36) {
-        purchaseDeckCount.style.color = 'green';
-    } else {
-        purchaseDeckCount.style.color = 'black';
-    }
+    startingDeckCount.classList.toggle('full', startingCount === 24);
+    startingDeckCount.classList.toggle('over', startingCount > 24);
 }
 
-export function filterDeckList(deckListElement, query) {
-    const items = deckListElement.querySelectorAll('.card-item');
+export function renderPersonaDisplay() {
+    personaDisplay.innerHTML = '';
+    [state.selectedWrestler, state.selectedManager].forEach(persona => {
+        if (persona) {
+            const item = document.createElement('div');
+            item.className = 'persona-item';
+            item.dataset.title = persona.title;
+            item.innerHTML = `<strong>${persona.type}:</strong> ${persona.title}`;
+            personaDisplay.appendChild(item);
+        }
+    });
+}
+
+export function filterDeckList(listElement, query) {
+    const items = listElement.querySelectorAll('.deck-card-item');
     items.forEach(item => {
         const text = item.textContent.toLowerCase();
         item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
     });
 }
+

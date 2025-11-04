@@ -36,20 +36,36 @@ function parseTSV(text) {
     return data;
 }
 
-export function loadGameData() {
+export async function loadGameData() {
     try {
-        if (typeof window.CARD_DATABASE_TEXT === 'undefined') {
-            throw new Error("The global variable 'CARD_DATABASE_TEXT' was not found. Check for typos or script errors in index.html.");
+        // --- THIS IS THE ROBUST DYNAMIC LOADING LOGIC ---
+        // Add a cache-busting query parameter to ensure we always get the latest file.
+        const cacheBuster = `?t=${new Date().getTime()}`;
+        
+        const [cardResponse, keywordResponse] = await Promise.all([
+            fetch(`./cardDatabase.txt${cacheBuster}`),
+            fetch(`./Keywords.txt${cacheBuster}`)
+        ]);
+
+        if (!cardResponse.ok) {
+            throw new Error(`Failed to fetch cardDatabase.txt. Server responded with status: ${cardResponse.status} ${cardResponse.statusText}`);
         }
-        if (typeof window.KEYWORDS_TEXT === 'undefined') {
-            throw new Error("The global variable 'KEYWORDS_TEXT' was not found. Check for typos or script errors in index.html.");
+        if (!keywordResponse.ok) {
+            throw new Error(`Failed to fetch Keywords.txt. Server responded with status: ${keywordResponse.status} ${keywordResponse.statusText}`);
         }
 
-        const cardData = parseTSV(window.CARD_DATABASE_TEXT);
-        const keywordData = parseTSV(window.KEYWORDS_TEXT);
+        const cardText = await cardResponse.text();
+        const keywordText = await keywordResponse.text();
+        
+        if (!cardText) throw new Error("cardDatabase.txt was fetched but is empty.");
+        if (!keywordText) throw new Error("Keywords.txt was fetched but is empty.");
+
+        const cardData = parseTSV(cardText);
+        const keywordData = parseTSV(keywordText);
+        // --- END OF DYNAMIC LOADING LOGIC ---
 
         if (!Array.isArray(cardData) || cardData.length === 0) {
-            throw new Error("Parsing the embedded card data resulted in an empty array. Please verify the data in index.html.");
+            throw new Error("Parsing cardDatabase.txt resulted in an empty array. Please verify the file's TSV format.");
         }
 
         setCardDatabase(cardData);
@@ -68,9 +84,8 @@ export function loadGameData() {
         console.error('CRITICAL ERROR in loadGameData:', error);
         document.body.innerHTML = `<div style="padding: 20px; font-family: sans-serif;">
             <h2>Application Failed to Load</h2>
-            <p>There was a critical error processing the embedded data.</p>
+            <p>Could not load data from the server. Please ensure <strong>cardDatabase.txt</strong> and <strong>Keywords.txt</strong> exist in the same directory as index.html and are accessible.</p>
             <p><strong>Error details:</strong> ${error.message}</p>
-            <p>Please check that the data was pasted correctly into index.html and that the TSV format is correct.</p>
         </div>`;
     }
 }

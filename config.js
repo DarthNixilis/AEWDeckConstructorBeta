@@ -1,5 +1,4 @@
 // config.js
-
 export const CACHE_KEY = 'aewDeckBuilderState';
 
 export function toPascalCase(str) {

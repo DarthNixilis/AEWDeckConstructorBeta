@@ -4,35 +4,42 @@ import { initializeApp } from './app-init.js';
 
 export async function loadGameData() {
     try {
-        // Fetch both files as plain text first.
         const [cardResponse, keywordResponse] = await Promise.all([
             fetch('./cardDatabase.txt'),
-            fetch('./Keywords.txt') 
+            fetch('./Keywords.txt')
         ]);
 
-        if (!cardResponse.ok || !keywordResponse.ok) {
-            throw new Error(`Network response was not ok. Card status: ${cardResponse.status}, Keyword status: ${keywordResponse.status}`);
+        if (!cardResponse.ok) {
+            throw new Error(`Failed to load cardDatabase.txt: ${cardResponse.statusText}`);
+        }
+        if (!keywordResponse.ok) {
+            throw new Error(`Failed to load Keywords.txt: ${keywordResponse.statusText}`);
         }
 
-        // --- THIS IS THE FIX ---
-        // 1. Read the content of the files as plain text.
         const cardText = await cardResponse.text();
         const keywordText = await keywordResponse.text();
 
-        // 2. Now, try to parse that text as JSON. This is where the error was happening.
         const cardData = JSON.parse(cardText);
         const keywordData = JSON.parse(keywordText);
-        // --- END OF FIX ---
 
         setCardDatabase(cardData);
         setKeywordDatabase(keywordData);
-        
-        initializeApp();
+
+        // Wait until the DOM is fully loaded before initializing the app
+        document.addEventListener('DOMContentLoaded', initializeApp);
+        // If the DOM is already loaded, run it immediately
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            initializeApp();
+        }
 
     } catch (error) {
-        console.error('Failed to load or parse game data:', error);
-        // I've made the error message more specific to help debug if it happens again.
-        document.body.innerHTML = `<p>Error loading application data. This usually means there is a syntax error inside cardDatabase.txt or Keywords.txt. Please check the browser console for more details.</p>`;
+        console.error('CRITICAL ERROR in loadGameData:', error);
+        document.body.innerHTML = `<div style="padding: 20px; font-family: sans-serif;">
+            <h2>Application Failed to Load</h2>
+            <p>There was a critical error loading the game data. This is often caused by a syntax error (like a misplaced comma) inside <strong>cardDatabase.txt</strong> or <strong>Keywords.txt</strong>.</p>
+            <p><strong>Error details:</strong> ${error.message}</p>
+            <p>Please check the browser's developer console (F12) for more information.</p>
+        </div>`;
     }
 }
 

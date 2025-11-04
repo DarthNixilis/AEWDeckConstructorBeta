@@ -1,18 +1,13 @@
 // state.js
 import { CACHE_KEY, debounce } from './config.js';
 
-// --- Core Data ---
 export let cardDatabase = [];
 export let keywordDatabase = {};
 export let cardTitleCache = {};
-
-// --- Deck State ---
 export let startingDeck = [];
 export let purchaseDeck = [];
 export let selectedWrestler = null;
 export let selectedManager = null;
-
-// --- UI State ---
 export let currentViewMode = 'list';
 export let numGridColumns = 3;
 export let currentSort = 'alpha-asc';
@@ -20,7 +15,6 @@ export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let lastFocusedElement = null;
 
-// --- Setters for State Mutation ---
 export function setCardDatabase(data) {
     cardDatabase = data;
     cardTitleCache = Object.fromEntries(data.map(card => [card.title, card]));
@@ -37,7 +31,6 @@ export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
 
-// --- Local Storage Logic ---
 export function saveStateToCache() {
     const stateToCache = {
         startingDeck,
@@ -70,5 +63,5 @@ export function loadStateFromCache() {
     }
 }
 
-// Re-export debounce from config so it's available via state module
 export { debounce };
+

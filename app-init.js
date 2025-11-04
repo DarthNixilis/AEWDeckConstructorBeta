@@ -4,28 +4,21 @@ import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
 
+let isInitialized = false;
+
 export function initializeApp() {
-    // Populate dropdowns from the state
+    if (isInitialized) return;
+    isInitialized = true;
+
     populatePersonaSelectors();
-
-    // Load cached state
     state.loadStateFromCache();
-    
-    // Initial UI setup
     setupInitialUI();
-    
-    // Add deck search inputs (this is a UI setup task)
     addDeckSearchFunctionality();
-
-    // Initial renders
     filters.renderCascadingFilters();
     renderer.renderDecks();
     renderer.renderPersonaDisplay();
+    initializeEventListeners();
     
-    // Initialize all event listeners for the entire application
-    initializeEventListeners(); 
-    
-    // Trigger initial card pool render
     const finalCards = filters.getFilteredAndSortedCardPool();
     renderer.renderCardPool(finalCards);
 }

@@ -46,14 +46,13 @@ export function initializeEventListeners() {
         }
     });
 
-    // --- DECK LISTENERS ---
+    // --- DECK & ACTIONS LISTENERS ---
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
     const startingDeckList = document.getElementById('startingDeckList');
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const personaDisplay = document.getElementById('personaDisplay');
-    const clearDeckBtn = document.getElementById('clearDeck');
-    const deckActions = document.querySelector('.deck-actions'); // Get the container for the new listener
+    const deckActions = document.querySelector('.deck-actions');
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -93,15 +92,7 @@ export function initializeEventListeners() {
         if (cardTitle) ui.showCardModal(cardTitle);
     });
 
-    clearDeckBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the entire deck?')) {
-            state.setStartingDeck([]);
-            state.setPurchaseDeck([]);
-            ui.renderDecks();
-        }
-    });
-
-    // --- NEW UNIFIED EXPORT LISTENER ---
+    // --- NEW UNIFIED ACTIONS LISTENER (IMPORT, EXPORT, CLEAR) ---
     deckActions.addEventListener('click', (e) => {
         const target = e.target;
         if (target.tagName !== 'BUTTON') return;
@@ -109,5 +100,78 @@ export function initializeEventListeners() {
         const action = target.dataset.action;
         switch (action) {
             case 'export-text':
-                exporter.exportDeckAsText
+                exporter.exportDeckAsText();
+                break;
+            case 'export-full':
+                exporter.exportFull();
+                break;
+            case 'export-printer-friendly':
+                exporter.exportPrinterFriendly();
+                break;
+            case 'export-paper-friendly':
+                exporter.exportPaperFriendly();
+                break;
+            case 'export-both-friendly':
+                exporter.exportBothFriendly();
+                break;
+        }
+
+        // Handle non-dropdown buttons
+        if (target.id === 'clearDeck') {
+            if (confirm('Are you sure you want to clear the entire deck?')) {
+                state.setStartingDeck([]);
+                state.setPurchaseDeck([]);
+                ui.renderDecks();
+            }
+        } else if (target.id === 'importDeck') {
+            const importModal = document.getElementById('importModal');
+            importModal.style.display = 'flex';
+            document.getElementById('importStatus').textContent = '';
+            document.getElementById('deckTextInput').value = '';
+            document.getElementById('deckFileInput').value = '';
+        }
+    });
+
+
+    // --- MODAL LISTENERS ---
+    const importModal = document.getElementById('importModal');
+    const deckFileInput = document.getElementById('deckFileInput');
+    const processImportBtn = document.getElementById('processImportBtn');
+    const cardModal = document.getElementById('cardModal');
+
+    processImportBtn.addEventListener('click', () => {
+        const text = document.getElementById('deckTextInput').value;
+        if (text) importer.parseAndLoadDeck(text);
+    });
+    deckFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => importer.parseAndLoadDeck(event.target.result);
+            reader.readAsText(file);
+        }
+    });
+    
+    [cardModal, importModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target.classList.contains('modal-close-button')) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cardModal.style.display = 'none';
+            importModal.style.display = 'none';
+            if (state.lastFocusedElement) {
+                state.lastFocusedElement.focus();
+            }
+        }
+    });
+}
+
+function refreshCardPool() {
+    const finalCards = filters.getFilteredAndSortedCardPool();
+    ui.renderCardPool(finalCards);
+}
 

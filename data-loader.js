@@ -5,13 +5,9 @@ import { initializeApp } from './app-init.js';
 function parseTSV(text) {
     if (typeof text !== 'string' || !text) return [];
 
-    // --- THIS IS THE BOM FIX ---
-    // Check for and remove the UTF-8 Byte Order Mark (BOM) if it exists.
-    // The BOM is an invisible character at the start of the file that can break parsers.
     if (text.charCodeAt(0) === 0xFEFF) {
         text = text.substring(1);
     }
-    // --- END OF BOM FIX ---
 
     const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
     if (lines.length < 2) return [];
@@ -23,26 +19,37 @@ function parseTSV(text) {
         if (!lines[i] || lines[i].trim() === '') continue;
         const values = lines[i].split('\t');
         const obj = {};
+
         for (let j = 0; j < headers.length; j++) {
             const key = headers[j];
             const rawValue = values[j] || '';
             let value = rawValue.trim();
+
             if (key) {
-                if (key !== 'title' && key !== 'text' && !isNaN(value) && value !== '') {
+                // Standardize the key for easier access later. e.g., "Card Name" becomes "card_name"
+                const standardizedKey = key.toLowerCase().replace(/ /g, '_');
+
+                if (standardizedKey !== 'title' && standardizedKey !== 'text' && !isNaN(value) && value !== '') {
                     value = Number(value);
-                } else if (value === 'TRUE') {
+                } else if (value.toUpperCase() === 'TRUE') {
                     value = true;
-                } else if (value === 'FALSE') {
+                } else if (value.toUpperCase() === 'FALSE') {
                     value = false;
-                } else if (key === 'traits' || key === 'keywords') {
+                } else if (standardizedKey === 'traits' || standardizedKey === 'keywords') {
                     value = value ? value.split('|').map(t => t.trim()).filter(t => t) : [];
                 }
-                obj[key] = value;
+                obj[standardizedKey] = value;
             }
         }
-        if (obj.title) {
+        
+        // --- THIS IS THE REAL FIX ---
+        // Check for the correct header name: 'card_name'.
+        if (obj.card_name) {
+            // For consistency, let's also create a 'title' property which the rest of the app uses.
+            obj.title = obj.card_name;
             data.push(obj);
         }
+        // --- END OF REAL FIX ---
     }
     return data;
 }
@@ -69,14 +76,15 @@ export async function loadGameData() {
         const keywordData = parseTSV(keywordText);
 
         if (!Array.isArray(cardData) || cardData.length === 0) {
-            throw new Error("Parsing cardDatabase.txt resulted in an empty array. This can happen if the file is not valid TSV or has a character encoding issue (like a BOM).");
+            throw new Error("Parsing cardDatabase.txt resulted in an empty array. This indicates a fundamental mismatch between the parser and the TSV file structure.");
         }
 
         setCardDatabase(cardData);
         
         const keywordObject = keywordData.reduce((acc, kw) => {
-            if (kw.Keyword) {
-                acc[kw.Keyword] = kw.Description;
+            // Standardize the keyword lookup as well
+            if (kw.keyword) {
+                acc[kw.keyword] = kw.description;
             }
             return acc;
         }, {});

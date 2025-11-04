@@ -2,7 +2,6 @@
 import * as state from './config.js';
 import { generateCardVisualHTML } from './card-renderer.js';
 
-// DOM References are grouped here for clarity
 const searchResults = document.getElementById('searchResults');
 const startingDeckList = document.getElementById('startingDeckList');
 const purchaseDeckList = document.getElementById('purchaseDeckList');
@@ -32,28 +31,27 @@ export function renderCardPool(cards) {
             cardElement.classList.add('signature-highlight');
         }
         cardElement.dataset.title = card.title;
+
+        // --- THIS IS THE FIX ---
+        // Logic for creating buttons is now unified and correct for both views
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'card-buttons';
+        if (card.cost === 0) {
+            buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+        } else {
+            buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+        }
+
         if (state.currentViewMode === 'list') {
             cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
-            const buttonsDiv = document.createElement('div');
-            buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) {
-                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            } else {
-                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            }
             cardElement.appendChild(buttonsDiv);
-        } else {
+        } else { // Grid View
             const visualHTML = generateCardVisualHTML(card);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
-            const buttonsDiv = document.createElement('div');
-            buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) {
-                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            } else {
-                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            }
             cardElement.appendChild(buttonsDiv);
         }
+        // --- END OF FIX ---
+
         searchResults.appendChild(cardElement);
     });
 }
@@ -96,8 +94,8 @@ export function showCardModal(cardTitle) {
 }
 
 export function renderDecks() {
-    renderDeckList(startingDeckList, state.startingDeck, true);
-    renderDeckList(purchaseDeckList, state.purchaseDeck, false);
+    renderDeckList(document.getElementById('startingDeckList'), state.startingDeck, true);
+    renderDeckList(document.getElementById('purchaseDeckList'), state.purchaseDeck, false);
     updateDeckCounts();
     state.saveStateToCache();
 }
@@ -129,32 +127,25 @@ function renderDeckList(element, deck, isStartingDeck) {
     });
 }
 
-/**
- * Updates the deck count numbers and applies color-coding based on validity.
- */
 function updateDeckCounts() {
-    // Update the text content
-    startingDeckCount.textContent = state.startingDeck.length;
-    purchaseDeckCount.textContent = state.purchaseDeck.length;
+    const startingDeckCountEl = document.getElementById('startingDeckCount');
+    const purchaseDeckCountEl = document.getElementById('purchaseDeckCount');
+    startingDeckCountEl.textContent = state.startingDeck.length;
+    purchaseDeckCountEl.textContent = state.purchaseDeck.length;
 
-    // --- THIS IS THE ENTIRE CHANGE ---
-
-    // Apply color logic for the Starting Deck count
     if (state.startingDeck.length > 24) {
-        startingDeckCount.style.color = 'red'; // Over limit
+        startingDeckCountEl.style.color = 'red';
     } else if (state.startingDeck.length === 24) {
-        startingDeckCount.style.color = 'green'; // Valid
+        startingDeckCountEl.style.color = 'green';
     } else {
-        startingDeckCount.style.color = 'black'; // In progress
+        startingDeckCountEl.style.color = 'black';
     }
 
-    // Apply color logic for the Purchase Deck count
     if (state.purchaseDeck.length >= 36) {
-        purchaseDeckCount.style.color = 'green'; // Valid
+        purchaseDeckCountEl.style.color = 'green';
     } else {
-        purchaseDeckCount.style.color = 'black'; // In progress
+        purchaseDeckCountEl.style.color = 'black';
     }
-    // --- END OF CHANGE ---
 }
 
 export function filterDeckList(deckListElement, query) {

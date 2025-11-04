@@ -2,9 +2,6 @@
 import * as state from './config.js';
 import { renderDecks } from './ui.js';
 
-/**
- * Adds a card to the specified deck, with enhanced logic for handling deck limits.
- */
 export function addCardToDeck(cardTitle, targetDeck) {
     const card = state.cardTitleCache[cardTitle];
     if (!card) return;
@@ -26,20 +23,20 @@ export function addCardToDeck(cardTitle, targetDeck) {
             return;
         }
         
-        // --- THIS IS THE KEY CHANGE #1 ---
-        // If user tries to add a 3rd copy to the starting deck...
         if (state.startingDeck.filter(title => title === cardTitle).length >= 2) {
-            // ...ask them if they want to add it to the purchase deck instead.
             if (confirm(`You can only have 2 copies of "${cardTitle}" in your Starting Deck.\n\nWould you like to add the 3rd copy to your Purchase Deck?`)) {
-                addCardToDeck(cardTitle, 'purchase'); // Recursive call to the correct deck
+                state.purchaseDeck.push(cardTitle);
+                renderDecks();
             }
-            return; // Stop execution either way
+            return;
         }
-        // --- END OF KEY CHANGE #1 ---
 
-        if (state.startingDeck.length >= 24) {
-            alert(`Reminder: Starting Deck should have 24 cards. You are now at ${state.startingDeck.length + 1}.`);
+        // --- THIS IS THE FIX ---
+        // The alert now only triggers at the exact moment the deck goes from 24 to 25 cards.
+        if (state.startingDeck.length === 24) {
+            alert(`Reminder: Starting Deck should have 24 cards. You are now at 25.`);
         }
+        // --- END OF FIX ---
         
         state.startingDeck.push(cardTitle);
     } else {
@@ -48,9 +45,6 @@ export function addCardToDeck(cardTitle, targetDeck) {
     renderDecks();
 }
 
-/**
- * Removes one instance of a card from the specified deck.
- */
 export function removeCardFromDeck(cardTitle, deckName) {
     const deck = deckName === 'starting' ? state.startingDeck : state.purchaseDeck;
     const cardIndex = deck.lastIndexOf(cardTitle);
@@ -60,9 +54,6 @@ export function removeCardFromDeck(cardTitle, deckName) {
     }
 }
 
-/**
- * Moves a card from the starting deck to the purchase deck.
- */
 export function moveCardToPurchase(cardTitle) {
     const startDeck = state.startingDeck;
     const cardIndex = startDeck.lastIndexOf(cardTitle);
@@ -73,24 +64,23 @@ export function moveCardToPurchase(cardTitle) {
     }
 }
 
-/**
- * NEW FUNCTION: Moves a 0-cost card from the purchase deck to the starting deck.
- */
 export function moveCardToStarting(cardTitle) {
     const purchaseDeck = state.purchaseDeck;
     const cardIndex = purchaseDeck.lastIndexOf(cardTitle);
 
     if (cardIndex > -1) {
-        // Check starting deck limits before moving
         if (state.startingDeck.filter(title => title === cardTitle).length >= 2) {
             alert(`Rule Violation: You already have 2 copies of "${cardTitle}" in your Starting Deck.`);
             return;
         }
-        if (state.startingDeck.length >= 24) {
-            alert(`Reminder: Starting Deck should have 24 cards. You are now at ${state.startingDeck.length + 1}.`);
+        
+        // --- THIS IS THE SAME FIX, APPLIED HERE AS WELL ---
+        // Ensures the "Move" action also only alerts the user once.
+        if (state.startingDeck.length === 24) {
+            alert(`Reminder: Starting Deck should have 24 cards. You are now at 25.`);
         }
+        // --- END OF FIX ---
 
-        // Perform the move
         purchaseDeck.splice(cardIndex, 1);
         state.startingDeck.push(cardTitle);
         renderDecks();

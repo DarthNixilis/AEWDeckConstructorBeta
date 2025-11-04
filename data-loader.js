@@ -2,17 +2,9 @@
 import { setCardDatabase, setKeywordDatabase } from './state.js';
 import { initializeApp } from './app-init.js';
 
-/**
- * A robustly parses Tab-Separated Value (TSV) text into an array of objects.
- * It handles missing values and lines with fewer columns than the header.
- * @param {string} text The raw TSV text content.
- * @returns {Array<Object>} An array of JavaScript objects.
- */
 function parseTSV(text) {
-    // Defensive check: if text is not a string or is empty, return empty array.
-    if (typeof text !== 'string' || !text) {
-        return [];
-    }
+    // This parser is now hyper-defensive.
+    if (typeof text !== 'string' || !text) return [];
 
     const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
     if (lines.length < 2) return [];
@@ -21,21 +13,17 @@ function parseTSV(text) {
     const data = [];
 
     for (let i = 1; i < lines.length; i++) {
-        if (!lines[i] || lines[i].trim() === '') continue; // Skip empty or whitespace-only lines
+        if (!lines[i] || lines[i].trim() === '') continue;
 
         const values = lines[i].split('\t');
         const obj = {};
 
         for (let j = 0; j < headers.length; j++) {
             const key = headers[j];
-            // --- THIS IS THE BULLETPROOF FIX ---
-            // 1. Check if the value exists. If not, use an empty string.
-            const rawValue = values[j] || '';
-            // 2. Now it is safe to call .trim()
+            const rawValue = values[j] || ''; // Default to empty string if column is missing
             let value = rawValue.trim();
-            // --- END OF BULLETPROOF FIX ---
 
-            if (key) { // Only process if the header key is not empty
+            if (key) {
                 if (key !== 'title' && key !== 'text' && !isNaN(value) && value !== '') {
                     value = Number(value);
                 } else if (value === 'TRUE') {
@@ -48,7 +36,6 @@ function parseTSV(text) {
                 obj[key] = value;
             }
         }
-        // Only add the object if it has at least one key (e.g., a title)
         if (obj.title) {
             data.push(obj);
         }
@@ -58,8 +45,19 @@ function parseTSV(text) {
 
 export function loadGameData() {
     try {
+        // --- THIS IS THE FINAL FIX ---
+        // 1. Check if the global variables from index.html actually exist.
+        if (typeof window.CARD_DATABASE_TEXT === 'undefined') {
+            throw new Error("The global variable 'CARD_DATABASE_TEXT' was not found. Check for typos or script errors in index.html.");
+        }
+        if (typeof window.KEYWORDS_TEXT === 'undefined') {
+            throw new Error("The global variable 'KEYWORDS_TEXT' was not found. Check for typos or script errors in index.html.");
+        }
+
+        // 2. Pass the confirmed data to the parser.
         const cardData = parseTSV(window.CARD_DATABASE_TEXT);
         const keywordData = parseTSV(window.KEYWORDS_TEXT);
+        // --- END OF FINAL FIX ---
 
         if (!Array.isArray(cardData) || cardData.length === 0) {
             throw new Error("Parsing the embedded card data resulted in an empty array. Please verify the data in index.html.");

@@ -32,8 +32,6 @@ export function renderCardPool(cards) {
         }
         cardElement.dataset.title = card.title;
 
-        // --- THIS IS THE FIX ---
-        // Logic for creating buttons is now unified and correct for both views
         const buttonsDiv = document.createElement('div');
         buttonsDiv.className = 'card-buttons';
         if (card.cost === 0) {
@@ -50,7 +48,6 @@ export function renderCardPool(cards) {
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
             cardElement.appendChild(buttonsDiv);
         }
-        // --- END OF FIX ---
 
         searchResults.appendChild(cardElement);
     });
@@ -130,8 +127,12 @@ function renderDeckList(element, deck, isStartingDeck) {
 function updateDeckCounts() {
     const startingDeckCountEl = document.getElementById('startingDeckCount');
     const purchaseDeckCountEl = document.getElementById('purchaseDeckCount');
-    startingDeckCountEl.textContent = state.startingDeck.length;
-    purchaseDeckCountEl.textContent = state.purchaseDeck.length;
+
+    // --- THIS IS THE FIX ---
+    // Update the text content to include the deck limits
+    startingDeckCountEl.textContent = `${state.startingDeck.length}/24`;
+    purchaseDeckCountEl.textContent = `${state.purchaseDeck.length}/36+`;
+    // --- END OF FIX ---
 
     if (state.startingDeck.length > 24) {
         startingDeckCountEl.style.color = 'red';

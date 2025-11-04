@@ -71,6 +71,13 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .deck-search-input { width: 95%; padding: 8px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px; }
 .deck-actions { margin-top: auto; padding-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
 .deck-actions button, .deck-actions select { padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 1em; }
+
+/* --- THIS IS THE FIX --- */
+.deck-actions select {
+    max-width: 180px; /* Constrain the width of the select dropdown */
+}
+/* --- END OF FIX --- */
+
 #importDeck { background-color: var(--success-color); color: white; border-color: var(--success-color); }
 #clearDeck { background-color: var(--secondary-color); color: white; border-color: var(--secondary-color); }
 #exportSelect { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }

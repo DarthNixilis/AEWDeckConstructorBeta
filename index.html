@@ -6,6 +6,24 @@
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- ================================================== -->
+    <!-- STEP 1: EMBED YOUR DATA DIRECTLY INTO THE HTML -->
+    <!-- ================================================== -->
+    <script>
+        // Assign the data to global variables
+        const CARD_DATABASE_TEXT = `
+PASTE THE ENTIRE CONTENTS OF YOUR cardDatabase.txt FILE HERE
+`;
+
+        const KEYWORDS_TEXT = `
+PASTE THE ENTIRE CONTENTS OF YOUR Keywords.txt FILE HERE
+`;
+    </script>
+    <!-- ================================================== -->
+    <!-- END OF DATA EMBEDDING -->
+    <!-- ================================================== -->
+
 </head>
 
 <body>
@@ -14,7 +32,7 @@
     </header>
 
     <main class="container">
-        <!-- Left Panel: Card Pool & Filters -->
+        <!-- The rest of your HTML is unchanged -->
         <div class="search-panel">
             <div class="panel-header">
                 <h2>Card Pool</h2>
@@ -54,25 +72,19 @@
             <div id="searchResults" class="card-list list-view"></div>
         </div>
 
-        <!-- Right Panel: Persona, Decks, & Actions -->
         <div class="deck-panel">
             <div class="persona-selection">
                 <h2>Persona</h2>
                 <select id="wrestlerSelect"><option value="">-- Select Wrestler --</option></select>
                 <select id="managerSelect"><option value="">-- Select Manager --</option></select>
             </div>
-
             <div id="personaDisplay" class="persona-display-container"></div>
-
             <h2>Starting Deck (<span id="startingDeckCount">0/24</span>)</h2>
             <div id="startingDeckList" class="deck-list-small"></div>
-
             <h2>Purchase Deck (<span id="purchaseDeckCount">0/36+</span>)</h2>
             <div id="purchaseDeckList" class="deck-list-small"></div>
-
             <div class="deck-actions">
                 <button id="importDeck">Import Deck</button>
-                
                 <select id="exportSelect">
                     <option value="">Export As...</option>
                     <optgroup label="Deck Export">
@@ -86,11 +98,7 @@
                         <option value="export-all-cards">All Cards (Playtest)</option>
                     </optgroup>
                 </select>
-
-                <button id="confirmExportBtn">
-                    <span id="confirmExportBtnText">Export</span>
-                </button>
-                
+                <button id="confirmExportBtn"><span id="confirmExportBtnText">Export</span></button>
                 <button id="clearDeck">Clear Deck</button>
             </div>
         </div>
@@ -103,7 +111,6 @@
             <div id="modalCardContent"></div>
         </div>
     </div>
-
     <div id="importModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>

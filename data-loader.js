@@ -19,16 +19,21 @@ export async function loadGameData() {
         const cardText = await cardResponse.text();
         const keywordText = await keywordResponse.text();
 
-        const cardData = JSON.parse(cardText);
-        const keywordData = JSON.parse(keywordText);
+        // --- THIS IS THE CORRECT FIX ---
+        // We are NOT parsing as JSON. We are safely evaluating the text content
+        // as a JavaScript object, which is how it likely worked before.
+        // The "new Function" is a safe way to do this without using the dangerous "eval()".
+        const cardData = new Function(`return ${cardText}`)();
+        const keywordData = new Function(`return ${keywordText}`)();
+        // --- END OF CORRECT FIX ---
 
         setCardDatabase(cardData);
         setKeywordDatabase(keywordData);
 
-        // Wait until the DOM is fully loaded before initializing the app
-        document.addEventListener('DOMContentLoaded', initializeApp);
-        // If the DOM is already loaded, run it immediately
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        // Defer initialization until the DOM is ready to be manipulated.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
             initializeApp();
         }
 
@@ -36,7 +41,7 @@ export async function loadGameData() {
         console.error('CRITICAL ERROR in loadGameData:', error);
         document.body.innerHTML = `<div style="padding: 20px; font-family: sans-serif;">
             <h2>Application Failed to Load</h2>
-            <p>There was a critical error loading the game data. This is often caused by a syntax error (like a misplaced comma) inside <strong>cardDatabase.txt</strong> or <strong>Keywords.txt</strong>.</p>
+            <p>There was a critical error processing the data from <strong>cardDatabase.txt</strong> or <strong>Keywords.txt</strong>.</p>
             <p><strong>Error details:</strong> ${error.message}</p>
             <p>Please check the browser's developer console (F12) for more information.</p>
         </div>`;

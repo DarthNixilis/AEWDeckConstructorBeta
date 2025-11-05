@@ -1,8 +1,6 @@
 // data-loader.js
-import { showFatalError } from './utils.js';
+import { showFatalError, withRetry } from './utils.js';
 import debug from './debug-manager.js';
-
-// --- This file is now much simpler. It doesn't need to manage imports. ---
 
 function parseTSV(text) {
     // ... (The robust parser is correct and stays the same)
@@ -46,7 +44,6 @@ function parseTSV(text) {
 }
 
 async function loadData() {
-    // We can now safely assume the DOM is ready.
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
@@ -84,6 +81,5 @@ async function loadData() {
     initializeApp();
 }
 
-// We still use withRetry for network resilience.
 export const loadGameData = withRetry(loadData, 2, 1000);
 

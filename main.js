@@ -1,19 +1,32 @@
 // main.js
+
+// --- THIS IS THE FINAL FIX ---
+// Import and initialize the debug manager FIRST.
+// This ensures the global `window.debug` object exists before any other module can try to use it.
+import './debug-manager.js';
+// --- END OF FIX ---
+
+import { loadGameData } from './data-loader.js';
 import { showFatalError } from './utils.js';
-import './debug-manager.js'; // This just initializes the debug system
 
-// --- THE FINAL FIX: Wait for the DOM to be ready ---
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Now that the DOM is ready, we can safely import the rest of the app.
-        const { loadGameData } = await import(`./data-loader.js?v=${Date.now()}`);
-        
-        // And now we can safely run it.
-        await loadGameData();
-
-    } catch (error) {
-        // If anything fails during the load, show the fatal error screen.
-        showFatalError(error);
+// Now that the debugger is guaranteed to exist, we can safely add the DOMContentLoaded listener.
+document.addEventListener('DOMContentLoaded', () => {
+    // Debug mode can be enabled via localStorage or URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('debug')) {
+        localStorage.setItem('aewDebug', 'true');
+        // If we just enabled it, we need to reload for the debug manager to initialize properly.
+        // This check prevents an infinite reload loop.
+        if (window.debug && !window.debug.isEnabled) {
+            location.reload();
+        }
     }
+
+    if (window.debug) window.debug.log('main.js: DOMContentLoaded event fired.');
+    
+    loadGameData().catch(error => {
+        if (window.debug) window.debug.error('A fatal error occurred during loadGameData.', error);
+        showFatalError(error);
+    });
 });
 

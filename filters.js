@@ -1,19 +1,11 @@
 // filters.js
 import * as state from './state.js';
-import debug from './debug-manager.js';
 
-// --- FIX: Do not get the element here. Get it inside the function. ---
+const container = document.getElementById('cascadingFiltersContainer');
 
 export function renderCascadingFilters() {
-    // --- FIX: Get the container element just-in-time. ---
-    const container = document.getElementById('cascadingFiltersContainer');
-    if (!container) {
-        debug.error('renderCascadingFilters: Could not find the container element.');
-        return; // Exit gracefully if the container doesn't exist.
-    }
-
-    container.innerHTML = ''; // Now this is safe.
-    
+    if (!container) return;
+    container.innerHTML = '';
     const createSelect = (id, label, options) => {
         const select = document.createElement('select');
         select.id = id;
@@ -22,12 +14,10 @@ export function renderCascadingFilters() {
         select.addEventListener('change', () => document.dispatchEvent(new CustomEvent('filtersChanged')));
         return select;
     };
-
     const allTypes = [...new Set(state.cardDatabase.map(c => c.type).filter(Boolean))].sort();
     const allKeywords = [...new Set(state.cardDatabase.flatMap(c => c.keywords || []).filter(Boolean))].sort();
     const allTraits = [...new Set(state.cardDatabase.flatMap(c => c.traits || []).filter(Boolean))].sort();
     const allSets = [...new Set(state.cardDatabase.map(c => c.set).filter(Boolean))].sort();
-
     container.appendChild(createSelect('typeFilter', 'Card Type', allTypes));
     container.appendChild(createSelect('keywordFilter', 'Keyword', allKeywords));
     container.appendChild(createSelect('traitFilter', 'Trait', allTraits));
@@ -35,18 +25,19 @@ export function renderCascadingFilters() {
 }
 
 export function getFilteredAndSortedCardPool() {
-    // ... (The rest of this file is correct and does not need to change)
-    const searchInput = document.getElementById('searchInput').value.toLowerCase();
-    const typeFilter = document.getElementById('typeFilter')?.value;
-    const keywordFilter = document.getElementById('keywordFilter')?.value;
-    const traitFilter = document.getElementById('traitFilter')?.value;
-    const setFilter = document.getElementById('setFilter')?.value;
+    const searchInput = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const typeFilter = document.getElementById('typeFilter')?.value || '';
+    const keywordFilter = document.getElementById('keywordFilter')?.value || '';
+    const traitFilter = document.getElementById('traitFilter')?.value || '';
+    const setFilter = document.getElementById('setFilter')?.value || '';
 
     let filteredCards = state.cardDatabase.filter(card => {
         if (!card || !card.title) return false;
         if (card.traits && card.traits.includes('Kit')) return false;
+
         if (!state.showZeroCost && card.cost === 0) return false;
         if (!state.showNonZeroCost && card.cost !== 0) return false;
+
         if (typeFilter && card.type !== typeFilter) return false;
         if (setFilter && card.set !== setFilter) return false;
         if (keywordFilter && (!card.keywords || !card.keywords.includes(keywordFilter))) return false;
@@ -54,11 +45,16 @@ export function getFilteredAndSortedCardPool() {
 
         if (searchInput) {
             const terms = searchInput.split(' ').filter(Boolean);
-            return terms.every(term => {
-                const results = state.searchIndex.get(term);
-                return results && results.has(card.title);
-            });
+            if (terms.length > 0) {
+                // Check if the pre-built search index has this card title for all search terms
+                const cardInIndex = terms.every(term => {
+                    const results = state.searchIndex.get(term);
+                    return results && results.has(card.title);
+                });
+                if (!cardInIndex) return false;
+            }
         }
+
         return true;
     });
 
@@ -66,6 +62,7 @@ export function getFilteredAndSortedCardPool() {
 }
 
 function sortCards(cards, sortValue) {
+    // This function remains the same as before
     return cards.sort((a, b) => {
         switch (sortValue) {
             case 'alpha-asc': return a.title.localeCompare(b.title);

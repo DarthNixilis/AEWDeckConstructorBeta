@@ -1,14 +1,35 @@
 // main.js
-import { loadGameData } from './data-loader.js';
-import { showFatalError } from './utils.js';
-import './debug-manager.js'; // Import to initialize the debug system
+// This is the very first code that should run.
 
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('debug')) {
-        localStorage.setItem('aewDebug', 'true');
+// --- BAREBONES DEBUGGER ---
+// We are not relying on any other file. This is self-contained.
+function log(message, isError = false) {
+    const entry = document.createElement('p');
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    if (isError) {
+        entry.style.color = 'red';
+        console.error(message);
+    } else {
+        console.log(message);
     }
-    
-    loadGameData().catch(showFatalError);
-});
+    document.body.appendChild(entry);
+}
+
+try {
+    log('main.js has started.');
+
+    // Try to import the next file in the chain.
+    // If this fails, the catch block will execute.
+    log('Attempting to import data-loader.js...');
+    const { loadGameData } = await import('./data-loader.js');
+    log('Successfully imported data-loader.js.');
+
+    log('Attempting to load game data...');
+    await loadGameData();
+    log('Game data loading process finished.');
+
+} catch (error) {
+    log(`A FATAL ERROR OCCURRED: ${error.message}`, true);
+    log(error.stack, true);
+}
 

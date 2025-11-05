@@ -1,35 +1,34 @@
 // main.js
+import { showFatalError } from './utils.js';
+import './debug-manager.js';
+
 // This is the very first code that should run.
+async function startApp() {
+    try {
+        debug.log('main.js has started.');
+        
+        // --- CACHE BUSTING FIX ---
+        // We add `?v=${Date.now()}` to the import path.
+        // This forces the browser to download a fresh copy of the file.
+        debug.log('Attempting to import data-loader.js...');
+        const { loadGameData } = await import(`./data-loader.js?v=${Date.now()}`);
+        debug.log('Successfully imported data-loader.js.');
 
-// --- BAREBONES DEBUGGER ---
-// We are not relying on any other file. This is self-contained.
-function log(message, isError = false) {
-    const entry = document.createElement('p');
-    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    if (isError) {
-        entry.style.color = 'red';
-        console.error(message);
-    } else {
-        console.log(message);
+        debug.log('Attempting to load game data...');
+        await loadGameData();
+        debug.log('Game data loading process finished.');
+
+    } catch (error) {
+        debug.error('A FATAL ERROR OCCURRED in main.js', error);
+        showFatalError(error);
     }
-    document.body.appendChild(entry);
 }
 
-try {
-    log('main.js has started.');
-
-    // Try to import the next file in the chain.
-    // If this fails, the catch block will execute.
-    log('Attempting to import data-loader.js...');
-    const { loadGameData } = await import('./data-loader.js');
-    log('Successfully imported data-loader.js.');
-
-    log('Attempting to load game data...');
-    await loadGameData();
-    log('Game data loading process finished.');
-
-} catch (error) {
-    log(`A FATAL ERROR OCCURRED: ${error.message}`, true);
-    log(error.stack, true);
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('debug')) {
+        localStorage.setItem('aewDebug', 'true');
+    }
+    startApp();
+});
 

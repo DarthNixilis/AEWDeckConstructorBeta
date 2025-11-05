@@ -4,6 +4,7 @@ import { initializeApp } from './app-init.js';
 import { showFatalError, withRetry } from './utils.js';
 
 function parseTSV(text) {
+    // ... (The rest of the parseTSV function is correct and does not need to change)
     if (typeof text !== 'string' || !text) return [];
     if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
     const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
@@ -40,22 +41,19 @@ function parseTSV(text) {
 
 async function loadData() {
     try {
-        console.log('Starting data load...'); // Added for debugging as you suggested
         const cacheBuster = `?t=${Date.now()}`;
         const [cardResponse, keywordResponse] = await Promise.all([
+            // --- FIX: Use lowercase for all filenames ---
             fetch(`./cardDatabase.txt${cacheBuster}`).then(r => {
                 if (!r.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${r.status})`);
                 return r.text();
             }),
-            fetch(`./Keywords.txt${cacheBuster}`).then(r => r.ok ? r.text() : null)
+            fetch(`./keywords.txt${cacheBuster}`).then(r => r.ok ? r.text() : null) // <-- THE FIX IS HERE
         ]);
 
         if (!cardResponse) throw new Error("cardDatabase.txt could not be loaded. The file might be missing or blocked.");
 
         const cardData = parseTSV(cardResponse);
-        console.log(`Parsed ${cardData.length} cards`); // Added for debugging
-        console.log('First card:', cardData[0]); // Added for debugging
-
         if (!cardData.length) throw new Error("Card data is empty or invalid. Check the TSV format of cardDatabase.txt.");
 
         setCardDatabase(cardData);
@@ -71,10 +69,9 @@ async function loadData() {
         buildSearchIndex();
         initializeApp();
     } catch (error) {
-        throw error; // Re-throw to let withRetry handle it
+        throw error;
     }
 }
 
-// CORRECTED: Use withRetry properly
 export const loadGameData = withRetry(loadData, 2, 1000);
 

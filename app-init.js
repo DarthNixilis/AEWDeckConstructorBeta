@@ -3,43 +3,36 @@ import * as state from './state.js';
 import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
+import { logToScreen } from './utils.js';
 
 export function initializeApp() {
-    console.log("initializeApp: STARTING");
-
-    // 1. Load any saved state from the previous session.
+    logToScreen('initializeApp: Starting...');
+    
     state.loadStateFromCache();
-    console.log("initializeApp: State loaded from cache.");
+    logToScreen('initializeApp: State loaded from cache.');
 
-    // 2. Populate UI elements that need the full card list.
     populatePersonaSelectors();
-    console.log("initializeApp: Persona selectors populated.");
+    logToScreen('initializeApp: Persona selectors populated.');
 
-    // 3. Create the filter dropdowns.
     filters.renderCascadingFilters();
-    console.log("initializeApp: Cascading filters rendered.");
+    logToScreen('initializeApp: Cascading filters rendered.');
 
-    // 4. Set up the initial view mode and grid buttons.
     setupInitialViewMode();
-    console.log("initializeApp: Initial view mode UI set.");
+    logToScreen('initializeApp: Initial view mode UI set.');
 
-    // 5. Render the decks based on the loaded state.
     renderer.renderDecks();
     renderer.renderPersonaDisplay();
-    console.log("initializeApp: Decks and persona display rendered.");
+    logToScreen('initializeApp: Decks and persona display rendered.');
 
-    // 6. Attach all event listeners to make the UI interactive.
     initializeEventListeners();
-    console.log("initializeApp: Event listeners initialized.");
+    logToScreen('initializeApp: Event listeners initialized.');
 
-    // 7. BRUTE FORCE RENDER: Manually get the cards and render the pool.
-    // This bypasses any potential event listener race conditions.
-    console.log("initializeApp: Forcing initial card pool render...");
-    const initialCards = filters.getFilteredAndSortedCardPool();
-    renderer.renderCardPool(initialCards);
-    console.log(`initializeApp: Initial render complete. ${initialCards.length} cards shown.`);
+    logToScreen('initializeApp: Triggering initial card pool render...');
+    document.dispatchEvent(new CustomEvent('filtersChanged'));
+    logToScreen('initializeApp: "filtersChanged" event dispatched.');
 }
 
+// ... (populatePersonaSelectors and setupInitialViewMode functions remain the same)
 function populatePersonaSelectors() {
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');

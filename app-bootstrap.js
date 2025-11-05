@@ -11,17 +11,22 @@ export function bootstrapApp() {
             localStorage.setItem('aewDebug', 'true');
             if (window.debug && !window.debug.isEnabled) {
                 location.reload();
+                return; // Prevent further execution after reload
             }
         }
 
         if (window.debug) window.debug.log('App bootstrap starting...');
         
-        // Load data first, then initialize the app with that data.
+        // Corrected Flow: Wait for loadGameData to finish, then call initializeApp.
         loadGameData()
-            .then(initializeApp) // Pass the result of loadGameData to initializeApp
+            .then(() => {
+                if (window.debug) window.debug.log('Data loaded successfully, initializing app...');
+                initializeApp();
+            })
             .catch(error => {
                 if (window.debug) window.debug.error('A fatal error occurred during bootstrap.', error);
                 showFatalError(error);
             });
     });
 }
+

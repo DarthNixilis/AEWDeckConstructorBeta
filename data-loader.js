@@ -39,33 +39,42 @@ function parseTSV(text) {
 }
 
 async function loadData() {
-    const cacheBuster = `?t=${Date.now()}`;
-    const [cardResponse, keywordResponse] = await Promise.all([
-        fetch(`./cardDatabase.txt${cacheBuster}`).then(r => {
-            if (!r.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${r.status})`);
-            return r.text();
-        }),
-        fetch(`./Keywords.txt${cacheBuster}`).then(r => r.ok ? r.text() : null)
-    ]);
+    try {
+        console.log('Starting data load...'); // Added for debugging as you suggested
+        const cacheBuster = `?t=${Date.now()}`;
+        const [cardResponse, keywordResponse] = await Promise.all([
+            fetch(`./cardDatabase.txt${cacheBuster}`).then(r => {
+                if (!r.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${r.status})`);
+                return r.text();
+            }),
+            fetch(`./Keywords.txt${cacheBuster}`).then(r => r.ok ? r.text() : null)
+        ]);
 
-    if (!cardResponse) throw new Error("cardDatabase.txt could not be loaded. The file might be missing or blocked.");
+        if (!cardResponse) throw new Error("cardDatabase.txt could not be loaded. The file might be missing or blocked.");
 
-    const cardData = parseTSV(cardResponse);
-    if (!cardData.length) throw new Error("Card data is empty or invalid. Check the TSV format of cardDatabase.txt.");
+        const cardData = parseTSV(cardResponse);
+        console.log(`Parsed ${cardData.length} cards`); // Added for debugging
+        console.log('First card:', cardData[0]); // Added for debugging
 
-    setCardDatabase(cardData);
-    
-    if (keywordResponse) {
-        const keywordData = parseTSV(keywordResponse);
-        const keywordObject = Object.fromEntries(
-            keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || ''])
-        );
-        setKeywordDatabase(keywordObject);
+        if (!cardData.length) throw new Error("Card data is empty or invalid. Check the TSV format of cardDatabase.txt.");
+
+        setCardDatabase(cardData);
+        
+        if (keywordResponse) {
+            const keywordData = parseTSV(keywordResponse);
+            const keywordObject = Object.fromEntries(
+                keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || ''])
+            );
+            setKeywordDatabase(keywordObject);
+        }
+
+        buildSearchIndex();
+        initializeApp();
+    } catch (error) {
+        throw error; // Re-throw to let withRetry handle it
     }
-
-    buildSearchIndex(); // Build the search index after data is loaded
-    initializeApp();
 }
 
-export const loadGameData = withRetry(loadData).catch(showFatalError);
+// CORRECTED: Use withRetry properly
+export const loadGameData = withRetry(loadData, 2, 1000);
 

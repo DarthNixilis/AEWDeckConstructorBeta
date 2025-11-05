@@ -1,8 +1,8 @@
 // main.js
 import { loadGameData } from './data-loader.js';
+import { showFatalError } from './utils.js';
 
-// Simple, robust entry point.
 document.addEventListener('DOMContentLoaded', () => {
-    loadGameData();
+    loadGameData().catch(showFatalError);
 });
 

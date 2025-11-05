@@ -2,46 +2,53 @@
 import { showFatalError, withRetry } from './utils.js';
 import debug from './debug-manager.js';
 
-// --- CACHE BUSTING FIX ---
-// Add cache busters to all internal module imports.
+// --- CACHE BUSTING (This part is correct and stays) ---
 const timestamp = Date.now();
 const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
 const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
 
 function parseTSV(text) {
-    // ... (parsing logic is correct, no changes needed)
-    if (typeof text !== 'string' || !text) return [];
-    if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
-    const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
-    if (lines.length < 2) return [];
-    const headers = lines[0].split('\t').map(h => h ? h.trim().toLowerCase().replace(/ /g, '_') : '');
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i] || lines[i].trim() === '') continue;
-        const values = lines[i].split('\t');
-        const obj = {};
-        for (let j = 0; j < headers.length; j++) {
-            const key = headers[j];
-            if (!key) continue;
-            const rawValue = values[j] || '';
-            let value = rawValue.trim();
-            if (key !== 'card_name' && key !== 'card_raw_game_text' && !isNaN(value) && value !== '') {
-                value = Number(value);
-            } else if (value.toUpperCase() === 'TRUE') {
-                value = true;
-            } else if (value.toUpperCase() === 'FALSE') {
-                value = false;
-            } else if (key === 'traits' || key === 'keywords') {
-                value = value ? value.split('|').map(t => t.trim()).filter(Boolean) : [];
+    // --- PARSER FIX 1: Ensure it never returns undefined ---
+    try {
+        if (typeof text !== 'string' || !text) return [];
+        if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+        
+        const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
+        if (lines.length < 2) return [];
+
+        const headers = lines[0].split('\t').map(h => h ? h.trim().toLowerCase().replace(/ /g, '_') : '');
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i] || lines[i].trim() === '') continue;
+            const values = lines[i].split('\t');
+            const obj = {};
+            for (let j = 0; j < headers.length; j++) {
+                const key = headers[j];
+                if (!key) continue;
+                const rawValue = values[j] || '';
+                let value = rawValue.trim();
+                if (key !== 'card_name' && key !== 'card_raw_game_text' && !isNaN(value) && value !== '') {
+                    value = Number(value);
+                } else if (value.toUpperCase() === 'TRUE') {
+                    value = true;
+                } else if (value.toUpperCase() === 'FALSE') {
+                    value = false;
+                } else if (key === 'traits' || key === 'keywords') {
+                    value = value ? value.split('|').map(t => t.trim()).filter(Boolean) : [];
+                }
+                obj[key] = value;
             }
-            obj[key] = value;
+            if (obj.card_name) {
+                obj.title = obj.card_name;
+                data.push(obj);
+            }
         }
-        if (obj.card_name) {
-            obj.title = obj.card_name;
-            data.push(obj);
-        }
+        return data;
+    } catch (error) {
+        debug.error('Error inside parseTSV', error);
+        return []; // Always return an empty array on failure
     }
-    return data;
 }
 
 async function loadData() {
@@ -63,7 +70,11 @@ async function loadData() {
         debug.log('Data files fetched.');
         debug.startTimer('Parsing Data');
         const cardData = parseTSV(cardText);
-        if (!cardData.length) throw new Error("Parsing cardDatabase.txt resulted in 0 cards. Check TSV format.");
+        
+        // --- PARSER FIX 2: More robust check ---
+        if (!Array.isArray(cardData) || cardData.length === 0) {
+            throw new Error("Parsing cardDatabase.txt resulted in 0 cards. Check the file's TSV format and content.");
+        }
         debug.log(`Parsed ${cardData.length} cards.`);
         
         let keywordObject = {};

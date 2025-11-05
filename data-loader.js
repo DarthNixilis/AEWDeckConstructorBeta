@@ -1,8 +1,8 @@
 // data-loader.js
-import { showFatalError, withRetry } from './utils.js';
+import { showFatalError } from './utils.js';
 import debug from './debug-manager.js';
 
-// --- FIX: NO TOP-LEVEL AWAIT. IMPORTS WILL HAPPEN INSIDE THE FUNCTION. ---
+// --- This file is now much simpler. It doesn't need to manage imports. ---
 
 function parseTSV(text) {
     // ... (The robust parser is correct and stays the same)
@@ -46,68 +46,44 @@ function parseTSV(text) {
 }
 
 async function loadData() {
-    try {
-        debug.startTimer('Total Data Loading');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+    // We can now safely assume the DOM is ready.
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
-        // --- FIX: DYNAMIC IMPORTS ARE NOW SAFELY INSIDE THE ASYNC FUNCTION ---
-        const timestamp = Date.now();
-        const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
-        const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
-        
-        const cacheBuster = `?t=${Date.now()}`;
-        debug.log('Fetching data files...');
-        const [cardResponse, keywordResponse] = await Promise.all([
-            fetch(`./cardDatabase.txt${cacheBuster}`),
-            fetch(`./Keywords.txt${cacheBuster}`)
-        ]);
+    const timestamp = Date.now();
+    const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
+    const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
 
-        if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${cardResponse.status})`);
-        const cardText = await cardResponse.text();
-        if (!cardText || cardText.trim().length === 0) throw new Error("cardDatabase.txt is empty or could not be loaded.");
-        
-        debug.log('Data files fetched.');
-        debug.startTimer('Parsing Data');
-        const cardData = parseTSV(cardText);
-        
-        if (!Array.isArray(cardData) || cardData.length === 0) {
-            throw new Error("Parsing cardDatabase.txt resulted in 0 cards. Check the file's TSV format and content.");
-        }
-        debug.log(`Parsed ${cardData.length} cards.`);
-        
-        let keywordObject = {};
-        if (keywordResponse.ok) {
-            const keywordText = await keywordResponse.text();
-            if (keywordText) {
-                const keywordData = parseTSV(keywordText);
-                keywordObject = Object.fromEntries(keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || '']));
-                debug.log(`Parsed ${Object.keys(keywordObject).length} keywords.`);
-            }
-        }
-        debug.endTimer('Parsing Data');
+    const cacheBuster = `?t=${Date.now()}`;
+    const [cardResponse, keywordResponse] = await Promise.all([
+        fetch(`./cardDatabase.txt${cacheBuster}`),
+        fetch(`./Keywords.txt${cacheBuster}`)
+    ]);
 
-        debug.log('Updating State...'); // Added this log to confirm we get here
-        setCardDatabase(cardData);
-        setKeywordDatabase(keywordObject);
-        debug.log('State updated.');
-
-        debug.log('Building Search Index...');
-        buildSearchIndex();
-        debug.log('Search Index built.');
-
-        debug.log('Initializing App...');
-        initializeApp();
-        debug.log('App initialized.');
-
-        debug.endTimer('Total Data Loading');
-        debug.captureStateSnapshot('Application Ready');
-
-    } catch (error) {
-        debug.error('Data loading failed', error);
-        throw error;
+    if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${cardResponse.status})`);
+    const cardText = await cardResponse.text();
+    if (!cardText || cardText.trim().length === 0) throw new Error("cardDatabase.txt is empty or could not be loaded.");
+    
+    const cardData = parseTSV(cardText);
+    if (!Array.isArray(cardData) || cardData.length === 0) {
+        throw new Error("Parsing cardDatabase.txt resulted in 0 cards.");
     }
+    
+    let keywordObject = {};
+    if (keywordResponse.ok) {
+        const keywordText = await keywordResponse.text();
+        if (keywordText) {
+            const keywordData = parseTSV(keywordText);
+            keywordObject = Object.fromEntries(keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || '']));
+        }
+    }
+
+    setCardDatabase(cardData);
+    setKeywordDatabase(keywordObject);
+    buildSearchIndex();
+    initializeApp();
 }
 
+// We still use withRetry for network resilience.
 export const loadGameData = withRetry(loadData, 2, 1000);
 

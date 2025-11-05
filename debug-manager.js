@@ -2,16 +2,21 @@
 class DebugManager {
     constructor() {
         this.isEnabled = localStorage.getItem('aewDebug') === 'true';
-        this.logHistory = []; // Store logs for printing
-        this.init();
+        this.logHistory = [];
+        // Only initialize if enabled.
+        if (this.isEnabled) {
+            this.init();
+        }
     }
 
     init() {
-        if (!this.isEnabled) return;
-        this.createDebugPanel();
-        this.injectDebugControls();
-        this.setupGlobalErrorHandling();
-        this.log('Debug system initialized');
+        // Run on DOMContentLoaded to ensure body exists.
+        document.addEventListener('DOMContentLoaded', () => {
+            this.createDebugPanel();
+            this.injectDebugControls();
+            this.setupGlobalErrorHandling();
+            this.log('Debug system initialized.');
+        });
     }
 
     createDebugPanel() {
@@ -37,76 +42,45 @@ class DebugManager {
         document.body.appendChild(panel);
     }
 
-    injectDebugControls() { /* ... same as before ... */ }
+    injectDebugControls() {
+        const header = document.querySelector('header');
+        if (header && !header.querySelector('.debug-toggle')) {
+            const toggle = document.createElement('button');
+            toggle.className = 'debug-toggle';
+            toggle.textContent = '🐛';
+            toggle.title = 'Toggle Debug Mode';
+            toggle.style.cssText = `position: absolute; right: 10px; top: 10px; background: #333; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 16px;`;
+            toggle.addEventListener('click', () => this.toggleEnabled());
+            header.style.position = 'relative';
+            header.appendChild(toggle);
+        }
+    }
 
     log(message, data = null) {
         if (!this.isEnabled) return;
         const timestamp = new Date().toLocaleTimeString();
-        const logEntry = { timestamp, message, data };
-        this.logHistory.push(logEntry); // Save to history
-
-        const entry = document.createElement('div');
-        entry.style.cssText = 'margin: 2px 0; padding: 2px; border-bottom: 1px solid #333;';
-        
-        let dataString = '';
-        if (data) {
-            try {
-                dataString = JSON.stringify(data, null, 2);
-            } catch (e) {
-                dataString = 'Could not stringify data (circular reference?).';
-            }
-            entry.innerHTML = `
-                <span style="color: #888">[${timestamp}]</span> ${message}
-                <button onclick="debug.expandData(this)" style="margin-left: 10px; font-size: 10px; background: #555; color: white; border: none; cursor: pointer;">+</button>
-                <pre style="display: none; background: #222; padding: 5px; margin: 5px 0; overflow: auto;">${dataString}</pre>
-            `;
-        } else {
-            entry.innerHTML = `<span style="color: #888">[${timestamp}]</span> ${message}`;
-        }
-        
+        this.logHistory.push({ timestamp, message, data });
         const content = document.getElementById('debug-content');
         if (content) {
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span style="color: #888">[${timestamp}]</span> ${message}`;
             content.appendChild(entry);
             content.scrollTop = content.scrollHeight;
         }
         console.log(`[DEBUG] ${message}`, data || '');
     }
-
-    error(message, error = null) { /* ... same as before ... */ }
-    warn(message, data = null) { /* ... same as before ... */ }
-    startTimer(name) { /* ... same as before ... */ }
-    endTimer(name) { /* ... same as before ... */ }
-    captureStateSnapshot(label) { /* ... same as before ... */ }
-
-    clear() {
-        const content = document.getElementById('debug-content');
-        if (content) content.innerHTML = '';
-        this.logHistory = [];
-    }
-
-    toggle() { /* ... same as before ... */ }
-    toggleEnabled() { /* ... same as before ... */ }
-    setupGlobalErrorHandling() { /* ... same as before ... */ }
-    expandData(button) { /* ... same as before ... */ }
-
-    // --- NEW: Print Log Function ---
+    
     printLog() {
-        let report = 'AEW Deck Constructor - Debug Log\n';
-        report += `Timestamp: ${new Date().toISOString()}\n`;
-        report += '========================================\n\n';
-
+        let report = 'AEW Deck Constructor - Debug Log\n========================================\n\n';
         this.logHistory.forEach(entry => {
             report += `[${entry.timestamp}] ${entry.message}\n`;
             if (entry.data) {
                 try {
                     report += `  Data: ${JSON.stringify(entry.data, null, 2)}\n`;
-                } catch (e) {
-                    report += `  Data: Could not stringify.\n`;
-                }
+                } catch (e) { report += `  Data: Could not stringify.\n`; }
             }
             report += '\n';
         });
-
         const blob = new Blob([report], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -117,6 +91,14 @@ class DebugManager {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+
+    // ... (All other debug functions: error, warn, clear, toggle, etc. are correct)
+    error(message, error = null) { this.log(`❌ ERROR: ${message}`, error); console.error(`[DEBUG ERROR] ${message}`, error); }
+    warn(message, data = null) { this.log(`⚠️ WARN: ${message}`, data); console.warn(`[DEBUG WARN] ${message}`, data); }
+    clear() { const content = document.getElementById('debug-content'); if (content) content.innerHTML = ''; this.logHistory = []; }
+    toggle() { const panel = document.getElementById('debug-panel'); if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; }
+    toggleEnabled() { this.isEnabled = !this.isEnabled; localStorage.setItem('aewDebug', this.isEnabled.toString()); location.reload(); }
+    setupGlobalErrorHandling() { window.addEventListener('error', (event) => this.error('Global Error', { message: event.message, filename: event.filename, lineno: event.lineno })); window.addEventListener('unhandledrejection', (event) => this.error('Unhandled Promise Rejection', event.reason)); }
 }
 
 window.debug = new DebugManager();

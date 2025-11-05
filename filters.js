@@ -1,10 +1,19 @@
 // filters.js
 import * as state from './state.js';
+import debug from './debug-manager.js';
 
-const container = document.getElementById('cascadingFiltersContainer');
+// --- FIX: Do not get the element here. Get it inside the function. ---
 
 export function renderCascadingFilters() {
-    container.innerHTML = '';
+    // --- FIX: Get the container element just-in-time. ---
+    const container = document.getElementById('cascadingFiltersContainer');
+    if (!container) {
+        debug.error('renderCascadingFilters: Could not find the container element.');
+        return; // Exit gracefully if the container doesn't exist.
+    }
+
+    container.innerHTML = ''; // Now this is safe.
+    
     const createSelect = (id, label, options) => {
         const select = document.createElement('select');
         select.id = id;
@@ -13,10 +22,12 @@ export function renderCascadingFilters() {
         select.addEventListener('change', () => document.dispatchEvent(new CustomEvent('filtersChanged')));
         return select;
     };
+
     const allTypes = [...new Set(state.cardDatabase.map(c => c.type).filter(Boolean))].sort();
     const allKeywords = [...new Set(state.cardDatabase.flatMap(c => c.keywords || []).filter(Boolean))].sort();
     const allTraits = [...new Set(state.cardDatabase.flatMap(c => c.traits || []).filter(Boolean))].sort();
     const allSets = [...new Set(state.cardDatabase.map(c => c.set).filter(Boolean))].sort();
+
     container.appendChild(createSelect('typeFilter', 'Card Type', allTypes));
     container.appendChild(createSelect('keywordFilter', 'Keyword', allKeywords));
     container.appendChild(createSelect('traitFilter', 'Trait', allTraits));
@@ -24,6 +35,7 @@ export function renderCascadingFilters() {
 }
 
 export function getFilteredAndSortedCardPool() {
+    // ... (The rest of this file is correct and does not need to change)
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
     const typeFilter = document.getElementById('typeFilter')?.value;
     const keywordFilter = document.getElementById('keywordFilter')?.value;
@@ -32,24 +44,14 @@ export function getFilteredAndSortedCardPool() {
 
     let filteredCards = state.cardDatabase.filter(card => {
         if (!card || !card.title) return false;
-
-        // --- FIX: Exclude Kit cards from the general pool ---
-        if (card.traits && card.traits.includes('Kit')) {
-            return false;
-        }
-
-        // Cost filters
-        const isZeroCost = card.cost === 0;
-        if (!state.showZeroCost && isZeroCost) return false;
-        if (!state.showNonZeroCost && !isZeroCost) return false;
-
-        // Cascading filters
+        if (card.traits && card.traits.includes('Kit')) return false;
+        if (!state.showZeroCost && card.cost === 0) return false;
+        if (!state.showNonZeroCost && card.cost !== 0) return false;
         if (typeFilter && card.type !== typeFilter) return false;
         if (setFilter && card.set !== setFilter) return false;
         if (keywordFilter && (!card.keywords || !card.keywords.includes(keywordFilter))) return false;
         if (traitFilter && (!card.traits || !card.traits.includes(traitFilter))) return false;
 
-        // Search text filter
         if (searchInput) {
             const terms = searchInput.split(' ').filter(Boolean);
             return terms.every(term => {
@@ -57,11 +59,9 @@ export function getFilteredAndSortedCardPool() {
                 return results && results.has(card.title);
             });
         }
-
         return true;
     });
 
-    // Sorting
     return sortCards(filteredCards, state.currentSort);
 }
 

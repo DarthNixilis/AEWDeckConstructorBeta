@@ -2,23 +2,19 @@
 import { showFatalError, withRetry } from './utils.js';
 import debug from './debug-manager.js';
 
-// --- CACHE BUSTING (This part is correct and stays) ---
 const timestamp = Date.now();
 const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
 const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
 
 function parseTSV(text) {
-    // --- PARSER FIX 1: Ensure it never returns undefined ---
+    // ... (The robust parsing logic from the previous step is correct)
     try {
         if (typeof text !== 'string' || !text) return [];
         if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
-        
         const lines = text.trim().replace(/"/g, '').split(/\r?\n/);
         if (lines.length < 2) return [];
-
         const headers = lines[0].split('\t').map(h => h ? h.trim().toLowerCase().replace(/ /g, '_') : '');
         const data = [];
-
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i] || lines[i].trim() === '') continue;
             const values = lines[i].split('\t');
@@ -47,14 +43,17 @@ function parseTSV(text) {
         return data;
     } catch (error) {
         debug.error('Error inside parseTSV', error);
-        return []; // Always return an empty array on failure
+        return [];
     }
 }
 
 async function loadData() {
     try {
         debug.startTimer('Total Data Loading');
-        document.body.innerHTML = '<div id="loading-message" style="padding: 20px; text-align: center; font-size: 1.2em;">Loading AEW Deck Constructor...</div>';
+        
+        // --- FIX: Do not replace the body. Just show the loading message. ---
+        const loadingMessage = document.getElementById('loading-message');
+        if (loadingMessage) loadingMessage.style.display = 'block';
 
         const cacheBuster = `?t=${Date.now()}`;
         debug.log('Fetching data files...');
@@ -71,7 +70,6 @@ async function loadData() {
         debug.startTimer('Parsing Data');
         const cardData = parseTSV(cardText);
         
-        // --- PARSER FIX 2: More robust check ---
         if (!Array.isArray(cardData) || cardData.length === 0) {
             throw new Error("Parsing cardDatabase.txt resulted in 0 cards. Check the file's TSV format and content.");
         }

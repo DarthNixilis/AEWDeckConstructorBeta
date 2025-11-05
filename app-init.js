@@ -3,16 +3,18 @@ import * as state from './state.js';
 import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
-import debug from './debug-manager.js'; // Use the correct debug system
+import debug from './debug-manager.js';
 
 export function initializeApp() {
     debug.log('initializeApp: Starting...');
-    
-    // Hide the loading message and show the main application container
-    const loadingMessage = document.getElementById('loading-message');
+
+    // --- THIS IS THE FINAL FIX ---
+    // Hide the loading overlay and show the main application container.
+    const loadingOverlay = document.getElementById('loading-overlay');
     const appContainer = document.getElementById('app-container');
-    if (loadingMessage) loadingMessage.style.display = 'none';
+    if (loadingOverlay) loadingOverlay.style.display = 'none';
     if (appContainer) appContainer.style.display = 'flex';
+    // --- END OF FIX ---
 
     // Load cached state first
     state.loadStateFromCache();
@@ -38,6 +40,8 @@ export function initializeApp() {
     debug.log('initializeApp: Triggering initial card pool render...');
     document.dispatchEvent(new CustomEvent('filtersChanged'));
     debug.log('initializeApp: "filtersChanged" event dispatched.');
+    
+    debug.log('App initialized and is now visible.');
 }
 
 function populatePersonaSelectors() {
@@ -51,7 +55,6 @@ function populatePersonaSelectors() {
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
     
-    // Set the dropdown value based on the loaded state
     if (state.selectedWrestler) wrestlerSelect.value = state.selectedWrestler.title;
     if (state.selectedManager) managerSelect.value = state.selectedManager.title;
 }

@@ -1,6 +1,8 @@
 // state.js
 import { CACHE_KEY } from './utils.js';
-import debug from './debug-manager.js';
+
+// --- FIX: DO NOT IMPORT THE DEBUG MANAGER. ---
+// This breaks the final circular dependency.
 
 // --- State Variables ---
 export let cardDatabase = [];
@@ -30,44 +32,18 @@ function notifyStateChange(key, value) {
     if (listeners) {
         listeners.forEach(callback => callback(value));
     }
-    // Automatically save state whenever a deck or persona changes
     if (key === 'deckChanged' || key === 'personaChanged') {
         saveStateToCache();
     }
 }
 
 // --- State Setters (Mutations) ---
-export function setCardDatabase(data) {
-    cardDatabase = data;
-    cardTitleCache = Object.fromEntries(data.map(card => [card.title, card]));
-}
-
-// --- THIS IS THE MISSING FUNCTION ---
-export function setKeywordDatabase(data) {
-    keywordDatabase = data;
-}
-// --- END OF FIX ---
-
-export function setStartingDeck(deck) {
-    startingDeck = deck;
-    notifyStateChange('deckChanged', deck);
-}
-
-export function setPurchaseDeck(deck) {
-    purchaseDeck = deck;
-    notifyStateChange('deckChanged', deck);
-}
-
-export function setSelectedWrestler(wrestler) {
-    selectedWrestler = wrestler;
-    notifyStateChange('personaChanged', wrestler);
-}
-
-export function setSelectedManager(manager) {
-    selectedManager = manager;
-    notifyStateChange('personaChanged', manager);
-}
-
+export function setCardDatabase(data) { cardDatabase = data; cardTitleCache = Object.fromEntries(data.map(card => [card.title, card])); }
+export function setKeywordDatabase(data) { keywordDatabase = data; }
+export function setStartingDeck(deck) { startingDeck = deck; notifyStateChange('deckChanged', deck); }
+export function setPurchaseDeck(deck) { purchaseDeck = deck; notifyStateChange('deckChanged', deck); }
+export function setSelectedWrestler(wrestler) { selectedWrestler = wrestler; notifyStateChange('personaChanged', wrestler); }
+export function setSelectedManager(manager) { selectedManager = manager; notifyStateChange('personaChanged', manager); }
 export function setCurrentViewMode(mode) { currentViewMode = mode; }
 export function setNumGridColumns(cols) { numGridColumns = cols; }
 export function setCurrentSort(sort) { currentSort = sort; }
@@ -76,7 +52,9 @@ export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 
 // --- Search Index ---
 export function buildSearchIndex() {
-    debug.startTimer('buildSearchIndex');
+    // --- FIX: Safely check for the global debug object. ---
+    if (window.debug) window.debug.startTimer('buildSearchIndex');
+    
     searchIndex.clear();
     cardDatabase.forEach((card) => {
         if (!card || !card.title) return;
@@ -88,7 +66,8 @@ export function buildSearchIndex() {
             searchIndex.get(word).add(card.title);
         });
     });
-    debug.endTimer('buildSearchIndex');
+
+    if (window.debug) window.debug.endTimer('buildSearchIndex');
 }
 
 // --- Caching and State Snapshots ---
@@ -100,7 +79,7 @@ export function saveStateToCache() {
         manager: selectedManager ? selectedManager.title : null,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(stateToCache));
-    debug.log('State saved to cache.');
+    if (window.debug) window.debug.log('State saved to cache.');
 }
 
 export function loadStateFromCache() {
@@ -113,7 +92,7 @@ export function loadStateFromCache() {
             if (parsed.wrestler) setSelectedWrestler(cardTitleCache[parsed.wrestler] || null);
             if (parsed.manager) setSelectedManager(cardTitleCache[parsed.manager] || null);
         } catch (e) {
-            debug.error("Failed to load from cache:", e);
+            if (window.debug) window.debug.error("Failed to load from cache:", e);
             localStorage.removeItem(CACHE_KEY);
         }
     }

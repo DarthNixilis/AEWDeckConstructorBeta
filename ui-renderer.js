@@ -1,3 +1,4 @@
+// ui-renderer.js
 import * as state from './state.js';
 
 const searchResults = document.getElementById('searchResults');
@@ -6,6 +7,8 @@ const purchaseDeckList = document.getElementById('purchaseDeckList');
 const startingDeckCount = document.getElementById('startingDeckCount');
 const purchaseDeckCount = document.getElementById('purchaseDeckCount');
 const personaDisplay = document.getElementById('personaDisplay');
+const cardModal = document.getElementById('cardModal');
+const modalCardContent = document.getElementById('modalCardContent');
 
 export function renderCardPool(cards) {
     searchResults.innerHTML = '';
@@ -16,7 +19,7 @@ export function renderCardPool(cards) {
     } else {
         searchResults.classList.add('list-view');
     }
-    if (!cards || !cards.length) {
+    if (!cards.length) {
         searchResults.innerHTML = '<p>No cards match filters.</p>';
         return;
     }
@@ -26,26 +29,10 @@ export function renderCardPool(cards) {
         item.dataset.title = card.title;
         if (state.currentViewMode === 'grid') {
             item.className = 'card-grid-item';
-            item.innerHTML = `
-                <div class="card-grid-title">${card.title}</div>
-                <div class="card-grid-stats">
-                    <span>C: ${card.cost ?? 'N/A'}</span>
-                    <span>D: ${card.damage ?? 'N/A'}</span>
-                    <span>M: ${card.momentum ?? 'N/A'}</span>
-                </div>
-                <div class="card-grid-type">${card.type ?? ''}</div>
-                <div class="card-actions">
-                    <button data-deck-target="starting" data-title="${card.title}">Starting</button>
-                    <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
-                </div>`;
+            item.innerHTML = `<div class="card-grid-title">${card.title}</div><div class="card-grid-stats"><span>C:${card.cost ?? 'N/A'}</span> <span>D:${card.damage ?? 'N/A'}</span> <span>M:${card.momentum ?? 'N/A'}</span></div><div class="card-grid-type">${card.type ?? ''}</div><div class="card-actions"><button data-deck-target="starting">Starting</button><button data-deck-target="purchase">Purchase</button></div>`;
         } else {
             item.className = 'card-list-item';
-            item.innerHTML = `
-                <span class="card-title">${card.title}</span>
-                <div class="card-actions">
-                    <button data-deck-target="starting" data-title="${card.title}">Starting</button>
-                    <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
-                </div>`;
+            item.innerHTML = `<span class="card-title">${card.title}</span><div class="card-actions"><button data-deck-target="starting">Starting</button><button data-deck-target="purchase">Purchase</button></div>`;
         }
         fragment.appendChild(item);
     });
@@ -56,7 +43,6 @@ export function renderDecks() {
     renderDeck(startingDeckList, state.startingDeck, 'starting');
     renderDeck(purchaseDeckList, state.purchaseDeck, 'purchase');
     updateDeckCounts();
-    state.saveStateToCache();
 }
 
 function renderDeck(container, deck, deckName) {
@@ -66,10 +52,44 @@ function renderDeck(container, deck, deckName) {
         const item = document.createElement('div');
         item.className = 'deck-card-item';
         item.dataset.title = title;
-        const moveAction = deckName === 'starting'
-            ? `<button class="deck-card-action" data-action="moveToPurchase" title="Move to Purchase Deck">&rarr;</button>`
-            : `<button class="deck-card-action" data-action="moveToStart" title="Move to Starting Deck">&larr;</button>`;
-        item.innerHTML = `
-            <span class="deck-card-count">${count}x</span>
-            <
+        const moveAction = deckName === 'starting' ? `<button class="deck-card-action" data-action="moveToPurchase" title="Move to Purchase">&rarr;</button>` : `<button class="deck-card-action" data-action="moveToStart" title="Move to Start">&larr;</button>`;
+        item.innerHTML = `<span class="deck-card-count">${count}x</span><span class="deck-card-title">${title}</span><div class="deck-card-buttons">${moveAction}<button class="deck-card-action remove" data-action="remove" title="Remove">&times;</button></div>`;
+        container.appendChild(item);
+    });
+}
+
+export function updateDeckCounts() {
+    const startingCount = state.startingDeck.length;
+    startingDeckCount.textContent = `${startingCount}/24`;
+    purchaseDeckCount.textContent = `${state.purchaseDeck.length}/36+`;
+    startingDeckCount.classList.toggle('full', startingCount === 24);
+    startingDeckCount.classList.toggle('over', startingCount > 24);
+    if (startingCount === 25) {
+        alert(`Your Starting Deck should have 24 cards. You are now at 25.`);
+    }
+}
+
+export function renderPersonaDisplay() {
+    personaDisplay.innerHTML = '';
+    [state.selectedWrestler, state.selectedManager].forEach(persona => {
+        if (persona) {
+            const item = document.createElement('div');
+            item.className = 'persona-item';
+            item.dataset.title = persona.title;
+            item.innerHTML = `<strong>${persona.type}:</strong> ${persona.title}`;
+            personaDisplay.appendChild(item);
+        }
+    });
+}
+
+export function showCardModal(cardTitle) {
+    const card = state.cardTitleCache[cardTitle];
+    if (!card) return;
+    modalCardContent.innerHTML = `<h3>${card.title}</h3><p><strong>Type:</strong> ${card.type}</p><p><strong>Cost:</strong> ${card.cost ?? 'N/A'}</p><p><strong>Stats:</strong> D:${card.damage ?? 'N/A'} / M:${card.momentum ?? 'N/A'}</p><p><strong>Text:</strong> ${card.card_raw_game_text || 'None'}</p>`;
+    cardModal.classList.add('visible');
+}
+
+export function closeAllModals() {
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('visible'));
+}
 

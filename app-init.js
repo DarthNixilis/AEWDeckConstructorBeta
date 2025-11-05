@@ -4,26 +4,15 @@ import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
 
-let isInitialized = false;
-
 export function initializeApp() {
-    if (isInitialized) return;
-    isInitialized = true;
-
-    // Load saved state first
     state.loadStateFromCache();
-
-    // Populate UI elements that depend on the full card list
     populatePersonaSelectors();
-
-    // Render the dynamic filters, which will trigger the first card pool render
     filters.renderCascadingFilters();
-
-    // Setup the rest of the UI and listeners
-    setupInitialUI();
     renderer.renderDecks();
     renderer.renderPersonaDisplay();
+    setupInitialViewMode();
     initializeEventListeners();
+    document.dispatchEvent(new CustomEvent('filtersChanged'));
 }
 
 function populatePersonaSelectors() {
@@ -39,8 +28,9 @@ function populatePersonaSelectors() {
     if (state.selectedManager) managerSelect.value = state.selectedManager.title;
 }
 
-function setupInitialUI() {
+function setupInitialViewMode() {
     document.getElementById('viewModeToggle').textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+    document.querySelectorAll('#gridSizeControls button').forEach(btn => btn.classList.remove('active'));
     const activeGridButton = document.querySelector(`#gridSizeControls button[data-columns="${state.numGridColumns}"]`);
     if (activeGridButton) activeGridButton.classList.add('active');
 }

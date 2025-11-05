@@ -1,131 +1,130 @@
+// listeners.js
 import * as state from './state.js';
 import * as renderer from './ui-renderer.js';
-import * as modals from './ui-modal.js';
-import * as deck from './deck-manager.js';
 import * as filters from './filters.js';
 import * as importer from './importer.js';
 import * as exporter from './exporter.js';
+import { debounce } from './utils.js';
+
+function addCardToDeck(cardTitle, deckTarget) {
+    const card = state.cardTitleCache[cardTitle];
+    if (!card) return;
+    if (deckTarget === 'starting') {
+        const currentCount = state.startingDeck.filter(t => t === cardTitle).length;
+        if (card.cost === 0 && currentCount >= 2) {
+            if (confirm(`You can only have 2 copies of "${cardTitle}" in your Starting Deck. Would you like to add the 3rd copy to your Purchase Deck?`)) {
+                state.setPurchaseDeck([...state.purchaseDeck, cardTitle]);
+            }
+            return;
+        }
+        state.setStartingDeck([...state.startingDeck, cardTitle]);
+    } else {
+        state.setPurchaseDeck([...state.purchaseDeck, cardTitle]);
+    }
+}
 
 export function initializeEventListeners() {
-    const searchInput = document.getElementById('searchInput');
-    const sortSelect = document.getElementById('sortSelect');
-    const showZeroCostCheckbox = document.getElementById('showZeroCost');
-    const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
-    const gridSizeControls = document.getElementById('gridSizeControls');
-    const viewModeToggle = document.getElementById('viewModeToggle');
-    const searchResults = document.getElementById('searchResults');
-    const wrestlerSelect = document.getElementById('wrestlerSelect');
-    const managerSelect = document.getElementById('managerSelect');
-    const deckActions = document.querySelector('.deck-actions');
-    const deckPanel = document.querySelector('.deck-panel');
+    // Subscribe to state changes
+    state.subscribeState('deckChanged', renderer.renderDecks);
+    state.subscribeState('personaChanged', renderer.renderPersonaDisplay);
 
-    function refreshCardPool() {
-        const finalCards = filters.getFilteredAndSortedCardPool();
-        renderer.renderCardPool(finalCards);
-    }
-
-    document.addEventListener('filtersChanged', refreshCardPool);
-    searchInput.addEventListener('input', state.debounce(refreshCardPool, 300));
-    sortSelect.addEventListener('change', (e) => { state.setCurrentSort(e.target.value); refreshCardPool(); });
-    showZeroCostCheckbox.addEventListener('change', (e) => { state.setShowZeroCost(e.target.checked); refreshCardPool(); });
-    showNonZeroCostCheckbox.addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); refreshCardPool(); });
-    
-    gridSizeControls.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            state.setNumGridColumns(e.target.dataset.columns);
-            state.saveStateToCache();
-            refreshCardPool();
-        }
-    });
-
-    viewModeToggle.addEventListener('click', () => {
-        const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
-        state.setCurrentViewMode(newMode);
-        viewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        state.saveStateToCache();
-        refreshCardPool();
-    });
-
-    searchResults.addEventListener('click', (e) => {
-        const cardItem = e.target.closest('[data-title]');
-        if (!cardItem) return;
-        if (e.target.tagName === 'BUTTON') {
-            deck.addCardToDeck(cardItem.dataset.title, e.target.dataset.deckTarget);
-        } else {
-            modals.showCardModal(cardItem.dataset.title);
-        }
-    });
-
-    deckActions.addEventListener('click', (e) => {
+    // Delegated listener for the whole body
+    document.body.addEventListener('click', (e) => {
         const target = e.target;
-        if (target.id === 'clearDeck') deck.clearDeck();
-        if (target.id === 'importDeck') modals.showImportModal();
-        if (target.id === 'confirmExportBtn') {
-            const select = document.getElementById('exportSelect');
-            const action = select.value;
-            if (!action) return;
-            switch (action) {
-                case 'export-text': exporter.exportDeckAsText(); break;
-                case 'export-full': exporter.exportFull(); break;
-                case 'export-printer-friendly': exporter.exportPrinterFriendly(); break;
-                case 'export-paper-friendly': exporter.exportPaperFriendly(); break;
-                case 'export-both-friendly': exporter.exportBothFriendly(); break;
-                case 'export-all-cards': exporter.exportAllCards(); break;
+        const cardItem = target.closest('[data-title]');
+        
+        // Card Pool actions
+        if (target.closest('#searchResults')) {
+            if (cardItem) {
+                if (target.matches('[data-deck-target]')) {
+                    addCardToDeck(cardItem.dataset.title, target.dataset.deckTarget);
+                } else {
+                    renderer.showCardModal(cardItem.dataset.title);
+                }
             }
+        }
+        // Deck List actions
+        else if (target.closest('.deck-list-small')) {
+            if (cardItem && target.matches('[data-action]')) {
+                const cardTitle = cardItem.dataset.title;
+                const action = target.dataset.action;
+                const deckName = target.closest('#startingDeckList') ? 'starting' : 'purchase';
+                if (action === 'remove') {
+                    const deck = deckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+                    const index = deck.lastIndexOf(cardTitle);
+                    if (index > -1) {
+                        const newDeck = [...deck];
+                        newDeck.splice(index, 1);
+                        deckName === 'starting' ? state.setStartingDeck(newDeck) : state.setPurchaseDeck(newDeck);
+                    }
+                } else if (action === 'moveToPurchase') {
+                    // Move logic here
+                } else if (action === 'moveToStart') {
+                    // Move logic here
+                }
+            } else if (cardItem) {
+                renderer.showCardModal(cardItem.dataset.title);
+            }
+        }
+        // Persona actions
+        else if (target.closest('#personaDisplay')) {
+            if (cardItem) renderer.showCardModal(cardItem.dataset.title);
+        }
+        // Modal close
+        else if (target.matches('.modal-backdrop, .modal-close-button')) {
+            renderer.closeAllModals();
+        }
+        // View mode toggle
+        else if (target.id === 'viewModeToggle') {
+            const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
+            state.setCurrentViewMode(newMode);
+            target.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+            document.dispatchEvent(new CustomEvent('filtersChanged'));
+        }
+        // Grid size controls
+        else if (target.matches('#gridSizeControls button')) {
+            document.querySelectorAll('#gridSizeControls button').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+            state.setNumGridColumns(target.dataset.columns);
+            document.dispatchEvent(new CustomEvent('filtersChanged'));
+        }
+        // Deck Actions
+        else if (target.id === 'clearDeck') {
+            if (confirm('Are you sure you want to clear the entire deck?')) {
+                state.setStartingDeck([]);
+                state.setPurchaseDeck([]);
+            }
+        }
+        else if (target.id === 'importDeck') {
+            document.getElementById('importModal').classList.add('visible');
+        }
+        else if (target.id === 'processImportBtn') {
+            importer.parseAndLoadDeck(document.getElementById('deckTextInput').value);
+        }
+        else if (target.id === 'confirmExportBtn') {
+            exporter.handleExport(document.getElementById('exportSelect').value);
             target.classList.remove('visible');
-            select.value = "";
+            document.getElementById('exportSelect').value = "";
         }
     });
-    
+
+    // Input/Change listeners
+    document.addEventListener('filtersChanged', () => renderer.renderCardPool(filters.getFilteredAndSortedCardPool()));
+    document.getElementById('searchInput').addEventListener('input', debounce(() => document.dispatchEvent(new CustomEvent('filtersChanged')), 300));
+    document.getElementById('sortSelect').addEventListener('change', (e) => { state.setCurrentSort(e.target.value); document.dispatchEvent(new CustomEvent('filtersChanged')); });
+    document.getElementById('showZeroCost').addEventListener('change', (e) => { state.setShowZeroCost(e.target.checked); document.dispatchEvent(new CustomEvent('filtersChanged')); });
+    document.getElementById('showNonZeroCost').addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); document.dispatchEvent(new CustomEvent('filtersChanged')); });
+    document.getElementById('wrestlerSelect').addEventListener('change', (e) => state.setSelectedWrestler(state.cardTitleCache[e.target.value] || null));
+    document.getElementById('managerSelect').addEventListener('change', (e) => state.setSelectedManager(state.cardTitleCache[e.target.value] || null));
     document.getElementById('exportSelect').addEventListener('change', (e) => {
         const btn = document.getElementById('confirmExportBtn');
-        const btnText = document.getElementById('confirmExportBtnText');
         if (e.target.value) {
-            btnText.textContent = `Export as ${e.target.options[e.target.selectedIndex].text}`;
+            btn.querySelector('span').textContent = `Export as ${e.target.options[e.target.selectedIndex].text}`;
             btn.classList.add('visible');
         } else {
             btn.classList.remove('visible');
         }
     });
-
-    wrestlerSelect.addEventListener('change', (e) => {
-        const newWrestler = state.cardTitleCache[e.target.value] || null;
-        state.setSelectedWrestler(newWrestler);
-        renderer.renderPersonaDisplay();
-        state.saveStateToCache();
-    });
-
-    managerSelect.addEventListener('change', (e) => {
-        const newManager = state.cardTitleCache[e.target.value] || null;
-        state.setSelectedManager(newManager);
-        renderer.renderPersonaDisplay();
-        state.saveStateToCache();
-    });
-
-    deckPanel.addEventListener('click', (e) => {
-        const cardItem = e.target.closest('[data-title]');
-        if (!cardItem) return;
-        const cardTitle = cardItem.dataset.title;
-        const action = e.target.dataset.action;
-        if (action === 'remove') {
-            const deckName = cardItem.closest('#startingDeckList') ? 'starting' : 'purchase';
-            deck.removeCardFromDeck(cardTitle, deckName);
-        } else if (action === 'moveToPurchase') {
-            deck.moveCardToPurchase(cardTitle);
-        } else if (action === 'moveToStart') {
-            deck.moveCardToStarting(cardTitle);
-        } else {
-            modals.showCardModal(cardTitle);
-        }
-    });
-
-    document.getElementById('processImportBtn').addEventListener('click', () => {
-        const text = document.getElementById('deckTextInput').value;
-        if (text) importer.parseAndLoadDeck(text);
-    });
-
     document.getElementById('deckFileInput').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -134,17 +133,6 @@ export function initializeEventListeners() {
             reader.readAsText(file);
         }
     });
-    
-    document.querySelectorAll('.modal-backdrop').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target.classList.contains('modal-close-button')) {
-                modals.closeAllModals();
-            }
-        });
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') modals.closeAllModals();
-    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') renderer.closeAllModals(); });
 }
 

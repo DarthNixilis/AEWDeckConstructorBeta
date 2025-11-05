@@ -1,7 +1,5 @@
 // ui-renderer.js
 import * as state from './state.js';
-import * as modals from './ui-modal.js';
-import { isKitCard, isSignatureFor } from './config.js';
 
 const searchResults = document.getElementById('searchResults');
 const startingDeckList = document.getElementById('startingDeckList');
@@ -12,16 +10,14 @@ const personaDisplay = document.getElementById('personaDisplay');
 
 export function renderCardPool(cards) {
     searchResults.innerHTML = '';
-    
-    // --- FIX #1: Correctly apply the view mode from the state ---
-    searchResults.className = 'card-list'; // Reset classes
+    searchResults.className = 'card-list';
+
     if (state.currentViewMode === 'grid') {
         searchResults.classList.add('grid-view');
         searchResults.style.gridTemplateColumns = `repeat(${state.numGridColumns}, 1fr)`;
     } else {
         searchResults.classList.add('list-view');
     }
-    // --- END OF FIX #1 ---
 
     if (cards.length === 0) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
@@ -30,13 +26,10 @@ export function renderCardPool(cards) {
 
     const fragment = document.createDocumentFragment();
     cards.forEach(card => {
-        // The rest of the app uses 'title', which the parser now provides.
         if (!card || !card.title) return;
-
         const cardEl = (state.currentViewMode === 'grid') 
             ? createGridItem(card) 
             : createListItem(card);
-        
         fragment.appendChild(cardEl);
     });
     searchResults.appendChild(fragment);
@@ -45,9 +38,8 @@ export function renderCardPool(cards) {
 function createListItem(card) {
     const item = document.createElement('div');
     item.className = 'card-list-item';
-    // --- FIX #2: Ensure data-title is always present for click handlers ---
+    // FIX #3: Make the whole item clickable by setting the data-title here.
     item.dataset.title = card.title;
-    // --- END OF FIX #2 ---
 
     item.innerHTML = `
         <span class="card-title">${card.title}</span>
@@ -62,15 +54,15 @@ function createListItem(card) {
 function createGridItem(card) {
     const item = document.createElement('div');
     item.className = 'card-grid-item';
-    // --- FIX #3: Ensure data-title is present and use standardized keys ---
+    // FIX #3: Make the whole item clickable.
     item.dataset.title = card.title;
 
-    // Use standardized keys like 'cost', 'damage', 'momentum', 'type'
     const cost = card.cost ?? 'N/A';
     const damage = card.damage ?? 'N/A';
     const momentum = card.momentum ?? 'N/A';
     const type = card.type ?? 'Unknown';
 
+    // --- FIX #1: Correctly populate the grid item's HTML with data. ---
     item.innerHTML = `
         <div class="card-grid-title">${card.title}</div>
         <div class="card-grid-stats">
@@ -84,12 +76,11 @@ function createGridItem(card) {
             <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
         </div>
     `;
-    // --- END OF FIX #3 ---
+    // --- END OF FIX #1 ---
     return item;
 }
 
-
-// --- The rest of the file is unchanged but included for completeness ---
+// --- Unchanged functions below for completeness ---
 
 export function renderDecks() {
     renderDeck(startingDeckList, state.startingDeck, 'starting');
@@ -108,15 +99,12 @@ function renderDeck(container, deck, deckName) {
     Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([title, count]) => {
         const card = state.cardTitleCache[title];
         if (!card) return;
-
         const item = document.createElement('div');
         item.className = 'deck-card-item';
         item.dataset.title = title;
-
         const moveAction = deckName === 'starting'
             ? `<button class="deck-card-action" data-action="moveToPurchase" title="Move to Purchase Deck">&rarr;</button>`
             : `<button class="deck-card-action" data-action="moveToStart" title="Move to Starting Deck">&larr;</button>`;
-
         item.innerHTML = `
             <span class="deck-card-count">${count}x</span>
             <span class="deck-card-title">${title}</span>
@@ -132,10 +120,8 @@ function renderDeck(container, deck, deckName) {
 export function updateDeckCounts() {
     const startingCount = state.startingDeck.length;
     const purchaseCount = state.purchaseDeck.length;
-
     startingDeckCount.textContent = `${startingCount}/24`;
     purchaseDeckCount.textContent = `${purchaseCount}/36+`;
-
     startingDeckCount.classList.toggle('full', startingCount === 24);
     startingDeckCount.classList.toggle('over', startingCount > 24);
 }

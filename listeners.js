@@ -55,16 +55,24 @@ export function initializeEventListeners() {
         const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
         state.setCurrentViewMode(newMode);
         viewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        // --- FIX #2: Re-render the card pool after changing the view mode. ---
         refreshCardPool();
+        // --- END OF FIX #2 ---
     });
 
     searchResults.addEventListener('click', (e) => {
         const target = e.target;
-        const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
-        if (!cardTitle) return;
+        // Find the parent element with the data-title attribute
+        const cardItem = target.closest('[data-title]');
+        if (!cardItem) return;
+
+        const cardTitle = cardItem.dataset.title;
+        
+        // Check if the original click target was a button
         if (target.tagName === 'BUTTON') {
             deck.addCardToDeck(cardTitle, target.dataset.deckTarget);
         } else {
+            // If not a button, show the modal
             modals.showCardModal(cardTitle);
         }
     });
@@ -109,12 +117,15 @@ export function initializeEventListeners() {
         state.saveStateToCache();
     });
 
-    [startingDeckList, purchaseDeckList].forEach(container => {
+    [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
         container.addEventListener('click', (e) => {
             const target = e.target;
-            const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
-            if (!cardTitle) return;
+            const cardItem = target.closest('[data-title]');
+            if (!cardItem) return;
+            
+            const cardTitle = cardItem.dataset.title;
             const action = target.dataset.action;
+
             if (action === 'remove') {
                 const deckName = container === startingDeckList ? 'starting' : 'purchase';
                 deck.removeCardFromDeck(cardTitle, deckName);
@@ -126,11 +137,6 @@ export function initializeEventListeners() {
                 modals.showCardModal(cardTitle);
             }
         });
-    });
-
-    personaDisplay.addEventListener('click', (e) => {
-        const cardTitle = e.target.dataset.title || e.target.closest('[data-title]')?.dataset.title;
-        if (cardTitle) modals.showCardModal(cardTitle);
     });
 
     clearDeckBtn.addEventListener('click', deck.clearDeck);

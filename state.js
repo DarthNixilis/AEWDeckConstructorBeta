@@ -1,4 +1,3 @@
-// state.js
 import { CACHE_KEY, debounce } from './config.js';
 
 export let cardDatabase = [];
@@ -8,12 +7,11 @@ export let startingDeck = [];
 export let purchaseDeck = [];
 export let selectedWrestler = null;
 export let selectedManager = null;
-export let currentViewMode = 'list'; // Default to list view
+export let currentViewMode = 'list';
 export let numGridColumns = 3;
 export let currentSort = 'alpha-asc';
 export let showZeroCost = true;
 export let showNonZeroCost = true;
-export let lastFocusedElement = null;
 
 export function setCardDatabase(data) {
     cardDatabase = data;
@@ -29,7 +27,6 @@ export function setNumGridColumns(cols) { numGridColumns = cols; }
 export function setCurrentSort(sort) { currentSort = sort; }
 export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
-export function setLastFocusedElement(el) { lastFocusedElement = el; }
 
 export function saveStateToCache() {
     const stateToCache = {
@@ -37,35 +34,26 @@ export function saveStateToCache() {
         purchaseDeck,
         wrestler: selectedWrestler ? selectedWrestler.title : null,
         manager: selectedManager ? selectedManager.title : null,
-        // --- FIX: Save view mode settings ---
         viewMode: currentViewMode,
-        gridCols: numGridColumns
+        gridCols: numGridColumns,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(stateToCache));
 }
 
 export function loadStateFromCache() {
     const cachedState = localStorage.getItem(CACHE_KEY);
-    if (cachedState) {
-        try {
-            const parsed = JSON.parse(cachedState);
-            setStartingDeck(parsed.startingDeck || []);
-            setPurchaseDeck(parsed.purchaseDeck || []);
-            if (parsed.wrestler) {
-                document.getElementById('wrestlerSelect').value = parsed.wrestler;
-                setSelectedWrestler(cardTitleCache[parsed.wrestler] || null);
-            }
-            if (parsed.manager) {
-                document.getElementById('managerSelect').value = parsed.manager;
-                setSelectedManager(cardTitleCache[parsed.manager] || null);
-            }
-            // --- FIX: Load view mode settings ---
-            setCurrentViewMode(parsed.viewMode || 'list');
-            setNumGridColumns(parsed.gridCols || 3);
-        } catch (e) {
-            console.error("Failed to load from cache:", e);
-            localStorage.removeItem(CACHE_KEY);
-        }
+    if (!cachedState) return;
+    try {
+        const parsed = JSON.parse(cachedState);
+        setStartingDeck(parsed.startingDeck || []);
+        setPurchaseDeck(parsed.purchaseDeck || []);
+        setCurrentViewMode(parsed.viewMode || 'list');
+        setNumGridColumns(parsed.gridCols || 3);
+        if (parsed.wrestler) setSelectedWrestler(cardTitleCache[parsed.wrestler] || null);
+        if (parsed.manager) setSelectedManager(cardTitleCache[parsed.manager] || null);
+    } catch (e) {
+        console.error("Failed to load from cache:", e);
+        localStorage.removeItem(CACHE_KEY);
     }
 }
 

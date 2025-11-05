@@ -7,14 +7,12 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
-
 <body>
     <header>
         <h1>AEW TCG Deck Constructor</h1>
     </header>
 
     <main class="container">
-        <!-- All the normal HTML for the application -->
         <div class="search-panel">
             <div class="panel-header">
                 <h2>Card Pool</h2>
@@ -22,10 +20,10 @@
                     <div id="gridSizeControls" class="grid-size-controls">
                         <label>Grid Columns:</label>
                         <button data-columns="2">2</button>
-                        <button data-columns="3">3</button>
+                        <button data-columns="3" class="active">3</button>
                         <button data-columns="4">4</button>
                     </div>
-                    <button id="viewModeToggle">Switch to List View</button>
+                    <button id="viewModeToggle">Switch to Grid View</button>
                 </div>
             </div>
             <div class="filter-controls">
@@ -87,13 +85,13 @@
     </main>
 
     <!-- Modals -->
-    <div id="cardModal" class="modal-backdrop" style="display: none;">
+    <div id="cardModal" class="modal-backdrop">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
             <div id="modalCardContent"></div>
         </div>
     </div>
-    <div id="importModal" class="modal-backdrop" style="display: none;">
+    <div id="importModal" class="modal-backdrop">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
             <h3>Import Decklist</h3>

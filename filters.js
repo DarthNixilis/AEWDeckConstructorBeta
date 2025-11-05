@@ -32,12 +32,24 @@ export function getFilteredAndSortedCardPool() {
 
     let filteredCards = state.cardDatabase.filter(card => {
         if (!card || !card.title) return false;
-        if (!state.showZeroCost && card.cost === 0) return false;
-        if (!state.showNonZeroCost && card.cost !== 0) return false;
+
+        // --- FIX: Exclude Kit cards from the general pool ---
+        if (card.traits && card.traits.includes('Kit')) {
+            return false;
+        }
+
+        // Cost filters
+        const isZeroCost = card.cost === 0;
+        if (!state.showZeroCost && isZeroCost) return false;
+        if (!state.showNonZeroCost && !isZeroCost) return false;
+
+        // Cascading filters
         if (typeFilter && card.type !== typeFilter) return false;
         if (setFilter && card.set !== setFilter) return false;
         if (keywordFilter && (!card.keywords || !card.keywords.includes(keywordFilter))) return false;
         if (traitFilter && (!card.traits || !card.traits.includes(traitFilter))) return false;
+
+        // Search text filter
         if (searchInput) {
             const terms = searchInput.split(' ').filter(Boolean);
             return terms.every(term => {
@@ -45,8 +57,11 @@ export function getFilteredAndSortedCardPool() {
                 return results && results.has(card.title);
             });
         }
+
         return true;
     });
+
+    // Sorting
     return sortCards(filteredCards, state.currentSort);
 }
 

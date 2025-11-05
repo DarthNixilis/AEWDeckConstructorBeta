@@ -10,6 +10,7 @@
     --success-color: #28a745;
     --danger-color: #dc3545;
     --purple-color: #6f42c1;
+    --kit-card-bg: #fef8e7; /* A light yellow for Kit cards */
     --shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 body {
@@ -81,20 +82,33 @@ header {
     display: grid;
     gap: 15px;
 }
+
+/* --- REVISED GRID ITEM STYLES --- */
 .card-grid-item {
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 10px;
-    text-align: center;
     box-shadow: var(--shadow);
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    min-height: 120px;
+    transition: all 0.2s ease-in-out;
 }
-.card-grid-item:hover { border-color: var(--primary-color); }
-.card-grid-title { font-weight: bold; margin-bottom: 5px; }
+.card-grid-item:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+.card-grid-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    flex-grow: 1;
+}
 .card-grid-stats, .card-grid-type { font-size: 0.9em; margin-bottom: 10px; }
+/* --- END OF REVISED STYLES --- */
+
 .card-actions { display: flex; gap: 5px; justify-content: center; }
 .card-actions button {
     padding: 5px 10px;
@@ -126,6 +140,11 @@ header {
     font-size: 0.9em;
 }
 .deck-card-item:hover { background-color: #f9f9f9; }
+.deck-card-item.kit-card {
+    background-color: var(--kit-card-bg);
+    font-style: italic;
+    color: #555;
+}
 .deck-card-buttons { display: flex; gap: 5px; }
 .deck-card-action {
     border: none;
@@ -144,7 +163,7 @@ header {
     width: 100%;
     height: 100%;
     background-color: rgba(0,0,0,0.6);
-    display: none; /* Changed to none */
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 1000;

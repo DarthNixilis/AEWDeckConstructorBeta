@@ -1,9 +1,9 @@
 // data-loader.js
-import { showFatalError, withRetry } from './utils.js';
-import debug from './debug-manager.js';
+import { setCardDatabase, setKeywordDatabase, buildSearchIndex } from './state.js';
+import { initializeApp } from './app-init.js';
+import { withRetry } from './utils.js';
 
 function parseTSV(text) {
-    // ... (The robust parser is correct and stays the same)
     try {
         if (typeof text !== 'string' || !text) return [];
         if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
@@ -38,47 +38,58 @@ function parseTSV(text) {
         }
         return data;
     } catch (error) {
-        debug.error('Error inside parseTSV', error);
+        if (window.debug) window.debug.error('Error inside parseTSV', error);
         return [];
     }
 }
 
 async function loadData() {
-    const loadingOverlay = document.getElementById('loading-overlay');
-    if (loadingOverlay) loadingOverlay.style.display = 'flex';
+    try {
+        if (window.debug) window.debug.log('Starting data load...');
+        
+        const cacheBuster = `?t=${Date.now()}`;
+        const [cardResponse, keywordResponse] = await Promise.all([
+            fetch(`./cardDatabase.txt${cacheBuster}`),
+            fetch(`./Keywords.txt${cacheBuster}`)
+        ]);
 
-    const timestamp = Date.now();
-    const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
-    const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
-
-    const cacheBuster = `?t=${Date.now()}`;
-    const [cardResponse, keywordResponse] = await Promise.all([
-        fetch(`./cardDatabase.txt${cacheBuster}`),
-        fetch(`./Keywords.txt${cacheBuster}`)
-    ]);
-
-    if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${cardResponse.status})`);
-    const cardText = await cardResponse.text();
-    if (!cardText || cardText.trim().length === 0) throw new Error("cardDatabase.txt is empty or could not be loaded.");
-    
-    const cardData = parseTSV(cardText);
-    if (!Array.isArray(cardData) || cardData.length === 0) {
-        throw new Error("Parsing cardDatabase.txt resulted in 0 cards.");
-    }
-    
-    let keywordObject = {};
-    if (keywordResponse.ok) {
-        const keywordText = await keywordResponse.text();
-        if (keywordText) {
-            const keywordData = parseTSV(keywordText);
-            keywordObject = Object.fromEntries(keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || '']));
+        if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${cardResponse.status})`);
+        
+        const cardText = await cardResponse.text();
+        if (!cardText || cardText.trim().length === 0) {
+            throw new Error("cardDatabase.txt is empty or could not be loaded.");
         }
-    }
+        
+        if (window.debug) window.debug.log(`Loaded card data: ${cardText.length} bytes`);
+        
+        const cardData = parseTSV(cardText);
+        if (!Array.isArray(cardData) || cardData.length === 0) {
+            throw new Error("Parsing cardDatabase.txt resulted in 0 cards.");
+        }
+        
+        if (window.debug) window.debug.log(`Parsed ${cardData.length} cards`);
+        
+        let keywordObject = {};
+        if (keywordResponse.ok) {
+            const keywordText = await keywordResponse.text();
+            if (keywordText) {
+                const keywordData = parseTSV(keywordText);
+                keywordObject = Object.fromEntries(
+                    keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || ''])
+                );
+                if (window.debug) window.debug.log(`Loaded ${Object.keys(keywordObject).length} keywords`);
+            }
+        }
 
-    setCardDatabase(cardData);
-    setKeywordDatabase(keywordObject);
-    buildSearchIndex();
-    initializeApp();
+        setCardDatabase(cardData);
+        setKeywordDatabase(keywordObject);
+        buildSearchIndex();
+        initializeApp();
+        
+    } catch (error) {
+        if (window.debug) window.debug.error('Data loading failed', error);
+        throw error;
+    }
 }
 
 export const loadGameData = withRetry(loadData, 2, 1000);

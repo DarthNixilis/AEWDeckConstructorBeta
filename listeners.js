@@ -6,20 +6,32 @@ import * as importer from './importer.js';
 import * as exporter from './exporter.js';
 import { debounce } from './utils.js';
 
-// --- Deck Management Logic ---
-function addCardToDeck(cardTitle, deckTarget) { /* ... same as before ... */ }
-function removeCardFromDeck(cardTitle, deckName) { /* ... same as before ... */ }
-function moveCard(cardTitle, fromDeck, toDeck) { /* ... same as before ... */ }
-
-export function initializeEventListeners() {
-    state.subscribeState('deckChanged', renderer.renderDecks);
-    state.subscribeState('personaChanged', renderer.renderPersonaDisplay);
-
-    document.body.addEventListener('click', (e) => {
-        const target = e.target;
-        // ... (The robust click handler from the previous message) ...
-    });
-
-    // ... (The non-click event listeners from the previous message) ...
+// --- Missing Functions ---
+function removeCardFromDeck(cardTitle, deckName) {
+    const deck = deckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const index = deck.lastIndexOf(cardTitle);
+    if (index > -1) {
+        const newDeck = [...deck];
+        newDeck.splice(index, 1);
+        deckName === 'starting' ? state.setStartingDeck(newDeck) : state.setPurchaseDeck(newDeck);
+    }
 }
+
+function moveCard(cardTitle, fromDeck, toDeck) {
+    const sourceDeck = fromDeck === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const targetDeck = toDeck === 'starting' ? state.startingDeck : state.purchaseDeck;
+    
+    const sourceIndex = sourceDeck.lastIndexOf(cardTitle);
+    if (sourceIndex > -1) {
+        const newSource = [...sourceDeck];
+        newSource.splice(sourceIndex, 1);
+        const newTarget = [...targetDeck, cardTitle];
+        
+        fromDeck === 'starting' ? state.setStartingDeck(newSource) : state.setPurchaseDeck(newSource);
+        toDeck === 'starting' ? state.setStartingDeck(newTarget) : state.setPurchaseDeck(newTarget);
+    }
+}
+// --- End of Missing Functions ---
+
+export function initializeEventListeners() { /* ... same as before ... */ }
 

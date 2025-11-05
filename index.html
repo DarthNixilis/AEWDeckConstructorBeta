@@ -5,103 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
-
-    <!-- =================================================================== -->
-    <!--                  NEW: AUTOMATIC ERROR REPORTER                      -->
-    <!-- =================================================================== -->
-    <script>
-        /**
-         * This is our global error handler. It's placed directly in the HTML
-         * to ensure it loads first and can catch any subsequent errors,
-         * including module loading failures.
-         */
-        const handleError = (errorSource, message, source, lineno, colno, error) => {
-            // Prevent firing multiple times for the same error
-            if (window.errorHasOccurred) return;
-            window.errorHasOccurred = true;
-
-            // Gather all available information
-            const report = `
-========================================
-   AEW Deck Constructor - Debug Report
-========================================
-
-An unexpected error occurred. Please send this file to the development team.
-
-Timestamp: ${new Date().toISOString()}
-Error Type: ${errorSource}
-
-----------------------------------------
-Error Details
-----------------------------------------
-Message: ${message}
-Source File: ${source || 'N/A'}
-Line Number: ${lineno || 'N/A'}
-Column Number: ${colno || 'N/A'}
-
-----------------------------------------
-Browser Information
-----------------------------------------
-User Agent: ${navigator.userAgent}
-Platform: ${navigator.platform}
-Screen Resolution: ${window.screen.width}x${window.screen.height}
-
-----------------------------------------
-Stack Trace
-----------------------------------------
-${error && error.stack ? error.stack : 'Stack trace not available.'}
-
-----------------------------------------
-Application State (if available)
-----------------------------------------
-${window.state ? JSON.stringify(window.state.getStateSnapshot ? window.state.getStateSnapshot() : { note: 'State module not fully loaded.' }, null, 2) : 'State module not loaded.'}
-            `;
-
-            // Function to trigger the download
-            const downloadReport = (content) => {
-                const blob = new Blob([content.trim()], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'debug_report.txt';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            };
-
-            // Display a user-friendly message on the screen
-            document.body.innerHTML = `<div style="padding: 20px; font-family: sans-serif; text-align: center;">
-                <h2>A Critical Error Occurred</h2>
-                <p>We're sorry, but the application has crashed.</p>
-                <p>An error report file named <strong>debug_report.txt</strong> should have been automatically downloaded.</p>
-                <p>Please provide this file to help us fix the issue.</p>
-            </div>`;
-
-            downloadReport(report);
-        };
-
-        // Catch standard runtime errors
-        window.onerror = handleError.bind(null, 'Standard Error');
-
-        // Catch errors in promises that weren't handled (e.g., fetch failures)
-        window.addEventListener('unhandledrejection', (event) => {
-            handleError('Unhandled Promise Rejection', event.reason.message || 'No message', null, null, null, event.reason);
-        });
-    </script>
-    <!-- =================================================================== -->
-    <!--                  END OF AUTOMATIC ERROR REPORTER                    -->
-    <!-- =================================================================== -->
-
 </head>
 <body>
-    <!-- The application's HTML structure will be injected here by the scripts -->
-    <!-- Or replaced by the error message if something goes wrong. -->
-    <div id="loading-message" style="padding: 20px; text-align: center; font-size: 1.2em;">
-        Loading AEW Deck Constructor...
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; justify-content: center; align-items: center; z-index: 9999;">
+        <div style="text-align: center;">
+            <h2>Loading AEW Deck Constructor...</h2>
+            <p>Please wait while we load the card database.</p>
+        </div>
     </div>
 
-    <!-- The main script is now loaded at the end of the body -->
+    <!-- Main App Container (initially hidden) -->
+    <div id="app-container" style="display: none;">
+        <header>
+            <h1>AEW TCG Deck Constructor</h1>
+        </header>
+
+        <main class="container">
+            <div class="search-panel">
+                <div class="panel-header">
+                    <h2>Card Pool</h2>
+                    <div class="view-controls-container">
+                        <div id="gridSizeControls" class="grid-size-controls">
+                            <label>Grid Columns:</label>
+                            <button data-columns="2">2</button>
+                            <button data-columns="3" class="active">3</button>
+                            <button data-columns="4">4</button>
+                        </div>
+                        <button id="viewModeToggle">Switch to Grid View</button>
+                    </div>
+                </div>
+                <div class="filter-controls">
+                    <input type="text" id="searchInput" placeholder="Search card name or text...">
+                    <div id="cascadingFiltersContainer" class="cascading-filters"></div>
+                    <div class="sort-filter-container">
+                        <div class="sort-controls">
+                            <label for="sortSelect">Sort by:</label>
+                            <select id="sortSelect">
+                                <option value="alpha-asc">Name (A-Z)</option>
+                                <option value="alpha-desc">Name (Z-A)</option>
+                                <option value="cost-asc">Cost (Low-High)</option>
+                                <option value="cost-desc">Cost (High-Low)</option>
+                                <option value="damage-desc">Damage (High-Low)</option>
+                                <option value="damage-asc">Damage (Low-High)</option>
+                                <option value="momentum-desc">Momentum (High-Low)</option>
+                                <option value="momentum-asc">Momentum (Low-High)</option>
+                            </select>
+                        </div>
+                        <div class="cost-filter-controls">
+                            <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
+                            <label><input type="checkbox" id="showNonZeroCost" checked> Show Non-0-Cost</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="searchResults" class="card-list list-view"></div>
+            </div>
+
+            <div class="deck-panel">
+                <div class="persona-selection">
+                    <h2>Persona</h2>
+                    <select id="wrestlerSelect"><option value="">-- Select Wrestler --</option></select>
+                    <select id="managerSelect"><option value="">-- Select Manager --</option></select>
+                </div>
+                <div id="personaDisplay" class="persona-display-container"></div>
+                <h2>Starting Deck (<span id="startingDeckCount">0/24</span>)</h2>
+                <div id="startingDeckList" class="deck-list-small"></div>
+                <h2>Purchase Deck (<span id="purchaseDeckCount">0/36+</span>)</h2>
+                <div id="purchaseDeckList" class="deck-list-small"></div>
+                <div class="deck-actions">
+                    <button id="importDeck">Import Deck</button>
+                    <select id="exportSelect">
+                        <option value="">Export As...</option>
+                        <optgroup label="Deck Export">
+                            <option value="export-text">Text</option>
+                        </optgroup>
+                    </select>
+                    <button id="confirmExportBtn"><span id="confirmExportBtnText">Export</span></button>
+                    <button id="clearDeck">Clear Deck</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modals -->
+        <div id="cardModal" class="modal-backdrop">
+            <div class="modal-content">
+                <span class="modal-close-button">&times;</span>
+                <div id="modalCardContent"></div>
+            </div>
+        </div>
+        <div id="importModal" class="modal-backdrop">
+            <div class="modal-content">
+                <span class="modal-close-button">&times;</span>
+                <h3>Import Decklist</h3>
+                <div class="import-controls">
+                    <label for="deckFileInput">Import from .txt file:</label>
+                    <input type="file" id="deckFileInput" accept=".txt">
+                    <textarea id="deckTextInput" rows="10" placeholder="Or paste decklist here..."></textarea>
+                    <button id="processImportBtn">Import</button>
+                </div>
+                <div id="importStatus" class="import-status"></div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="main.js"></script>
 </body>
 </html>

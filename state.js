@@ -8,7 +8,7 @@ export let startingDeck = [];
 export let purchaseDeck = [];
 export let selectedWrestler = null;
 export let selectedManager = null;
-export let currentViewMode = 'list';
+export let currentViewMode = 'list'; // Default to list view
 export let numGridColumns = 3;
 export let currentSort = 'alpha-asc';
 export let showZeroCost = true;
@@ -37,6 +37,9 @@ export function saveStateToCache() {
         purchaseDeck,
         wrestler: selectedWrestler ? selectedWrestler.title : null,
         manager: selectedManager ? selectedManager.title : null,
+        // --- FIX: Save view mode settings ---
+        viewMode: currentViewMode,
+        gridCols: numGridColumns
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(stateToCache));
 }
@@ -56,6 +59,9 @@ export function loadStateFromCache() {
                 document.getElementById('managerSelect').value = parsed.manager;
                 setSelectedManager(cardTitleCache[parsed.manager] || null);
             }
+            // --- FIX: Load view mode settings ---
+            setCurrentViewMode(parsed.viewMode || 'list');
+            setNumGridColumns(parsed.gridCols || 3);
         } catch (e) {
             console.error("Failed to load from cache:", e);
             localStorage.removeItem(CACHE_KEY);

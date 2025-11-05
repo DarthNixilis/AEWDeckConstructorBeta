@@ -10,7 +10,7 @@ const personaDisplay = document.getElementById('personaDisplay');
 
 export function renderCardPool(cards) {
     searchResults.innerHTML = '';
-    searchResults.className = 'card-list';
+    searchResults.className = 'card-list'; // Reset classes
 
     if (state.currentViewMode === 'grid') {
         searchResults.classList.add('grid-view');
@@ -19,7 +19,7 @@ export function renderCardPool(cards) {
         searchResults.classList.add('list-view');
     }
 
-    if (cards.length === 0) {
+    if (!cards || cards.length === 0) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
         return;
     }
@@ -27,60 +27,44 @@ export function renderCardPool(cards) {
     const fragment = document.createDocumentFragment();
     cards.forEach(card => {
         if (!card || !card.title) return;
-        const cardEl = (state.currentViewMode === 'grid') 
-            ? createGridItem(card) 
-            : createListItem(card);
-        fragment.appendChild(cardEl);
+        
+        // --- THIS IS THE UNIFIED FIX ---
+        // Create a single, consistent element structure for both views.
+        const item = document.createElement('div');
+        item.dataset.title = card.title; // For click events
+
+        if (state.currentViewMode === 'grid') {
+            item.className = 'card-grid-item';
+            item.innerHTML = `
+                <div class="card-grid-title">${card.title}</div>
+                <div class="card-grid-stats">
+                    <span>C: ${card.cost ?? 'N/A'}</span>
+                    <span>D: ${card.damage ?? 'N/A'}</span>
+                    <span>M: ${card.momentum ?? 'N/A'}</span>
+                </div>
+                <div class="card-grid-type">${card.type ?? ''}</div>
+                <div class="card-actions">
+                    <button data-deck-target="starting" data-title="${card.title}">Starting</button>
+                    <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
+                </div>
+            `;
+        } else { // List View
+            item.className = 'card-list-item';
+            item.innerHTML = `
+                <span class="card-title">${card.title}</span>
+                <div class="card-actions">
+                    <button data-deck-target="starting" data-title="${card.title}">Starting</button>
+                    <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
+                </div>
+            `;
+        }
+        fragment.appendChild(item);
     });
     searchResults.appendChild(fragment);
 }
 
-function createListItem(card) {
-    const item = document.createElement('div');
-    item.className = 'card-list-item';
-    // FIX #3: Make the whole item clickable by setting the data-title here.
-    item.dataset.title = card.title;
 
-    item.innerHTML = `
-        <span class="card-title">${card.title}</span>
-        <div class="card-actions">
-            <button data-deck-target="starting" data-title="${card.title}">Starting</button>
-            <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
-        </div>
-    `;
-    return item;
-}
-
-function createGridItem(card) {
-    const item = document.createElement('div');
-    item.className = 'card-grid-item';
-    // FIX #3: Make the whole item clickable.
-    item.dataset.title = card.title;
-
-    const cost = card.cost ?? 'N/A';
-    const damage = card.damage ?? 'N/A';
-    const momentum = card.momentum ?? 'N/A';
-    const type = card.type ?? 'Unknown';
-
-    // --- FIX #1: Correctly populate the grid item's HTML with data. ---
-    item.innerHTML = `
-        <div class="card-grid-title">${card.title}</div>
-        <div class="card-grid-stats">
-            <span><strong>C:</strong> ${cost}</span>
-            <span><strong>D:</strong> ${damage}</span>
-            <span><strong>M:</strong> ${momentum}</span>
-        </div>
-        <div class="card-grid-type">${type}</div>
-        <div class="card-actions">
-            <button data-deck-target="starting" data-title="${card.title}">Starting</button>
-            <button data-deck-target="purchase" data-title="${card.title}">Purchase</button>
-        </div>
-    `;
-    // --- END OF FIX #1 ---
-    return item;
-}
-
-// --- Unchanged functions below for completeness ---
+// --- Unchanged functions below ---
 
 export function renderDecks() {
     renderDeck(startingDeckList, state.startingDeck, 'starting');
@@ -91,11 +75,7 @@ export function renderDecks() {
 
 function renderDeck(container, deck, deckName) {
     container.innerHTML = '';
-    const counts = deck.reduce((acc, title) => {
-        acc[title] = (acc[title] || 0) + 1;
-        return acc;
-    }, {});
-
+    const counts = deck.reduce((acc, title) => { acc[title] = (acc[title] || 0) + 1; return acc; }, {});
     Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0])).forEach(([title, count]) => {
         const card = state.cardTitleCache[title];
         if (!card) return;

@@ -15,6 +15,7 @@ export function initializeEventListeners() {
     const gridSizeControls = document.getElementById('gridSizeControls');
     const viewModeToggle = document.getElementById('viewModeToggle');
     const searchResults = document.getElementById('searchResults');
+    // ... (the rest of the variable declarations are the same)
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
     const startingDeckList = document.getElementById('startingDeckList');
@@ -47,6 +48,7 @@ export function initializeEventListeners() {
             gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
             state.setNumGridColumns(e.target.dataset.columns);
+            state.saveStateToCache(); // Save setting
             refreshCardPool();
         }
     });
@@ -55,28 +57,25 @@ export function initializeEventListeners() {
         const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
         state.setCurrentViewMode(newMode);
         viewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        // --- FIX #2: Re-render the card pool after changing the view mode. ---
-        refreshCardPool();
-        // --- END OF FIX #2 ---
+        state.saveStateToCache(); // Save setting
+        refreshCardPool(); // This was the missing call
     });
 
     searchResults.addEventListener('click', (e) => {
-        const target = e.target;
-        // Find the parent element with the data-title attribute
-        const cardItem = target.closest('[data-title]');
+        const cardItem = e.target.closest('[data-title]');
         if (!cardItem) return;
 
         const cardTitle = cardItem.dataset.title;
         
-        // Check if the original click target was a button
-        if (target.tagName === 'BUTTON') {
-            deck.addCardToDeck(cardTitle, target.dataset.deckTarget);
-        } else {
-            // If not a button, show the modal
+        // If the user clicked a button inside the card item
+        if (e.target.tagName === 'BUTTON') {
+            deck.addCardToDeck(cardTitle, e.target.dataset.deckTarget);
+        } else { // Otherwise, they clicked the card item itself
             modals.showCardModal(cardTitle);
         }
     });
 
+    // ... (the rest of the file is identical to the last version)
     exportSelect.addEventListener('change', (e) => {
         pendingExportAction = e.target.value;
         const selectedOption = e.target.options[e.target.selectedIndex];
@@ -87,7 +86,6 @@ export function initializeEventListeners() {
             confirmExportBtn.classList.remove('visible');
         }
     });
-
     confirmExportBtn.addEventListener('click', () => {
         if (!pendingExportAction) return;
         switch (pendingExportAction) {
@@ -102,30 +100,24 @@ export function initializeEventListeners() {
         exportSelect.value = "";
         pendingExportAction = null;
     });
-
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
         state.setSelectedWrestler(newWrestler);
         renderer.renderPersonaDisplay();
         state.saveStateToCache();
     });
-
     managerSelect.addEventListener('change', (e) => {
         const newManager = state.cardTitleCache[e.target.value] || null;
         state.setSelectedManager(newManager);
         renderer.renderPersonaDisplay();
         state.saveStateToCache();
     });
-
     [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
         container.addEventListener('click', (e) => {
-            const target = e.target;
-            const cardItem = target.closest('[data-title]');
+            const cardItem = e.target.closest('[data-title]');
             if (!cardItem) return;
-            
             const cardTitle = cardItem.dataset.title;
-            const action = target.dataset.action;
-
+            const action = e.target.dataset.action;
             if (action === 'remove') {
                 const deckName = container === startingDeckList ? 'starting' : 'purchase';
                 deck.removeCardFromDeck(cardTitle, deckName);
@@ -138,15 +130,12 @@ export function initializeEventListeners() {
             }
         });
     });
-
     clearDeckBtn.addEventListener('click', deck.clearDeck);
     importDeckBtn.addEventListener('click', modals.showImportModal);
-
     processImportBtn.addEventListener('click', () => {
         const text = document.getElementById('deckTextInput').value;
         if (text) importer.parseAndLoadDeck(text);
     });
-
     deckFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -155,7 +144,6 @@ export function initializeEventListeners() {
             reader.readAsText(file);
         }
     });
-    
     [cardModal, importModal].forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal || e.target.classList.contains('modal-close-button')) {
@@ -163,7 +151,6 @@ export function initializeEventListeners() {
             }
         });
     });
-
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             modals.closeAllModals();

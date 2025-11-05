@@ -2,12 +2,10 @@
 import { showFatalError, withRetry } from './utils.js';
 import debug from './debug-manager.js';
 
-const timestamp = Date.now();
-const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
-const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
+// --- FIX: NO TOP-LEVEL AWAIT. IMPORTS WILL HAPPEN INSIDE THE FUNCTION. ---
 
 function parseTSV(text) {
-    // ... (The robust parsing logic from the previous step is correct)
+    // ... (The robust parser is correct and stays the same)
     try {
         if (typeof text !== 'string' || !text) return [];
         if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
@@ -50,11 +48,14 @@ function parseTSV(text) {
 async function loadData() {
     try {
         debug.startTimer('Total Data Loading');
-        
-        // --- FIX: Do not replace the body. Just show the loading message. ---
-        const loadingMessage = document.getElementById('loading-message');
-        if (loadingMessage) loadingMessage.style.display = 'block';
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
+        // --- FIX: DYNAMIC IMPORTS ARE NOW SAFELY INSIDE THE ASYNC FUNCTION ---
+        const timestamp = Date.now();
+        const { setCardDatabase, setKeywordDatabase, buildSearchIndex } = await import(`./state.js?v=${timestamp}`);
+        const { initializeApp } = await import(`./app-init.js?v=${timestamp}`);
+        
         const cacheBuster = `?t=${Date.now()}`;
         debug.log('Fetching data files...');
         const [cardResponse, keywordResponse] = await Promise.all([
@@ -86,18 +87,18 @@ async function loadData() {
         }
         debug.endTimer('Parsing Data');
 
-        debug.startTimer('Updating State');
+        debug.log('Updating State...'); // Added this log to confirm we get here
         setCardDatabase(cardData);
         setKeywordDatabase(keywordObject);
-        debug.endTimer('Updating State');
+        debug.log('State updated.');
 
-        debug.startTimer('Building Search Index');
+        debug.log('Building Search Index...');
         buildSearchIndex();
-        debug.endTimer('Building Search Index');
+        debug.log('Search Index built.');
 
-        debug.startTimer('Initializing App');
+        debug.log('Initializing App...');
         initializeApp();
-        debug.endTimer('Initializing App');
+        debug.log('App initialized.');
 
         debug.endTimer('Total Data Loading');
         debug.captureStateSnapshot('Application Ready');

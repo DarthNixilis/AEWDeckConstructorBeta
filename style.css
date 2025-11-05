@@ -10,7 +10,7 @@
     --success-color: #28a745;
     --danger-color: #dc3545;
     --purple-color: #6f42c1;
-    --kit-card-bg: #fef8e7; /* A light yellow for Kit cards */
+    --kit-card-bg: #fef8e7;
     --shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 body {
@@ -81,9 +81,10 @@ header {
 .card-list.grid-view {
     display: grid;
     gap: 15px;
+    /* --- GRID FIX --- */
+    /* This allows rows to have different heights based on their content. */
+    align-items: start;
 }
-
-/* --- REVISED GRID ITEM STYLES --- */
 .card-grid-item {
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -93,8 +94,8 @@ header {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 120px;
     transition: all 0.2s ease-in-out;
+    /* Removed min-height to allow natural sizing */
 }
 .card-grid-item:hover {
     border-color: var(--primary-color);
@@ -107,8 +108,6 @@ header {
     flex-grow: 1;
 }
 .card-grid-stats, .card-grid-type { font-size: 0.9em; margin-bottom: 10px; }
-/* --- END OF REVISED STYLES --- */
-
 .card-actions { display: flex; gap: 5px; justify-content: center; }
 .card-actions button {
     padding: 5px 10px;
@@ -116,6 +115,10 @@ header {
     border-radius: 4px;
     color: white;
     cursor: pointer;
+}
+.card-actions button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
 }
 .card-actions button[data-deck-target="starting"] { background-color: var(--success-color); }
 .card-actions button[data-deck-target="purchase"] { background-color: var(--purple-color); }
@@ -183,6 +186,15 @@ header {
     right: 15px;
     font-size: 1.5rem;
     cursor: pointer;
+}
+.keyword-definitions {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+.keyword-definitions p {
+    margin: 5px 0;
+    font-size: 0.9em;
 }
 #confirmExportBtn { display: none; }
 #confirmExportBtn.visible { display: inline-block; }

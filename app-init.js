@@ -3,36 +3,43 @@ import * as state from './state.js';
 import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
-import { logToScreen } from './utils.js';
+import debug from './debug-manager.js'; // Use the correct debug system
 
 export function initializeApp() {
-    logToScreen('initializeApp: Starting...');
+    debug.log('initializeApp: Starting...');
     
-    state.loadStateFromCache();
-    logToScreen('initializeApp: State loaded from cache.');
+    // Hide the loading message and show the main application container
+    const loadingMessage = document.getElementById('loading-message');
+    const appContainer = document.getElementById('app-container');
+    if (loadingMessage) loadingMessage.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'flex';
 
+    // Load cached state first
+    state.loadStateFromCache();
+    debug.log('initializeApp: State loaded from cache.');
+
+    // Populate UI elements
     populatePersonaSelectors();
-    logToScreen('initializeApp: Persona selectors populated.');
+    debug.log('initializeApp: Persona selectors populated.');
 
     filters.renderCascadingFilters();
-    logToScreen('initializeApp: Cascading filters rendered.');
+    debug.log('initializeApp: Cascading filters rendered.');
 
-    setupInitialViewMode();
-    logToScreen('initializeApp: Initial view mode UI set.');
-
+    // Initial render based on loaded state
     renderer.renderDecks();
     renderer.renderPersonaDisplay();
-    logToScreen('initializeApp: Decks and persona display rendered.');
+    debug.log('initializeApp: Decks and persona display rendered.');
 
+    // Attach all event listeners
     initializeEventListeners();
-    logToScreen('initializeApp: Event listeners initialized.');
+    debug.log('initializeApp: Event listeners initialized.');
 
-    logToScreen('initializeApp: Triggering initial card pool render...');
+    // Trigger the first render of the card pool
+    debug.log('initializeApp: Triggering initial card pool render...');
     document.dispatchEvent(new CustomEvent('filtersChanged'));
-    logToScreen('initializeApp: "filtersChanged" event dispatched.');
+    debug.log('initializeApp: "filtersChanged" event dispatched.');
 }
 
-// ... (populatePersonaSelectors and setupInitialViewMode functions remain the same)
 function populatePersonaSelectors() {
     const wrestlerSelect = document.getElementById('wrestlerSelect');
     const managerSelect = document.getElementById('managerSelect');
@@ -43,16 +50,9 @@ function populatePersonaSelectors() {
     const managers = state.cardDatabase.filter(c => c && c.type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
     wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
     managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
+    
+    // Set the dropdown value based on the loaded state
     if (state.selectedWrestler) wrestlerSelect.value = state.selectedWrestler.title;
     if (state.selectedManager) managerSelect.value = state.selectedManager.title;
-}
-
-function setupInitialViewMode() {
-    const viewModeToggle = document.getElementById('viewModeToggle');
-    if (!viewModeToggle) return;
-    viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-    document.querySelectorAll('#gridSizeControls button').forEach(btn => btn.classList.remove('active'));
-    const activeGridButton = document.querySelector(`#gridSizeControls button[data-columns="${state.numGridColumns}"]`);
-    if (activeGridButton) activeGridButton.classList.add('active');
 }
 

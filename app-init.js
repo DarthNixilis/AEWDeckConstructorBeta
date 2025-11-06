@@ -4,23 +4,8 @@ import * as renderer from './ui-renderer.js';
 import * as filters from './filters.js';
 import { initializeEventListeners } from './listeners.js';
 
-// Temporary debug function to verify data state
-function debugCheckData() {
-    if (window.debug) {
-        window.debug.log('=== DEBUG DATA CHECK ===');
-        window.debug.log(`cardDatabase length: ${state.cardDatabase.length}`);
-        window.debug.log(`First 3 cards:`, state.cardDatabase.slice(0, 3).map(c => c.title));
-        window.debug.log(`Wrestlers: ${state.cardDatabase.filter(c => c.type === 'Wrestler').length}`);
-        window.debug.log(`Managers: ${state.cardDatabase.filter(c => c.type === 'Manager').length}`);
-        window.debug.log('=== END DEBUG CHECK ===');
-    }
-}
-
 export function initializeApp() {
     if (window.debug) window.debug.log('initializeApp: Starting...');
-    
-    // Run the debug check
-    debugCheckData();
     
     const loadingOverlay = document.getElementById('loading-overlay');
     const appContainer = document.getElementById('app-container');
@@ -54,5 +39,24 @@ export function initializeApp() {
     if (window.debug) window.debug.log('App initialized and is now visible.');
 }
 
-function populatePersonaSelectors() { /* ... same as before ... */ }
+function populatePersonaSelectors() {
+    const wrestlerSelect = document.getElementById('wrestlerSelect');
+    const managerSelect = document.getElementById('managerSelect');
+    if (!wrestlerSelect || !managerSelect) return;
+    
+    wrestlerSelect.length = 1;
+    managerSelect.length = 1;
+    
+    // Corrected type names from your data
+    const wrestlers = state.cardDatabase.filter(c => c && c.type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
+    const managers = state.cardDatabase.filter(c => c && c.type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
+    
+    if (window.debug) window.debug.log(`Found ${wrestlers.length} wrestlers and ${managers.length} managers`);
+    
+    wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
+    managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
+    
+    if (state.selectedWrestler) wrestlerSelect.value = state.selectedWrestler;
+    if (state.selectedManager) managerSelect.value = state.selectedManager;
+}
 

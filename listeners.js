@@ -1,8 +1,25 @@
 // listeners.js
 import * as state from './state.js';
-// ... other imports
+import * as renderer from './ui-renderer.js';
+import * as filters from './filters.js';
+import * as importer from './importer.js';
+import * as exporter from './exporter.js';
+import { debounce } from './utils.js';
 
-// --- Corrected Implementations ---
+// --- Deck Management Logic ---
+function addCardToDeck(cardTitle, deckName) {
+    const deck = deckName === 'starting' ? [...state.startingDeck] : [...state.purchaseDeck];
+    deck.push(cardTitle);
+    
+    if (deckName === 'starting') {
+        state.setStartingDeck(deck);
+    } else {
+        state.setPurchaseDeck(deck);
+    }
+    
+    if (window.debug) window.debug.log(`Added "${cardTitle}" to ${deckName} deck`);
+}
+
 function removeCardFromDeck(cardTitle, deckName) {
     const deck = deckName === 'starting' ? [...state.startingDeck] : [...state.purchaseDeck];
     const index = deck.lastIndexOf(cardTitle);
@@ -19,7 +36,6 @@ function removeCardFromDeck(cardTitle, deckName) {
 }
 
 function moveCard(cardTitle, fromDeck, toDeck) {
-    // This function now correctly uses the return value of removeCardFromDeck
     if (removeCardFromDeck(cardTitle, fromDeck)) {
         const targetDeck = toDeck === 'starting' ? [...state.startingDeck] : [...state.purchaseDeck];
         targetDeck.push(cardTitle);
@@ -32,7 +48,64 @@ function moveCard(cardTitle, fromDeck, toDeck) {
     }
     return false;
 }
-// --- End of Corrected Implementations ---
+// --- End of Deck Management Logic ---
 
-export function initializeEventListeners() { /* ... same as before ... */ }
+export function initializeEventListeners() {
+    if (window.debug) window.debug.log('initializeEventListeners: Setting up event listeners...');
+    
+    // Use event delegation for all dynamic content
+    document.body.addEventListener('click', (e) => {
+        const target = e.target;
+
+        // Card Pool Buttons
+        if (target.matches('.card-actions button[data-deck-target]')) {
+            const deckTarget = target.dataset.deckTarget;
+            const cardTitle = target.dataset.title;
+            if (cardTitle) {
+                if (window.debug) window.debug.log(`Card action: Adding "${cardTitle}" to ${deckTarget} deck`);
+                addCardToDeck(cardTitle, deckTarget);
+            }
+        }
+
+        // Deck List Buttons
+        else if (target.matches('.deck-card-action')) {
+            const cardItem = target.closest('.deck-card-item');
+            if (cardItem) {
+                const cardTitle = cardItem.dataset.title;
+                const action = target.dataset.action;
+                const deckName = cardItem.closest('.deck-list-small').id === 'startingDeckList' ? 'starting' : 'purchase';
+
+                if (window.debug) window.debug.log(`Deck action: ${action} "${cardTitle}" from ${deckName} deck`);
+
+                if (action === 'remove') {
+                    removeCardFromDeck(cardTitle, deckName);
+                } else if (action === 'moveToPurchase') {
+                    moveCard(cardTitle, 'starting', 'purchase');
+                } else if (action === 'moveToStart') {
+                    moveCard(cardTitle, 'purchase', 'starting');
+                }
+            }
+        }
+
+        // Card Modal Clicks
+        else if (target.closest('.card-list-item, .card-grid-item, .persona-item, .deck-card-item')) {
+            const cardElement = target.closest('[data-title]');
+            if (cardElement) {
+                renderer.showCardModal(cardElement.dataset.title);
+            }
+        }
+    });
+
+    // Static element listeners
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.addEventListener('input', debounce(() => document.dispatchEvent(new CustomEvent('filtersChanged')), 300));
+    
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) sortSelect.addEventListener('change', (e) => { state.setCurrentSort(e.target.value); document.dispatchEvent(new CustomEvent('filtersChanged')); });
+
+    // ... other static listeners for checkboxes, view toggles, etc.
+    
+    state.subscribeState('deckChanged', renderer.renderDecks);
+    state.subscribeState('personaChanged', renderer.renderPersonaDisplay);
+}
 

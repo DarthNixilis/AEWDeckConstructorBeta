@@ -46,10 +46,6 @@
                                 <option value="alpha-desc">Name (Z-A)</option>
                                 <option value="cost-asc">Cost (Low-High)</option>
                                 <option value="cost-desc">Cost (High-Low)</option>
-                                <option value="damage-desc">Damage (High-Low)</option>
-                                <option value="damage-asc">Damage (Low-High)</option>
-                                <option value="momentum-desc">Momentum (High-Low)</option>
-                                <option value="momentum-asc">Momentum (Low-High)</option>
                             </select>
                         </div>
                         <div class="cost-filter-controls">
@@ -108,7 +104,23 @@
         </div>
     </div>
 
-    <script type="module" src="main.js"></script>
+    <!-- =================================================================== -->
+    <!--                  THIS IS THE CACHE-BUSTING FIX                      -->
+    <!-- =================================================================== -->
+    <script>
+        // Create a unique cache-busting query string
+        const cacheBuster = `?v=${Date.now()}`;
+        
+        // Create a new script element
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = `main.js${cacheBuster}`;
+        
+        // Append the script to the body to start the application
+        document.body.appendChild(script);
+    </script>
+    <!-- =================================================================== -->
+
 </body>
 </html>
 

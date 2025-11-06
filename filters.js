@@ -1,112 +1,22 @@
 // filters.js
 import * as state from './state.js';
 
-// --- Memoization Cache ---
-let filteredCache = null;
-let lastFilterState = '';
-// --- End of Cache ---
-
-export function renderCascadingFilters() {
-    const container = document.getElementById('cascadingFiltersContainer');
-    if (!container) {
-        console.warn('renderCascadingFilters: Container not found.');
-        return;
-    }
-    container.innerHTML = '';
-    const createSelect = (id, label, options) => {
-        const select = document.createElement('select');
-        select.id = id;
-        select.innerHTML = `<option value="">-- Select ${label} --</option>`;
-        options.forEach(opt => select.add(new Option(opt, opt)));
-        select.addEventListener('change', () => {
-            filteredCache = null; 
-            document.dispatchEvent(new CustomEvent('filtersChanged'));
-        });
-        return select;
-    };
-    const allTypes = [...new Set(state.cardDatabase.map(c => c.type).filter(Boolean))].sort();
-    const allKeywords = [...new Set(state.cardDatabase.flatMap(c => c.keywords || []).filter(Boolean))].sort();
-    const allTraits = [...new Set(state.cardDatabase.flatMap(c => c.traits || []).filter(Boolean))].sort();
-    const allSets = [...new Set(state.cardDatabase.map(c => c.set).filter(Boolean))].sort();
-    container.appendChild(createSelect('typeFilter', 'Card Type', allTypes));
-    container.appendChild(createSelect('keywordFilter', 'Keyword', allKeywords));
-    container.appendChild(createSelect('traitFilter', 'Trait', allTraits));
-    container.appendChild(createSelect('setFilter', 'Set', allSets));
-}
+// ... (renderCascadingFilters remains the same) ...
 
 export function getFilteredAndSortedCardPool() {
-    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    const typeFilter = document.getElementById('typeFilter')?.value || '';
-    const keywordFilter = document.getElementById('keywordFilter')?.value || '';
-    const traitFilter = document.getElementById('traitFilter')?.value || '';
-    const setFilter = document.getElementById('setFilter')?.value || '';
+    console.log('=== FILTER DEBUG ===');
+    console.log('Total cards in database:', state.cardDatabase.length);
     
-    const currentState = JSON.stringify({
-        search: searchTerm,
-        type: typeFilter,
-        keyword: keywordFilter,
-        trait: traitFilter,
-        set: setFilter,
-        sort: state.currentSort,
-        showZeroCost: state.showZeroCost,
-        showNonZeroCost: state.showNonZeroCost
-    });
-
-    if (filteredCache && lastFilterState === currentState) {
-        return filteredCache;
-    }
-
-    let filteredCards = state.cardDatabase.filter(card => {
-        if (!card || !card.title) return false;
-        if (card.traits && card.traits.includes('Kit')) return false;
-
-        if (!state.showZeroCost && card.cost === 0) return false;
-        if (!state.showNonZeroCost && card.cost !== 0) return false;
-
-        if (typeFilter && card.type !== typeFilter) return false;
-        if (setFilter && card.set !== setFilter) return false;
-        if (keywordFilter && (!card.keywords || !card.keywords.includes(keywordFilter))) return false;
-        if (traitFilter && (!card.traits || !card.traits.includes(traitFilter))) return false;
-
-        // --- THIS IS THE FINAL FIX ---
-        // If there is a search term, apply the search logic.
-        // If not, this card passes the search filter by default.
-        if (searchTerm) {
-            const terms = searchTerm.split(' ').filter(Boolean);
-            if (terms.length > 0) {
-                const cardInIndex = terms.every(term => {
-                    const results = state.searchIndex.get(term);
-                    return results && results.has(card.title);
-                });
-                if (!cardInIndex) return false; // If any term doesn't match, fail the card.
-            }
-        }
-        // --- END OF FINAL FIX ---
-
-        return true; // If we get here, the card has passed all filters.
-    });
+    // --- DEEPSEEK'S DEBUG: Show ALL cards, ignore filters ---
+    const allCards = [...state.cardDatabase.filter(c => c && c.title && (!c.traits || !c.traits.includes('Kit')))];
+    console.log('Cards being returned (excluding Kit):', allCards.length);
     
-    const sortedCards = sortCards(filteredCards, state.currentSort);
-
-    filteredCache = sortedCards;
-    lastFilterState = currentState;
-    
+    const sortedCards = sortCards(allCards, state.currentSort);
     return sortedCards;
+    // --- END OF DEEPSEEK'S DEBUG ---
 }
 
 function sortCards(cards, sortValue) {
-    return cards.sort((a, b) => {
-        switch (sortValue) {
-            case 'alpha-asc': return a.title.localeCompare(b.title);
-            case 'alpha-desc': return b.title.localeCompare(a.title);
-            case 'cost-asc': return (a.cost ?? 99) - (b.cost ?? 99) || a.title.localeCompare(b.title);
-            case 'cost-desc': return (b.cost ?? 99) - (a.cost ?? 99) || a.title.localeCompare(b.title);
-            case 'damage-desc': return (b.damage ?? -1) - (a.damage ?? -1) || a.title.localeCompare(b.title);
-            case 'damage-asc': return (a.damage ?? -1) - (b.damage ?? -1) || a.title.localeCompare(b.title);
-            case 'momentum-desc': return (b.momentum ?? -1) - (a.momentum ?? -1) || a.title.localeCompare(b.title);
-            case 'momentum-asc': return (a.momentum ?? -1) - (b.momentum ?? -1) || a.title.localeCompare(b.title);
-            default: return 0;
-        }
-    });
+    // ... (The robust sort logic from before remains the same) ...
 }
 

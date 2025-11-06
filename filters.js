@@ -68,16 +68,22 @@ export function getFilteredAndSortedCardPool() {
         if (keywordFilter && (!card.keywords || !card.keywords.includes(keywordFilter))) return false;
         if (traitFilter && (!card.traits || !card.traits.includes(traitFilter))) return false;
 
+        // --- THIS IS THE FINAL FIX ---
+        // If there is a search term, apply the search logic.
+        // If not, this card passes the search filter by default.
         if (searchTerm) {
             const terms = searchTerm.split(' ').filter(Boolean);
             if (terms.length > 0) {
-                return terms.every(term => {
+                const cardInIndex = terms.every(term => {
                     const results = state.searchIndex.get(term);
                     return results && results.has(card.title);
                 });
+                if (!cardInIndex) return false; // If any term doesn't match, fail the card.
             }
         }
-        return true;
+        // --- END OF FINAL FIX ---
+
+        return true; // If we get here, the card has passed all filters.
     });
     
     const sortedCards = sortCards(filteredCards, state.currentSort);
@@ -93,12 +99,12 @@ function sortCards(cards, sortValue) {
         switch (sortValue) {
             case 'alpha-asc': return a.title.localeCompare(b.title);
             case 'alpha-desc': return b.title.localeCompare(a.title);
-            case 'cost-asc': return (a.cost || 0) - (b.cost || 0) || a.title.localeCompare(b.title);
-            case 'cost-desc': return (b.cost || 0) - (a.cost || 0) || a.title.localeCompare(b.title);
-            case 'damage-desc': return (b.damage || 0) - (a.damage || 0) || a.title.localeCompare(b.title);
-            case 'damage-asc': return (a.damage || 0) - (b.damage || 0) || a.title.localeCompare(b.title);
-            case 'momentum-desc': return (b.momentum || 0) - (a.momentum || 0) || a.title.localeCompare(b.title);
-            case 'momentum-asc': return (a.momentum || 0) - (b.momentum || 0) || a.title.localeCompare(b.title);
+            case 'cost-asc': return (a.cost ?? 99) - (b.cost ?? 99) || a.title.localeCompare(b.title);
+            case 'cost-desc': return (b.cost ?? 99) - (a.cost ?? 99) || a.title.localeCompare(b.title);
+            case 'damage-desc': return (b.damage ?? -1) - (a.damage ?? -1) || a.title.localeCompare(b.title);
+            case 'damage-asc': return (a.damage ?? -1) - (b.damage ?? -1) || a.title.localeCompare(b.title);
+            case 'momentum-desc': return (b.momentum ?? -1) - (a.momentum ?? -1) || a.title.localeCompare(b.title);
+            case 'momentum-asc': return (a.momentum ?? -1) - (b.momentum ?? -1) || a.title.localeCompare(b.title);
             default: return 0;
         }
     });

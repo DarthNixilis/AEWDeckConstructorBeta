@@ -11,7 +11,7 @@ function parseTSV(text) {
         if (lines.length < 2) return [];
         const headers = lines[0].split('\t').map(h => h ? h.trim().toLowerCase().replace(/ /g, '_') : '');
         if (!headers.includes('card_name')) throw new Error("Invalid TSV format: missing 'Card Name' header.");
-        
+
         const data = [];
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i] || lines[i].trim() === '') continue;
@@ -22,32 +22,25 @@ function parseTSV(text) {
                 if (!key) continue;
                 let value = (values[j] || '').trim();
 
-                // --- GEMINI'S ROBUST PARSING LOGIC ---
-                // 1. First, check if the value should be treated as empty/null.
                 if (value === '' || value.toLowerCase() === 'n/a' || value === '-') {
                     obj[key] = null;
-                    continue; // Go to the next header
+                    continue;
                 }
 
-                // 2. Handle complex types (like arrays of strings)
                 if (key === 'keywords' || key === 'traits') {
-                    obj[key] = value.split('|').map(v => v.trim()).filter(Boolean);
-                } 
-                // 3. Handle booleans
+                    obj[key] = value.split(',').map(v => v.trim()).filter(Boolean);
+                }
                 else if (value.toUpperCase() === 'TRUE') {
                     obj[key] = true;
                 } else if (value.toUpperCase() === 'FALSE') {
                     obj[key] = false;
-                } 
-                // 4. Handle numbers
-                else if (!isNaN(value)) { 
+                }
+                else if (!isNaN(parseFloat(value))) {
                     obj[key] = Number(value);
-                } 
-                // 5. Default is string
+                }
                 else {
                     obj[key] = value;
                 }
-                // --- END OF GEMINI'S LOGIC ---
             }
             if (obj.card_name) {
                 obj.title = obj.card_name;
@@ -62,7 +55,41 @@ function parseTSV(text) {
 }
 
 async function loadData() {
-    // ... (The rest of the loadData function remains the same)
+    if (window.debug) window.debug.log('Starting data load...');
+
+    const cacheBuster = `?t=${Date.now()}`;
+    const [cardResponse, keywordResponse] = await Promise.all([
+        fetch(`./cardDatabase.txt${cacheBuster}`),
+        fetch(`./Keywords.txt${cacheBuster}`)
+    ]);
+
+    if (!cardResponse.ok) throw new Error(`Failed to fetch cardDatabase.txt (HTTP ${cardResponse.status})`);
+
+    const cardText = await cardResponse.text();
+    if (!cardText || cardText.trim().length === 0) throw new Error("cardDatabase.txt is empty or could not be loaded.");
+
+    if (window.debug) window.debug.log(`Loaded card data: ${cardText.length} bytes`);
+
+    const cardData = parseTSV(cardText);
+    if (!Array.isArray(cardData) || cardData.length === 0) throw new Error("Parsing cardDatabase.txt resulted in 0 cards.");
+
+    if (window.debug) window.debug.log(`Parsed ${cardData.length} cards`);
+
+    let keywordObject = {};
+    if (keywordResponse.ok) {
+        const keywordText = await keywordResponse.text();
+        if (keywordText) {
+            const keywordData = parseTSV(keywordText);
+            keywordObject = Object.fromEntries(
+                keywordData.filter(kw => kw.keyword).map(kw => [kw.keyword, kw.description || ''])
+            );
+            if (window.debug) window.debug.log(`Loaded ${Object.keys(keywordObject).length} keywords`);
+        }
+    }
+
+    setCardDatabase(cardData);
+    setKeywordDatabase(keywordObject);
+    buildSearchIndex();
 }
 
 export const loadGameData = withRetry(loadData, 2, 1000);

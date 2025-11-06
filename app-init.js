@@ -38,6 +38,20 @@ export function initializeApp() {
 }
 
 function populatePersonaSelectors() {
-    // ... (populatePersonaSelectors implementation remains the same)
+    const wrestlerSelect = document.getElementById('wrestlerSelect');
+    const managerSelect = document.getElementById('managerSelect');
+    if (!wrestlerSelect || !managerSelect) return;
+    
+    wrestlerSelect.length = 1;
+    managerSelect.length = 1;
+    
+    const wrestlers = state.cardDatabase.filter(c => c && c.type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
+    const managers = state.cardDatabase.filter(c => c && c.type === 'Manager').sort((a, b) => a.title.localeCompare(b.title));
+    
+    wrestlers.forEach(w => wrestlerSelect.add(new Option(w.title, w.title)));
+    managers.forEach(m => managerSelect.add(new Option(m.title, m.title)));
+    
+    if (state.selectedWrestler) wrestlerSelect.value = state.selectedWrestler.title;
+    if (state.selectedManager) managerSelect.value = state.selectedManager.title;
 }
 

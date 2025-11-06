@@ -9,7 +9,7 @@ let lastFilterState = '';
 export function renderCascadingFilters() {
     const container = document.getElementById('cascadingFiltersContainer');
     if (!container) {
-        if (window.debug) window.debug.warn('renderCascadingFilters: Container not found.');
+        console.warn('renderCascadingFilters: Container not found.');
         return;
     }
     container.innerHTML = '';
@@ -35,16 +35,13 @@ export function renderCascadingFilters() {
 }
 
 export function getFilteredAndSortedCardPool() {
-    // --- THIS IS THE FIX, as prescribed by Deepseek ---
-    // 1. Get current filter values directly from the DOM elements.
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
     const typeFilter = document.getElementById('typeFilter')?.value || '';
     const keywordFilter = document.getElementById('keywordFilter')?.value || '';
     const traitFilter = document.getElementById('traitFilter')?.value || '';
     const setFilter = document.getElementById('setFilter')?.value || '';
     
-    // 2. Create the cache key from these real values.
-    const currentStateKey = JSON.stringify({
+    const currentState = JSON.stringify({
         search: searchTerm,
         type: typeFilter,
         keyword: keywordFilter,
@@ -55,14 +52,10 @@ export function getFilteredAndSortedCardPool() {
         showNonZeroCost: state.showNonZeroCost
     });
 
-    // 3. Check the cache.
-    if (filteredCache && lastFilterState === currentStateKey) {
-        if (window.debug) window.debug.log('Filter cache hit!');
+    if (filteredCache && lastFilterState === currentState) {
         return filteredCache;
     }
-    if (window.debug) window.debug.log('Filter cache miss, recalculating...');
 
-    // 4. Perform the filtering using the real values.
     let filteredCards = state.cardDatabase.filter(card => {
         if (!card || !card.title) return false;
         if (card.traits && card.traits.includes('Kit')) return false;
@@ -78,11 +71,10 @@ export function getFilteredAndSortedCardPool() {
         if (searchTerm) {
             const terms = searchTerm.split(' ').filter(Boolean);
             if (terms.length > 0) {
-                const cardInIndex = terms.every(term => {
+                return terms.every(term => {
                     const results = state.searchIndex.get(term);
                     return results && results.has(card.title);
                 });
-                if (!cardInIndex) return false;
             }
         }
         return true;
@@ -90,9 +82,8 @@ export function getFilteredAndSortedCardPool() {
     
     const sortedCards = sortCards(filteredCards, state.currentSort);
 
-    // 5. Update the cache.
     filteredCache = sortedCards;
-    lastFilterState = currentStateKey;
+    lastFilterState = currentState;
     
     return sortedCards;
 }
@@ -104,6 +95,10 @@ function sortCards(cards, sortValue) {
             case 'alpha-desc': return b.title.localeCompare(a.title);
             case 'cost-asc': return (a.cost || 0) - (b.cost || 0) || a.title.localeCompare(b.title);
             case 'cost-desc': return (b.cost || 0) - (a.cost || 0) || a.title.localeCompare(b.title);
+            case 'damage-desc': return (b.damage || 0) - (a.damage || 0) || a.title.localeCompare(b.title);
+            case 'damage-asc': return (a.damage || 0) - (b.damage || 0) || a.title.localeCompare(b.title);
+            case 'momentum-desc': return (b.momentum || 0) - (a.momentum || 0) || a.title.localeCompare(b.title);
+            case 'momentum-asc': return (a.momentum || 0) - (b.momentum || 0) || a.title.localeCompare(b.title);
             default: return 0;
         }
     });

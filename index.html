@@ -7,17 +7,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; justify-content: center; align-items: center; z-index: 9999;">
-        <div style="text-align: center;">
-            <h2>Loading AEW Deck Constructor...</h2>
-            <p>Please wait while we load the card database.</p>
-        </div>
-    </div>
-
-    <!-- Main App Container (initially hidden) -->
-    <div id="app-container" style="display: none;">
-        <!-- All the application HTML from the previous correct version goes here -->
+    <!-- Main App Container -->
+    <div id="app-container">
         <header>
             <h1>AEW TCG Deck Constructor</h1>
         </header>
@@ -32,34 +23,88 @@
             </div>
         </main>
         <!-- Modals -->
-        <div id="cardModal" class="modal-backdrop">
-            <!-- ... modal HTML ... -->
-        </div>
-        <div id="importModal" class="modal-backdrop">
-            <!-- ... modal HTML ... -->
-        </div>
+        <!-- ... all modal HTML ... -->
     </div>
 
     <!-- =================================================================== -->
-    <!--                  EMERGENCY TIMEOUT SCRIPT                         -->
+    <!--            DEEPSEEK'S PERSISTENT MOBILE DEBUG PANEL                 -->
     <!-- =================================================================== -->
+    <div id="mobileDebug" style="
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0,0,0,0.95);
+        color: lime;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 99999;
+        max-height: 200px;
+        overflow-y: auto;
+        border-top: 2px solid lime;
+        box-sizing: border-box;
+    ">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: center;">
+            <strong style="color: white;">🚨 DEBUG CONSOLE</strong>
+            <div>
+                <button onclick="clearDebug()" style="background: #ff4444; color: white; border: none; padding: 2px 8px; margin-left: 5px; border-radius: 3px;">Clear</button>
+                <button onclick="toggleDebug()" style="background: #4444ff; color: white; border: none; padding: 2px 8px; margin-left: 5px; border-radius: 3px;">Hide</button>
+            </div>
+        </div>
+        <div id="debugContent"></div>
+    </div>
+
     <script>
-        // Emergency loading screen removal - if app doesn't load in 10 seconds
-        setTimeout(() => {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            const appContainer = document.getElementById('app-container');
-            if (loadingOverlay && loadingOverlay.style.display !== 'none') {
-                console.warn('⚠️ Emergency: Removing loading screen due to timeout');
-                loadingOverlay.style.display = 'none';
-                if (appContainer) appContainer.style.display = 'block';
-                // Create a new div for the error message to avoid overwriting the app
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; padding: 20px; color: red; background: white; z-index: 10000; text-align: center;';
-                errorDiv.innerHTML = '⚠️ Application failed to load completely. Check console for errors.';
-                document.body.appendChild(errorDiv);
+        // Global debug functions
+        window.debugLog = function(message, color = 'lime') {
+            const content = document.getElementById('debugContent');
+            const debugPanel = document.getElementById('mobileDebug');
+            if (content && debugPanel) {
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.style.color = color;
+                entry.style.margin = '2px 0';
+                entry.style.border-bottom = '1px solid #333';
+                entry.innerHTML = `[${timestamp}] ${message}`;
+                content.appendChild(entry);
+                content.scrollTop = content.scrollHeight;
             }
-        }, 10000);
+        };
+
+        window.clearDebug = function() {
+            const content = document.getElementById('debugContent');
+            if (content) content.innerHTML = '';
+        };
+
+        window.toggleDebug = function() {
+            const panel = document.getElementById('mobileDebug');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        };
+
+        // Catch all errors and log them
+        window.addEventListener('error', function(e) {
+            debugLog(`ERROR: ${e.message} at ${e.filename}:${e.lineno}`, 'red');
+        });
+
+        // Catch promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+            debugLog(`PROMISE ERROR: ${e.reason.message || e.reason}`, 'orange');
+        });
+
+        // Override console methods to also log to our panel
+        const originalConsole = { log: console.log, error: console.error, warn: console.warn };
+        console.log = function(...args) { originalConsole.log.apply(console, args); debugLog(args.join(' ')); };
+        console.error = function(...args) { originalConsole.error.apply(console, args); debugLog(args.join(' '), 'red'); };
+        console.warn = function(...args) { originalConsole.warn.apply(console, args); debugLog(args.join(' '), 'orange'); };
+
+        // Log that the system is ready
+        console.log('Mobile debug panel initialized.');
     </script>
+    <!-- =================================================================== -->
+    <!--                  END OF MOBILE DEBUG PANEL                        -->
     <!-- =================================================================== -->
 
     <script type="module" src="main.js"></script>

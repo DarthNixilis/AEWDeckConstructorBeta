@@ -37,12 +37,7 @@
                 </div>
                 <div class="filter-controls">
                     <input type="text" id="searchInput" placeholder="Search card name or text...">
-                    
-                    <!-- ================================================== -->
-                    <!-- THIS IS THE MISSING PIECE THAT FIXES THE BUG -->
                     <div id="cascadingFiltersContainer" class="cascading-filters"></div>
-                    <!-- ================================================== -->
-
                     <div class="sort-filter-container">
                         <div class="sort-controls">
                             <label for="sortSelect">Sort by:</label>
@@ -113,7 +108,18 @@
         </div>
     </div>
 
-    <script type="module" src="main.js"></script>
+    <!-- =================================================================== -->
+    <!--                  CACHE-BUSTING SCRIPT LOADER                      -->
+    <!-- =================================================================== -->
+    <script>
+        const version = new Date().getTime();
+        const mainScript = document.createElement('script');
+        mainScript.type = 'module';
+        mainScript.src = `main.js?v=${version}`;
+        document.body.appendChild(mainScript);
+    </script>
+    <!-- =================================================================== -->
+
 </body>
 </html>
 

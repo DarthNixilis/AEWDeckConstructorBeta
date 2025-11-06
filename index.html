@@ -7,6 +7,34 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- =================================================================== -->
+    <!--            EMERGENCY DEBUG PANEL (From Your Team's Spec)          -->
+    <!-- =================================================================== -->
+    <div id="emergency-debug" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: red; color: white; padding: 10px; z-index: 100000; font-family: sans-serif;">
+        <strong>EMERGENCY DEBUG:</strong> <span id="debug-message"></span>
+    </div>
+    <script>
+        window.addEventListener('error', function(e) {
+            console.error('EMERGENCY ERROR:', e.error);
+            document.getElementById('emergency-debug').style.display = 'block';
+            document.getElementById('debug-message').textContent = e.message + ' at ' + e.filename.split('/').pop() + ':' + e.lineno;
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('EMERGENCY PROMISE REJECTION:', e.reason);
+            document.getElementById('emergency-debug').style.display = 'block';
+            document.getElementById('debug-message').textContent = 'Promise rejected: ' + (e.reason.message || e.reason);
+        });
+        setTimeout(function() {
+            const loading = document.getElementById('loading-overlay');
+            if (loading && loading.style.display !== 'none') {
+                console.error('App stuck loading - timeout reached');
+                document.getElementById('emergency-debug').style.display = 'block';
+                document.getElementById('debug-message').textContent = 'App stuck loading - check console for module errors or failed fetches.';
+            }
+        }, 5000);
+    </script>
+    <!-- =================================================================== -->
+
     <!-- Loading Overlay -->
     <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; justify-content: center; align-items: center; z-index: 9999;">
         <div style="text-align: center;">
@@ -17,10 +45,10 @@
 
     <!-- Main App Container (initially hidden) -->
     <div id="app-container" style="display: none;">
+        <!-- All the application HTML goes here -->
         <header>
             <h1>AEW TCG Deck Constructor</h1>
         </header>
-
         <main class="container">
             <div class="search-panel">
                 <div class="panel-header">
@@ -60,7 +88,6 @@
                 </div>
                 <div id="searchResults" class="card-list list-view"></div>
             </div>
-
             <div class="deck-panel">
                 <div class="persona-selection">
                     <h2>Persona</h2>
@@ -85,8 +112,6 @@
                 </div>
             </div>
         </main>
-
-        <!-- Modals -->
         <div id="cardModal" class="modal-backdrop">
             <div class="modal-content">
                 <span class="modal-close-button">&times;</span>
@@ -108,9 +133,7 @@
         </div>
     </div>
 
-    <!-- =================================================================== -->
-    <!--                  CACHE-BUSTING SCRIPT LOADER                      -->
-    <!-- =================================================================== -->
+    <!-- Cache-Busting Script Loader -->
     <script>
         const version = new Date().getTime();
         const mainScript = document.createElement('script');
@@ -118,8 +141,6 @@
         mainScript.src = `main.js?v=${version}`;
         document.body.appendChild(mainScript);
     </script>
-    <!-- =================================================================== -->
-
 </body>
 </html>
 

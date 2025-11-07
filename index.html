@@ -1,3 +1,5 @@
+// index.html
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- The html2canvas script is correctly GONE from here -->
 </head>
 
 <body>
@@ -13,23 +15,10 @@
         <h1>AEW TCG Deck Constructor</h1>
     </header>
 
+    <!-- This is the main container for the two-panel layout -->
     <main class="container">
-        <div class="search-panel"><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEW TCG Deck Constructor</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- REMOVED: The html2canvas script tag is GONE from here. -->
-</head>
 
-<body>
-    <header>
-        <h1>AEW TCG Deck Constructor</h1>
-    </header>
-
-    <main class="container">
+        <!-- Left Panel: Card Search and Pool -->
         <div class="search-panel">
             <div class="panel-header">
                 <h2>Card Pool</h2>
@@ -37,7 +26,7 @@
                     <div id="gridSizeControls" class="grid-size-controls">
                         <label>Grid Columns:</label>
                         <button data-columns="2">2</button>
-                        <button data-columns="3">3</button>
+                        <button data-columns="3" class="active">3</button>
                         <button data-columns="4">4</button>
                     </div>
                     <button id="viewModeToggle">Switch to List View</button>
@@ -66,9 +55,11 @@
                     </div>
                 </div>
             </div>
+            <!-- This is where the card pool results will be rendered by ui.js -->
             <div id="searchResults" class="card-list list-view"></div>
         </div>
 
+        <!-- Right Panel: Persona and Deck Lists -->
         <div class="deck-panel">
             <div class="persona-selection">
                 <h2>Persona</h2>
@@ -102,6 +93,7 @@
         </div>
     </main>
 
+    <!-- Modals for pop-ups -->
     <div id="cardModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
@@ -123,40 +115,8 @@
         </div>
     </div>
 
+    <!-- The main entry point for all JavaScript -->
     <script type="module" src="main.js"></script>
 </body>
 </html>
-
-            <div class="panel-header">
-                <h2>Card Pool</h2>
-                <div class="view-controls-container">
-                    <div id="gridSizeControls" class="grid-size-controls">
-                        <label>Grid Columns:</label>
-                        <button data-columns="2">2</button>
-                        <button data-columns="3">3</button>
-                        <button data-columns="4">4</button>
-                    </div>
-                    <button id="viewModeToggle">Switch to List View</button>
-                </div>
-            </div>
-            <div class="filter-controls">
-                <input type="text" id="searchInput" placeholder="Search card name or text...">
-                <div id="cascadingFiltersContainer" class="cascading-filters"></div>
-                <div class="sort-filter-container">
-                    <div class="sort-controls">
-                        <label for="sortSelect">Sort by:</label>
-                        <select id="sortSelect">
-                            <option value="alpha-asc">Name (A-Z)</option>
-                            <option value="alpha-desc">Name (Z-A)</option>
-                            <option value="cost-asc">Cost (Low-High)</option>
-                            <option value="cost-desc">Cost (High-Low)</option>
-                            <option value="damage-desc">Damage (High-Low)</option>
-                            <option value="damage-asc">Damage (Low-High)</option>
-                            <option value="momentum-desc">Momentum (High-Low)</option>
-                            <option value="momentum-asc">Momentum (Low-High)</option>
-                        </select>
-                    </div>
-                    <div class="cost-filter-controls">
-                        <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
-                        <label><input type="checkbox" id="showNonZeroCost" check<Generate></Generate>
 

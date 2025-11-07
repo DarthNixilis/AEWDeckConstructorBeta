@@ -2,70 +2,69 @@
 import * as state from './state.js';
 import { sortCardsForPrinting } from './utils.js';
 
-// This function now correctly tells html2canvas to avoid WebGPU
 async function exportAllCardsToPrint() {
     console.log('Starting master set export...');
-    const cardsToPrint = sortCardsForPrinting(state.cardDatabase);
-    const cardsPerPage = 9;
-    const totalPages = Math.ceil(cardsToPrint.length / cardsPerPage);
+    
+    // --- THIS IS THE CRITICAL FIX ---
+    // Dynamically import html2canvas only when the button is clicked.
+    // This prevents the library from loading and crashing the app on startup.
+    try {
+        const { default: html2canvas } = await import('https://html2canvas.hertzen.com/dist/html2canvas.min.js');
+        console.log('html2canvas loaded successfully.');
 
-    for (let i = 0; i < totalPages; i++) {
-        const pageNumber = i + 1;
-        console.log(`Generating page ${pageNumber} of ${totalPages}...`);
+        const cardsToPrint = sortCardsForPrinting(state.cardDatabase);
+        const cardsPerPage = 9;
+        const totalPages = Math.ceil(cardsToPrint.length / cardsPerPage);
 
-        const pageContainer = document.createElement('div');
-        pageContainer.className = 'print-sheet';
+        for (let i = 0; i < totalPages; i++) {
+            const pageNumber = i + 1;
+            console.log(`Generating page ${pageNumber} of ${totalPages}...`);
 
-        const pageCards = cardsToPrint.slice(i * cardsPerPage, (i + 1) * cardsPerPage);
-        pageCards.forEach(card => {
-            const cardElement = document.createElement('div');
-            cardElement.className = 'print-card';
-            cardElement.innerHTML = `
-                <div class="print-card-title">${card.title}</div>
-                <div class="print-card-type">${card.type}</div>
-                <div class="print-card-stats">Cost: ${card.cost ?? 'N/A'} | Dmg: ${card.damage ?? 'N/A'}</div>
-                <div class="print-card-text">${card.card_raw_game_text || ''}</div>
-            `;
-            pageContainer.appendChild(cardElement);
-        });
+            const pageContainer = document.createElement('div');
+            pageContainer.className = 'print-sheet';
 
-        document.body.appendChild(pageContainer);
-
-        try {
-            // --- THIS IS THE CRITICAL FIX ---
-            // We explicitly disable WebGPU to prevent crashes on mobile browsers.
-            const canvas = await html2canvas(pageContainer, {
-                scale: 3, // for 300 DPI on a 96 DPI screen
-                useCORS: true,
-                logging: true,
-                onclone: (doc) => {
-                    // This ensures styles are applied correctly in the cloned document
-                    const style = doc.createElement('style');
-                    style.innerHTML = `
-                        .print-sheet { display: grid !important; }
-                        .print-card { border: 1px solid black !important; }
-                    `;
-                    doc.head.appendChild(style);
-                },
-                // Add any other options needed, but avoid hardware acceleration
+            const pageCards = cardsToPrint.slice(i * cardsPerPage, (i + 1) * cardsPerPage);
+            pageCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'print-card';
+                cardElement.innerHTML = `
+                    <div class="print-card-title">${card.title}</div>
+                    <div class="print-card-type">${card.type}</div>
+                    <div class="print-card-stats">Cost: ${card.cost ?? 'N/A'} | Dmg: ${card.damage ?? 'N/A'}</div>
+                    <div class="print-card-text">${card.card_raw_game_text || ''}</div>
+                `;
+                pageContainer.appendChild(cardElement);
             });
-            // --- END OF CRITICAL FIX ---
 
-            const link = document.createElement('a');
-            link.download = `AEW_TCG_Master_Set_Page_${pageNumber}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            document.body.appendChild(pageContainer);
 
-        } catch (error) {
-            console.error(`Failed to generate canvas for page ${pageNumber}:`, error);
-            alert(`An error occurred while generating page ${pageNumber}. Check the console for details.`);
-        } finally {
-            document.body.removeChild(pageContainer);
+            try {
+                const canvas = await html2canvas(pageContainer, {
+                    scale: 3,
+                    useCORS: true,
+                    logging: false, // Keep logging clean
+                });
+
+                const link = document.createElement('a');
+                link.download = `AEW_TCG_Master_Set_Page_${pageNumber}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+            } catch (canvasError) {
+                console.error(`Failed to generate canvas for page ${pageNumber}:`, canvasError);
+                alert(`An error occurred while generating page ${pageNumber}.`);
+            } finally {
+                document.body.removeChild(pageContainer);
+            }
         }
-    }
-    console.log('Master set export finished.');
-}
+        console.log('Master set export finished.');
 
+    } catch (error) {
+        console.error('Failed to load html2canvas library:', error);
+        alert('Could not load the printing library. Please check your internet connection and try again.');
+    }
+    // --- END OF CRITICAL FIX ---
+}
 
 export function initializeDevTools() {
     const devToolsPanel = document.createElement('div');
@@ -78,3 +77,4 @@ export function initializeDevTools() {
 
     document.getElementById('printMasterSetBtn').addEventListener('click', exportAllCardsToPrint);
 }
+

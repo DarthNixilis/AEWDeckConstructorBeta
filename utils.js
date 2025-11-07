@@ -1,5 +1,9 @@
 // utils.js
 
+// --- THIS IS THE MISSING PIECE ---
+export const CACHE_KEY = 'aewTcgDeckConstructorState';
+// --- END OF MISSING PIECE ---
+
 /**
  * A simple retry wrapper for async functions.
  * @param {Function} fn The async function to try.

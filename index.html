@@ -29,15 +29,14 @@
 
     <!-- Main App Container -->
     <div id="app-container" style="display: none;">
-        <!-- All application HTML goes here -->
+        <!-- All your application HTML will be rendered here by the scripts -->
     </div>
 
-    <!-- Cache-Busting Script Loader for main.js -->
+    <!-- Cache-Busting Script Loader -->
     <script>
         const version = new Date().getTime();
         const mainScript = document.createElement('script');
         mainScript.type = 'module';
-        // Only main.js needs to be busted here. It will bust the rest.
         mainScript.src = `main.js?v=${version}`;
         document.body.appendChild(mainScript);
     </script>

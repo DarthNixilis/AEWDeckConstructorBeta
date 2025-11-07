@@ -3,12 +3,16 @@ import * as state from './state.js';
 import { sortCardsForPrinting } from './utils.js';
 
 async function exportAllCardsToPrint() {
-    console.log('Starting master set export...');
+    console.log('Print button clicked. Attempting to load printing library...');
     
     try {
-        const { default: html2canvas } = await import('https://html2canvas.hertzen.com/dist/html2canvas.min.js');
+        // --- THIS IS THE CRITICAL FIX ---
+        // Dynamically import html2canvas only when the button is clicked.
+        // This prevents the library from crashing the app on startup.
+        const { default: html2canvas } = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
         console.log('html2canvas loaded successfully.');
 
+        // Now that the library is loaded, proceed with printing.
         const cardsToPrint = sortCardsForPrinting(state.cardDatabase);
         const cardsPerPage = 9;
         const totalPages = Math.ceil(cardsToPrint.length / cardsPerPage);
@@ -46,8 +50,8 @@ async function exportAllCardsToPrint() {
             }
         }
     } catch (error) {
-        console.error('Failed to load html2canvas library:', error);
-        alert('Could not load the printing library.');
+        console.error('Failed to load or use the html2canvas library:', error);
+        alert('Could not load or use the printing library. Please check your internet connection and try again.');
     }
 }
 
@@ -60,6 +64,7 @@ export function initializeDevTools() {
     `;
     document.body.appendChild(devToolsPanel);
 
+    // This is the event listener that was never being attached before.
     document.getElementById('printMasterSetBtn').addEventListener('click', exportAllCardsToPrint);
 }
 

@@ -5,41 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
+
 <body>
-    <!-- Emergency Debug Panel -->
-    <div id="emergency-debug" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: red; color: white; padding: 10px; z-index: 100000; font-family: sans-serif;">
-        <strong>EMERGENCY DEBUG:</strong> <span id="debug-message"></span>
-    </div>
-    <script>
-        window.addEventListener('error', function(e) {
-            document.getElementById('emergency-debug').style.display = 'block';
-            document.getElementById('debug-message').textContent = e.message + ' at ' + (e.filename ? e.filename.split('/').pop() : 'unknown') + ':' + e.lineno;
-        });
-        window.addEventListener('unhandledrejection', function(e) {
-            document.getElementById('emergency-debug').style.display = 'block';
-            document.getElementById('debug-message').textContent = 'Promise rejected: ' + (e.reason.message || e.reason);
-        });
-    </script>
+    <header>
+        <h1>AEW TCG Deck Constructor</h1>
+    </header>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; justify-content: center; align-items: center; z-index: 9999;">
-        <h2>Loading...</h2>
-    </div>
-
-    <!-- Main App Container -->
-    <div id="app-container" style="display: none;">
-        <!-- All your application HTML will be rendered here by the scripts -->
-    </div>
-
-    <!-- Cache-Busting Script Loader -->
-    <script>
-        const version = new Date().getTime();
-        const mainScript = document.createElement('script');
-        mainScript.type = 'module';
-        mainScript.src = `main.js?v=${version}`;
-        document.body.appendChild(mainScript);
-    </script>
-</body>
-</html>
+    <main class="container">
+        <div class="search-panel">
+            <div class="panel-header">
+                <h2>Card Pool</h2>
+                <div class="view-controls-container">
+                    <div id="gridSizeControls" class="grid-size-controls">
+                        <label>Grid Columns:</label>
+                        <button data-columns="2">2</button>
+                        <button data-columns="3">3</button>
+                        <button data-columns="4">4</button>
+                    </div>
+                    <button id="viewModeToggle">Switch to List View</button>
+                </div>
+            </div>
+            <div class="filter-controls">
+                <input type="text" id="searchInput" placeholder="Search card name or text...">
+                <div id="cascadingFiltersContainer" class="cascading-filters"></div>
+                <div class="sort-filter-container">
+                    <div class="sort-controls">
+                        <label for="sortSelect">Sort by:</label>
+                        <select id="sortSelect">
+                            <option value="alpha-asc">Name (A-Z)</option>
+                            <option value="alpha-desc">Name (Z-A)</option>
+                            <option value="cost-asc">Cost (Low-High)</option>
+                            <option value="cost-desc">Cost (High-Low)</option>
+                            <option value="damage-desc">Damage (High-Low)</option>
+                            <option value="damage-asc">Damage (Low-High)</option>
+                            <option value="momentum-desc">Momentum (High-Low)</option>
+                            <option value="momentum-asc">Momentum (Low-High)</option>
+                        </select>
+                    </div>
+                    <div class="cost-filter-controls">
+                        <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
+                        <label><input type="checkbox" id="showNonZeroCost" check<Generate></Generate>
 

@@ -2,7 +2,26 @@ import * as state from './config.js';
 import { generatePlaytestCardHTML } from './card-renderer.js';
 import { toPascalCase } from './config.js';
 
+// This is a new helper function to safely load the library
+async function getHtml2Canvas() {
+    try {
+        // Check if it's already on the window object from a previous load
+        if (window.html2canvas) return window.html2canvas;
+        
+        // If not, dynamically import it
+        const module = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+        window.html2canvas = module.default; // Attach it to window for next time
+        return window.html2canvas;
+    } catch (error) {
+        console.error("Failed to load html2canvas library:", error);
+        alert("Could not load the required printing library. Please check your internet connection.");
+        return null;
+    }
+}
+
+
 export function generatePlainTextDeck() {
+    // ... (This function remains unchanged)
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
     if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
@@ -20,6 +39,10 @@ export function generatePlainTextDeck() {
 }
 
 export async function exportDeckAsImage() {
+    const html2canvas = await getHtml2Canvas();
+    if (!html2canvas) return; // Stop if the library failed to load
+
+    // ... (The rest of this function remains unchanged)
     const uniquePersonaAndKit = [];
     const activePersonaTitles = [];
     if (state.selectedWrestler) {
@@ -99,9 +122,8 @@ export async function exportDeckAsImage() {
     alert('All print sheets have been generated and downloaded!');
 }
 
-// --- NEW FUNCTIONS FOR MASTER SET PRINTING ---
-
 function sortCardsForPrinting(cardDatabase) {
+    // ... (This function remains unchanged)
     const wrestlers = cardDatabase.filter(c => c.card_type === 'Wrestler').sort((a, b) => a.title.localeCompare(b.title));
     const otherCards = cardDatabase.filter(c => c.card_type !== 'Wrestler');
 
@@ -137,66 +159,59 @@ function sortCardsForPrinting(cardDatabase) {
 }
 
 export async function exportMasterSet() {
+    const html2canvas = await getHtml2Canvas();
+    if (!html2canvas) return; // Stop if the library failed to load
+
+    // ... (The rest of this function remains unchanged)
     if (!confirm("This will generate a print sheet for every card in the database. This may be slow and could generate many files. Continue?")) {
         return;
     }
 
     console.log('Starting master set export...');
     
-    try {
-        const html2canvas = window.html2canvas;
-        if (!html2canvas) {
-            throw new Error("html2canvas library is not loaded. Make sure it's included in your index.html.");
+    const cardsToPrint = sortCardsForPrinting(state.cardDatabase);
+    const cardsPerPage = 9;
+    const totalPages = Math.ceil(cardsToPrint.length / cardsPerPage);
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    for (let i = 0; i < totalPages; i++) {
+        const pageNumber = i + 1;
+        console.log(`Generating page ${pageNumber} of ${totalPages}...`);
+
+        const printSheet = document.createElement('div');
+        printSheet.style.display = 'grid';
+        printSheet.style.gridTemplateColumns = 'repeat(3, 750px)';
+        printSheet.style.gap = '0';
+        printSheet.style.width = '2250px';
+        printSheet.style.height = '3150px';
+        
+        const pageCards = cardsToPrint.slice(i * cardsPerPage, (i + 1) * cardsPerPage);
+        
+        let pageHTML = '';
+        for (const card of pageCards) {
+            pageHTML += await generatePlaytestCardHTML(card, tempContainer);
         }
+        printSheet.innerHTML = pageHTML;
 
-        const cardsToPrint = sortCardsForPrinting(state.cardDatabase);
-        const cardsPerPage = 9;
-        const totalPages = Math.ceil(cardsToPrint.length / cardsPerPage);
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        document.body.appendChild(tempContainer);
+        document.body.appendChild(printSheet);
 
-        for (let i = 0; i < totalPages; i++) {
-            const pageNumber = i + 1;
-            console.log(`Generating page ${pageNumber} of ${totalPages}...`);
-
-            const printSheet = document.createElement('div');
-            printSheet.style.display = 'grid';
-            printSheet.style.gridTemplateColumns = 'repeat(3, 750px)';
-            printSheet.style.gap = '0';
-            printSheet.style.width = '2250px';
-            printSheet.style.height = '3150px';
-            
-            const pageCards = cardsToPrint.slice(i * cardsPerPage, (i + 1) * cardsPerPage);
-            
-            let pageHTML = '';
-            for (const card of pageCards) {
-                pageHTML += await generatePlaytestCardHTML(card, tempContainer);
-            }
-            printSheet.innerHTML = pageHTML;
-
-            document.body.appendChild(printSheet);
-
-            try {
-                const canvas = await html2canvas(printSheet, { scale: 1, logging: false });
-                const link = document.createElement('a');
-                link.download = `AEW_Master_Set_Page_${pageNumber}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            } catch (canvasError) {
-                console.error(`Failed to generate canvas for page ${pageNumber}:`, canvasError);
-            } finally {
-                document.body.removeChild(printSheet);
-            }
-            await new Promise(resolve => setTimeout(resolve, 200));
+        try {
+            const canvas = await html2canvas(printSheet, { scale: 1, logging: false });
+            const link = document.createElement('a');
+            link.download = `AEW_Master_Set_Page_${pageNumber}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (canvasError) {
+            console.error(`Failed to generate canvas for page ${pageNumber}:`, canvasError);
+        } finally {
+            document.body.removeChild(printSheet);
         }
-        document.body.removeChild(tempContainer);
-        alert('Master set export finished!');
-
-    } catch (error) {
-        console.error('Failed during master set export:', error);
-        alert('An error occurred during export. Check the console for details.');
+        await new Promise(resolve => setTimeout(resolve, 200));
     }
+    document.body.removeChild(tempContainer);
+    alert('Master set export finished!');
 }
 

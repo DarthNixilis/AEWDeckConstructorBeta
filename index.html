@@ -14,7 +14,7 @@
     <script>
         window.addEventListener('error', function(e) {
             document.getElementById('emergency-debug').style.display = 'block';
-            document.getElementById('debug-message').textContent = e.message + ' at ' + e.filename.split('/').pop() + ':' + e.lineno;
+            document.getElementById('debug-message').textContent = e.message + ' at ' + (e.filename ? e.filename.split('/').pop() : 'unknown') + ':' + e.lineno;
         });
         window.addEventListener('unhandledrejection', function(e) {
             document.getElementById('emergency-debug').style.display = 'block';
@@ -29,14 +29,15 @@
 
     <!-- Main App Container -->
     <div id="app-container" style="display: none;">
-        <!-- All application HTML -->
+        <!-- All application HTML goes here -->
     </div>
 
-    <!-- Cache-Busting Script Loader -->
+    <!-- Cache-Busting Script Loader for main.js -->
     <script>
         const version = new Date().getTime();
         const mainScript = document.createElement('script');
         mainScript.type = 'module';
+        // Only main.js needs to be busted here. It will bust the rest.
         mainScript.src = `main.js?v=${version}`;
         document.body.appendChild(mainScript);
     </script>

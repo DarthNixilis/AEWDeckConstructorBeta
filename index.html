@@ -62,11 +62,19 @@
 
             <div id="personaDisplay" class="persona-display-container"></div>
 
-            <h2 id="startingDeckHeader">Starting Deck (<span id="startingDeckCount">0</span>/24)</h2>
-            <div id="startingDeckList" class="deck-list-small"></div>
+            <!-- NEW: Header for deck area with view toggle -->
+            <div class="deck-area-header">
+                <h2>Deck Lists</h2>
+                <button id="deckViewModeToggle">Switch to Grid View</button>
+            </div>
 
-            <h2 id="purchaseDeckHeader">Purchase Deck (<span id="purchaseDeckCount">0</span>/36+)</h2>
-            <div id="purchaseDeckList" class="deck-list-small"></div>
+            <h3 id="startingDeckHeader">Starting Deck (<span id="startingDeckCount">0</span>/24)</h3>
+            <div id="startingDeckList" class="deck-list"></div>
+
+            <h3 id="purchaseDeckHeader">Purchase Deck (<span id="purchaseDeckCount">0</span>/36+)</h3>
+            <div id="purchaseDeckList" class="deck-list"></div>
+
+            <div id="validationIssues" class="validation-container"></div>
 
             <div class="deck-actions">
                 <button id="importDeck">Import Deck</button>

@@ -51,6 +51,15 @@ export function initializeAllEventListeners(refreshCardPool) {
     const clearDeckBtn = document.getElementById('clearDeck');
     const exportDeckBtn = document.getElementById('exportDeck');
     const exportAsImageBtn = document.getElementById('exportAsImageBtn');
+    const deckViewModeToggle = document.getElementById('deckViewModeToggle'); // NEW
+
+    // NEW: Listener for deck view mode toggle
+    deckViewModeToggle.addEventListener('click', () => {
+        const newMode = state.deckViewMode === 'list' ? 'grid' : 'list';
+        state.setDeckViewMode(newMode);
+        deckViewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        ui.renderDecks(); // Re-render the decks with the new view
+    });
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -71,8 +80,12 @@ export function initializeAllEventListeners(refreshCardPool) {
             const target = e.target;
             const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
             if (!cardTitle) return;
-            if (target.tagName === 'BUTTON' && target.dataset.deck) { deck.removeCardFromDeck(cardTitle, target.dataset.deck); } 
-            else { ui.showCardModal(cardTitle); }
+            // Check for remove button specifically in grid or list view
+            if (target.tagName === 'BUTTON' && target.closest('[data-deck]')) {
+                deck.removeCardFromDeck(cardTitle, target.closest('[data-deck]').dataset.deck);
+            } else {
+                ui.showCardModal(cardTitle);
+            }
         });
     });
     clearDeckBtn.addEventListener('click', () => {
@@ -90,7 +103,7 @@ export function initializeAllEventListeners(refreshCardPool) {
         const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
         a.download = `${wrestlerName}.txt`;
         document.body.appendChild(a);
-        a.click();
+a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     });
@@ -133,3 +146,4 @@ export function initializeAllEventListeners(refreshCardPool) {
         }
     });
 }
+

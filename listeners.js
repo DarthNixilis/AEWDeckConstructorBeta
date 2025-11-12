@@ -1,8 +1,9 @@
+// listeners.js
 import * as state from './config.js';
 import * as ui from './ui.js';
 import * as deck from './deck.js';
 import { parseAndLoadDeck } from './importer.js';
-import { generatePlainTextDeck, exportDeckAsImage, exportMasterSet } from './exporter.js';
+import { generatePlainTextDeck, exportDeckAsImage } from './exporter.js';
 
 export function initializeAllEventListeners(refreshCardPool) {
     // POOL LISTENERS
@@ -48,8 +49,8 @@ export function initializeAllEventListeners(refreshCardPool) {
     const purchaseDeckList = document.getElementById('purchaseDeckList');
     const personaDisplay = document.getElementById('personaDisplay');
     const clearDeckBtn = document.getElementById('clearDeck');
-    const exportSelect = document.getElementById('exportSelect');
-    const confirmExportBtn = document.getElementById('confirmExportBtn');
+    const exportDeckBtn = document.getElementById('exportDeck');
+    const exportAsImageBtn = document.getElementById('exportAsImageBtn');
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -81,33 +82,19 @@ export function initializeAllEventListeners(refreshCardPool) {
             ui.renderDecks();
         }
     });
-    
-    confirmExportBtn.addEventListener('click', () => {
-        const selectedOption = exportSelect.value;
-        switch (selectedOption) {
-            case 'export-text':
-                const text = generatePlainTextDeck();
-                const blob = new Blob([text], { type: 'text/plain' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
-                a.download = `${wrestlerName}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-                break;
-            case 'export-image':
-                exportDeckAsImage();
-                break;
-            case 'print-master-set':
-                exportMasterSet();
-                break;
-            default:
-                alert('Please select an export format.');
-                break;
-        }
+    exportDeckBtn.addEventListener('click', () => {
+        const text = generatePlainTextDeck();
+        const blob = new Blob([text], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
+        a.download = `${wrestlerName}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
     });
+    exportAsImageBtn.addEventListener('click', exportDeckAsImage);
 
     // MODAL LISTENERS
     const importDeckBtn = document.getElementById('importDeck');
@@ -146,4 +133,3 @@ export function initializeAllEventListeners(refreshCardPool) {
         }
     });
 }
-

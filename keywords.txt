@@ -22,5 +22,3 @@ Sudden: You may play this card from your Market by paying double its Momentum co
 
 Enters: An ability that triggers once, immediately after this card successfully enters the Ring.
 
-Cycling: At any time you may discard this card to draw a card (yes, any time)
-

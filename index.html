@@ -1,5 +1,3 @@
-// index.html
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AEW TCG Deck Constructor</title>
     <link rel="stylesheet" href="style.css">
-    <!-- The html2canvas script is correctly GONE from here -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -15,10 +13,7 @@
         <h1>AEW TCG Deck Constructor</h1>
     </header>
 
-    <!-- This is the main container for the two-panel layout -->
     <main class="container">
-
-        <!-- Left Panel: Card Search and Pool -->
         <div class="search-panel">
             <div class="panel-header">
                 <h2>Card Pool</h2>
@@ -26,7 +21,7 @@
                     <div id="gridSizeControls" class="grid-size-controls">
                         <label>Grid Columns:</label>
                         <button data-columns="2">2</button>
-                        <button data-columns="3" class="active">3</button>
+                        <button data-columns="3">3</button>
                         <button data-columns="4">4</button>
                     </div>
                     <button id="viewModeToggle">Switch to List View</button>
@@ -55,11 +50,9 @@
                     </div>
                 </div>
             </div>
-            <!-- This is where the card pool results will be rendered by ui.js -->
             <div id="searchResults" class="card-list list-view"></div>
         </div>
 
-        <!-- Right Panel: Persona and Deck Lists -->
         <div class="deck-panel">
             <div class="persona-selection">
                 <h2>Persona</h2>
@@ -77,23 +70,13 @@
 
             <div class="deck-actions">
                 <button id="importDeck">Import Deck</button>
-                <select id="exportSelect">
-                    <option value="">Export As...</option>
-                    <optgroup label="Deck Export">
-                        <option value="export-text">Text</option>
-                        <option value="export-image">Image (Deck)</option>
-                    </optgroup>
-                    <optgroup label="Developer Tools">
-                        <option value="print-master-set">Print Master Set</option>
-                    </optgroup>
-                </select>
-                <button id="confirmExportBtn">Export</button>
+                <button id="exportDeck">Export as Text</button>
+                <button id="exportAsImageBtn">Export as Image</button>
                 <button id="clearDeck">Clear Deck</button>
             </div>
         </div>
     </main>
 
-    <!-- Modals for pop-ups -->
     <div id="cardModal" class="modal-backdrop" style="display: none;">
         <div class="modal-content">
             <span class="modal-close-button">&times;</span>
@@ -115,7 +98,6 @@
         </div>
     </div>
 
-    <!-- The main entry point for all JavaScript -->
     <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -35,20 +35,53 @@ export function removeCardFromDeck(cardTitle, deckName) {
     }
 }
 
+// NEW: Function to move a card between decks
+export function moveCard(cardTitle, sourceDeckName) {
+    const card = state.cardTitleCache[cardTitle];
+    if (!card) return;
+
+    const sourceDeck = sourceDeckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const destinationDeckName = sourceDeckName === 'starting' ? 'purchase' : 'starting';
+    const destinationDeck = destinationDeckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+
+    // Rule checks for the destination
+    if (destinationDeckName === 'starting') {
+        if (card.cost !== 0) {
+            alert(`Rule Violation: Cannot move "${card.title}" to Starting Deck because its cost is not 0.`);
+            return;
+        }
+        if (destinationDeck.length >= 24) {
+            alert(`Rule Violation: Starting Deck is full (24 cards).`);
+            return;
+        }
+        if (destinationDeck.filter(title => title === cardTitle).length >= 2) {
+            alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`);
+            return;
+        }
+    }
+
+    // Find and remove from source
+    const cardIndex = sourceDeck.lastIndexOf(cardTitle);
+    if (cardIndex > -1) {
+        sourceDeck.splice(cardIndex, 1);
+        // Add to destination
+        destinationDeck.push(cardTitle);
+        renderDecks();
+    }
+}
+
+
 export function validateDeck() {
     const issues = [];
     
-    // 1. Check starting deck size
     if (state.startingDeck.length !== 24) {
         issues.push(`Starting Deck must have exactly 24 cards (currently ${state.startingDeck.length}).`);
     }
     
-    // 2. Check purchase deck size
     if (state.purchaseDeck.length < 36) {
         issues.push(`Purchase Deck must have at least 36 cards (currently ${state.purchaseDeck.length}).`);
     }
     
-    // 3. Check for more than 2 copies in the starting deck
     const startingDeckCounts = state.startingDeck.reduce((acc, card) => {
         acc[card] = (acc[card] || 0) + 1;
         return acc;
@@ -59,7 +92,6 @@ export function validateDeck() {
         }
     });
 
-    // 4. Check for more than 3 copies total
     const allCards = [...state.startingDeck, ...state.purchaseDeck];
     const totalCounts = allCards.reduce((acc, card) => {
         acc[card] = (acc[card] || 0) + 1;
@@ -71,7 +103,6 @@ export function validateDeck() {
         }
     });
 
-    // 5. Check for non-zero cost cards in starting deck
     const nonZeroInStarting = state.startingDeck.some(title => {
         const card = state.cardTitleCache[title];
         return card && card.cost !== 0;

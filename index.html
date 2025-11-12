@@ -62,10 +62,17 @@
 
             <div id="personaDisplay" class="persona-display-container"></div>
 
-            <!-- NEW: Header for deck area with view toggle -->
             <div class="deck-area-header">
-                <h2>Deck Lists</h2>
-                <button id="deckViewModeToggle">Switch to Grid View</button>
+                <div class="deck-view-controls">
+                    <button id="deckViewModeToggle">Switch to Grid View</button>
+                    <!-- NEW: Grid size controls for the deck -->
+                    <div id="deckGridSizeControls" class="grid-size-controls" style="display: none;">
+                        <button data-columns="2">2</button>
+                        <button data-columns="3" class="active">3</button>
+                        <button data-columns="4">4</button>
+                        <button data-columns="5">5</button>
+                    </div>
+                </div>
             </div>
 
             <h3 id="startingDeckHeader">Starting Deck (<span id="startingDeckCount">0</span>/24)</h3>

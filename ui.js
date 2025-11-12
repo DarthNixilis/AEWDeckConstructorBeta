@@ -17,6 +17,7 @@ const cardModal = document.getElementById('cardModal');
 const modalCardContent = document.getElementById('modalCardContent');
 const modalCloseButton = cardModal.querySelector('.modal-close-button');
 const validationIssuesContainer = document.getElementById('validationIssues');
+const deckGridSizeControls = document.getElementById('deckGridSizeControls'); // NEW
 
 // --- RENDERING FUNCTIONS ---
 
@@ -95,6 +96,9 @@ export function showCardModal(cardTitle) {
 }
 
 export function renderDecks() {
+    // NEW: Show/hide deck grid controls based on view mode
+    deckGridSizeControls.style.display = state.deckViewMode === 'grid' ? 'flex' : 'none';
+
     renderDeckList(startingDeckList, state.startingDeck, 'starting');
     renderDeckList(purchaseDeckList, state.purchaseDeck, 'purchase');
     updateDeckCounts();
@@ -110,6 +114,7 @@ function renderDeckList(element, deck, deckName) {
     const uniqueSortedTitles = Object.keys(cardCounts).sort((a, b) => a.localeCompare(b));
 
     if (state.deckViewMode === 'list') {
+        element.removeAttribute('data-columns'); // Clear columns attribute
         uniqueSortedTitles.forEach(cardTitle => {
             const card = state.cardTitleCache[cardTitle];
             const count = cardCounts[cardTitle];
@@ -132,6 +137,7 @@ function renderDeckList(element, deck, deckName) {
             element.appendChild(cardElement);
         });
     } else { // Grid view logic
+        element.setAttribute('data-columns', state.numDeckGridColumns); // Set columns attribute
         deck.sort((a, b) => a.localeCompare(b)).forEach(cardTitle => {
             const card = state.cardTitleCache[cardTitle];
             if (!card) return;

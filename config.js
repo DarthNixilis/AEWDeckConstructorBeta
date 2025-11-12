@@ -8,11 +8,12 @@ export let selectedWrestler = null;
 export let selectedManager = null;
 export let activeFilters = [{}, {}, {}];
 export let currentViewMode = 'grid';
-export let deckViewMode = 'list'; // NEW: State for deck view mode
+export let deckViewMode = 'list';
 export let currentSort = 'alpha-asc';
 export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let numGridColumns = 2;
+export let numDeckGridColumns = 3; // NEW: State for deck grid columns
 export let lastFocusedElement;
 export const CACHE_KEY = 'aewDeckBuilderCache';
 export function setCardDatabase(db) { cardDatabase = db; }
@@ -23,11 +24,12 @@ export function setSelectedWrestler(wrestler) { selectedWrestler = wrestler; }
 export function setSelectedManager(manager) { selectedManager = manager; }
 export function setActiveFilters(filters) { activeFilters = filters; }
 export function setCurrentViewMode(mode) { currentViewMode = mode; }
-export function setDeckViewMode(mode) { deckViewMode = mode; } // NEW: Setter for deck view mode
+export function setDeckViewMode(mode) { deckViewMode = mode; }
 export function setCurrentSort(sort) { currentSort = sort; }
 export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
+export function setNumDeckGridColumns(num) { numDeckGridColumns = num; } // NEW: Setter
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
 export function toPascalCase(str) {
     if (!str) return '';

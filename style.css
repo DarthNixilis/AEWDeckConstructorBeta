@@ -38,31 +38,9 @@ h3 { font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
 
 .container { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 20px; gap: 20px; min-height: calc(100vh - 80px); }
 .search-panel, .deck-panel { background-color: var(--panel-bg); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; flex: 1; min-width: 500px; max-width: 600px; display: flex; flex-direction: column; }
-.panel-header, .deck-area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.panel-header h2, .deck-area-header h2 { border-bottom: none; margin-bottom: 0; }
-#viewModeToggle, #deckViewModeToggle { padding: 8px 12px; border: 1px solid var(--secondary-color); background-color: transparent; color: var(--secondary-color); border-radius: 4px; cursor: pointer; }
-.filter-controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-#searchInput { width: 95%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
-#cascadingFiltersContainer { display: flex; flex-direction: column; gap: 10px; }
-#cascadingFiltersContainer select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--panel-bg); }
-.card-list { flex-grow: 1; height: 500px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; }
-.card-list.list-view .card-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
-.card-list.list-view .card-item:last-child { border-bottom: none; }
-.card-list.list-view .card-item span { cursor: pointer; }
-.card-list.list-view .card-buttons { display: flex; gap: 5px; }
-.card-list.grid-view { display: grid; gap: 15px; align-content: start; }
-.grid-view .grid-card-item { border: 1px solid var(--border-color); border-radius: 8px; background-color: #f9f9f9; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.grid-view .grid-card-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
-.grid-view .card-visual { width: 100%; cursor: pointer; margin-bottom: 12px; border-radius: 6px; overflow: hidden; }
-.grid-view .card-buttons { margin-top: auto; display: flex; flex-direction: column; gap: 5px; width: 100%; }
-.grid-view .grid-card-item button { width: 100%; padding: 6px; font-size: 0.9em; }
-.card-list.grid-view[data-columns="2"] { grid-template-columns: repeat(2, 1fr); }
-.card-list.grid-view[data-columns="3"] { grid-template-columns: repeat(3, 1fr); }
-.card-list.grid-view[data-columns="4"] { grid-template-columns: repeat(4, 1fr); }
-button[data-deck-target="starting"] { background-color: var(--success-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
-button.btn-purchase { background-color: var(--purchase-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
-.deck-panel .card-item .card-buttons button, .deck-grid-buttons button { background-color: var(--danger-color); color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; margin-top: 5px; }
-.btn-move { background-color: var(--primary-color) !important; }
-.persona-selection select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
-.deck-list { border: 1px solid var(--border-color); padding: 10px; margin-
+.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.panel-header h2 { border-bottom: none; margin-bottom: 0; }
+.deck-area-header { margin-bottom: 15px; }
+.deck-view-controls { display: flex; align-items: center; gap: 15px; }
+#viewModeToggle, #deckViewModeToggle { padding: 8px 12px; border: 1px solid var(--secondary
 

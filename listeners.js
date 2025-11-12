@@ -52,12 +52,23 @@ export function initializeAllEventListeners(refreshCardPool) {
     const exportDeckBtn = document.getElementById('exportDeck');
     const exportAsImageBtn = document.getElementById('exportAsImageBtn');
     const deckViewModeToggle = document.getElementById('deckViewModeToggle');
+    const deckGridSizeControls = document.getElementById('deckGridSizeControls'); // NEW
 
     deckViewModeToggle.addEventListener('click', () => {
         const newMode = state.deckViewMode === 'list' ? 'grid' : 'list';
         state.setDeckViewMode(newMode);
         deckViewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
         ui.renderDecks();
+    });
+
+    // NEW: Listener for deck grid size controls
+    deckGridSizeControls.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            state.setNumDeckGridColumns(e.target.dataset.columns);
+            deckGridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            ui.renderDecks();
+        }
     });
 
     wrestlerSelect.addEventListener('change', (e) => {
@@ -75,7 +86,6 @@ export function initializeAllEventListeners(refreshCardPool) {
         state.saveStateToCache();
     });
 
-    // REVISED and CORRECTED click handler for all deck containers
     [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
         container.addEventListener('click', (e) => {
             const target = e.target;
@@ -84,7 +94,6 @@ export function initializeAllEventListeners(refreshCardPool) {
 
             const cardTitle = cardItem.dataset.title;
             
-            // Check if a button was clicked inside the card item
             if (target.tagName === 'BUTTON') {
                 const action = target.dataset.action;
                 const deckName = target.dataset.deck;
@@ -95,7 +104,6 @@ export function initializeAllEventListeners(refreshCardPool) {
                     deck.moveCard(cardTitle, deckName);
                 }
             } else {
-                // If not a button, show the card modal
                 ui.showCardModal(cardTitle);
             }
         });

@@ -52,7 +52,9 @@ export function initializeAllEventListeners(refreshCardPool) {
     const exportDeckBtn = document.getElementById('exportDeck');
     const exportAsImageBtn = document.getElementById('exportAsImageBtn');
     const deckViewModeToggle = document.getElementById('deckViewModeToggle');
-    const deckGridSizeControls = document.getElementById('deckGridSizeControls'); // NEW
+    const deckGridSizeControls = document.getElementById('deckGridSizeControls');
+    const expandStartingDeckBtn = document.getElementById('expandStartingDeck'); // NEW
+    const expandPurchaseDeckBtn = document.getElementById('expandPurchaseDeck'); // NEW
 
     deckViewModeToggle.addEventListener('click', () => {
         const newMode = state.deckViewMode === 'list' ? 'grid' : 'list';
@@ -61,7 +63,6 @@ export function initializeAllEventListeners(refreshCardPool) {
         ui.renderDecks();
     });
 
-    // NEW: Listener for deck grid size controls
     deckGridSizeControls.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             state.setNumDeckGridColumns(e.target.dataset.columns);
@@ -69,6 +70,21 @@ export function initializeAllEventListeners(refreshCardPool) {
             e.target.classList.add('active');
             ui.renderDecks();
         }
+    });
+
+    // NEW: Listeners for expand/collapse buttons
+    expandStartingDeckBtn.addEventListener('click', () => {
+        const isExpanded = !state.isStartingDeckExpanded;
+        state.setStartingDeckExpanded(isExpanded);
+        startingDeckList.classList.toggle('expanded', isExpanded);
+        expandStartingDeckBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
+    });
+
+    expandPurchaseDeckBtn.addEventListener('click', () => {
+        const isExpanded = !state.isPurchaseDeckExpanded;
+        state.setPurchaseDeckExpanded(isExpanded);
+        purchaseDeckList.classList.toggle('expanded', isExpanded);
+        expandPurchaseDeckBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
     });
 
     wrestlerSelect.addEventListener('change', (e) => {

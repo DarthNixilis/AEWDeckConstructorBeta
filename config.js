@@ -13,8 +13,13 @@ export let currentSort = 'alpha-asc';
 export let showZeroCost = true;
 export let showNonZeroCost = true;
 export let numGridColumns = 2;
-export let numDeckGridColumns = 3; // NEW: State for deck grid columns
+export let numDeckGridColumns = 3;
 export let lastFocusedElement;
+
+// NEW: State for expanded deck lists
+export let isStartingDeckExpanded = false;
+export let isPurchaseDeckExpanded = false;
+
 export const CACHE_KEY = 'aewDeckBuilderCache';
 export function setCardDatabase(db) { cardDatabase = db; }
 export function setKeywordDatabase(db) { keywordDatabase = db; }
@@ -29,8 +34,13 @@ export function setCurrentSort(sort) { currentSort = sort; }
 export function setShowZeroCost(value) { showZeroCost = value; }
 export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
-export function setNumDeckGridColumns(num) { numDeckGridColumns = num; } // NEW: Setter
+export function setNumDeckGridColumns(num) { numDeckGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
+
+// NEW: Setters for expanded state
+export function setStartingDeckExpanded(value) { isStartingDeckExpanded = value; }
+export function setPurchaseDeckExpanded(value) { isPurchaseDeckExpanded = value; }
+
 export function toPascalCase(str) {
     if (!str) return '';
     return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');

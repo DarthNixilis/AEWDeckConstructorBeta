@@ -1,53 +1,53 @@
 // deck.js
 
-import * as state from './config.js';
+import { appState, updateAppState } from './config.js';
 import { renderDecks } from './ui.js';
 
 export function addCardToDeck(cardTitle, targetDeck) {
-    const card = state.cardTitleCache[cardTitle];
+    const card = appState.cardTitleCache[cardTitle];
     if (!card) return;
-    if (state.isKitCard(card)) {
+    if (isKitCard(card)) {
         alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
         return;
     }
-    const totalCount = (state.startingDeck.filter(title => title === cardTitle).length) + (state.purchaseDeck.filter(title => title === cardTitle).length);
+    const totalCount = (appState.deck.starting.filter(title => title === cardTitle).length) + (appState.deck.purchase.filter(title => title === cardTitle).length);
     if (totalCount >= 3) {
         alert(`Rule Violation: Max 3 copies of "${card.title}" allowed in total.`);
         return;
     }
     if (targetDeck === 'starting') {
         if (card.cost !== 0) { alert(`Rule Violation: Only 0-cost cards allowed in Starting Deck.`); return; }
-        if (state.startingDeck.length >= 24) { alert(`Rule Violation: Starting Deck is full (24 cards).`); return; }
-        if (state.startingDeck.filter(title => title === cardTitle).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
-        state.setStartingDeck([...state.startingDeck, cardTitle]);
+        if (appState.deck.starting.length >= 24) { alert(`Rule Violation: Starting Deck is full (24 cards).`); return; }
+        if (appState.deck.starting.filter(title => title === cardTitle).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
+        updateAppState('deck.starting', [...appState.deck.starting, cardTitle]);
     } else {
-        state.setPurchaseDeck([...state.purchaseDeck, cardTitle]);
+        updateAppState('deck.purchase', [...appState.deck.purchase, cardTitle]);
     }
     renderDecks();
 }
 
 export function removeCardFromDeck(cardTitle, deckName) {
-    const deck = deckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const deck = deckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
     const cardIndex = deck.lastIndexOf(cardTitle);
     if (cardIndex > -1) {
         const newDeck = [...deck];
         newDeck.splice(cardIndex, 1);
         if (deckName === 'starting') {
-            state.setStartingDeck(newDeck);
+            updateAppState('deck.starting', newDeck);
         } else {
-            state.setPurchaseDeck(newDeck);
+            updateAppState('deck.purchase', newDeck);
         }
         renderDecks();
     }
 }
 
 export function moveCard(cardTitle, sourceDeckName) {
-    const card = state.cardTitleCache[cardTitle];
+    const card = appState.cardTitleCache[cardTitle];
     if (!card) return;
 
-    const sourceDeck = sourceDeckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const sourceDeck = sourceDeckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
     const destinationDeckName = sourceDeckName === 'starting' ? 'purchase' : 'starting';
-    const destinationDeck = destinationDeckName === 'starting' ? state.startingDeck : state.purchaseDeck;
+    const destinationDeck = destinationDeckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
 
     if (destinationDeckName === 'starting') {
         if (card.cost !== 0) { alert(`Rule Violation: Cannot move "${card.title}" to Starting Deck because its cost is not 0.`); return; }
@@ -62,11 +62,11 @@ export function moveCard(cardTitle, sourceDeckName) {
         const newDestinationDeck = [...destinationDeck, cardTitle];
 
         if (sourceDeckName === 'starting') {
-            state.setStartingDeck(newSourceDeck);
-            state.setPurchaseDeck(newDestinationDeck);
+            updateAppState('deck.starting', newSourceDeck);
+            updateAppState('deck.purchase', newDestinationDeck);
         } else {
-            state.setPurchaseDeck(newSourceDeck);
-            state.setStartingDeck(newDestinationDeck);
+            updateAppState('deck.purchase', newSourceDeck);
+            updateAppState('deck.starting', newDestinationDeck);
         }
         renderDecks();
     }
@@ -80,7 +80,7 @@ export class DeckValidator {
         }
 
         const nonZeroCost = deck.filter(title => {
-            const card = state.cardTitleCache[title];
+            const card = appState.cardTitleCache[title];
             return card && card.cost !== 0;
         });
         if (nonZeroCost.length > 0) {
@@ -109,15 +109,13 @@ export class DeckValidator {
         return issues;
     }
 
-    // UPDATED getDeckStats method
     static getDeckStats() {
-        const allCards = [...state.startingDeck, ...state.purchaseDeck]
-            .map(title => state.cardTitleCache[title])
+        const allCards = [...appState.deck.starting, ...appState.deck.purchase]
+            .map(title => appState.cardTitleCache[title])
             .filter(Boolean);
 
-        // *** NEW: Create a separate array just for the purchase deck cards for the cost curve ***
-        const purchaseDeckCards = state.purchaseDeck
-            .map(title => state.cardTitleCache[title])
+        const purchaseDeckCards = appState.deck.purchase
+            .map(title => appState.cardTitleCache[title])
             .filter(Boolean);
 
         const totalCards = allCards.length;
@@ -127,15 +125,12 @@ export class DeckValidator {
 
         const stats = {
             totalCards: totalCards,
-            // Avg Cost should also only consider the purchase deck for relevance
             averageCost: purchaseDeckCards.length > 0 ? purchaseDeckCards.reduce((sum, card) => sum + (card.cost || 0), 0) / purchaseDeckCards.length : 0,
-            // Card types can still be for the whole deck
             cardTypes: allCards.reduce((acc, card) => {
                 const type = card.card_type || 'Unknown';
                 acc[type] = (acc[type] || 0) + 1;
                 return acc;
             }, {}),
-            // *** CHANGED: Cost curve is now calculated ONLY from the purchase deck ***
             costCurve: purchaseDeckCards.reduce((acc, card) => {
                 const cost = card.cost ?? 0;
                 acc[cost] = (acc[cost] || 0) + 1;
@@ -143,7 +138,6 @@ export class DeckValidator {
             }, {})
         };
         
-        // Ensure all costs from 0 to max are present for the curve for a consistent display
         const costKeys = Object.keys(stats.costCurve);
         if (costKeys.length > 0) {
             const maxCost = Math.max(...costKeys.map(Number));
@@ -159,14 +153,18 @@ export class DeckValidator {
 
 export function validateDeck() {
     const issues = [
-        ...DeckValidator.validateStartingDeck(state.startingDeck),
-        ...DeckValidator.validateTotalComposition(state.startingDeck, state.purchaseDeck)
+        ...DeckValidator.validateStartingDeck(appState.deck.starting),
+        ...DeckValidator.validateTotalComposition(appState.deck.starting, appState.deck.purchase)
     ];
 
-    if (state.purchaseDeck.length < 36) {
-        issues.push(`Purchase Deck needs at least 36 cards (is ${state.purchaseDeck.length})`);
+    if (appState.deck.purchase.length < 36) {
+        issues.push(`Purchase Deck needs at least 36 cards (is ${appState.deck.purchase.length})`);
     }
 
     return [...new Set(issues)];
+}
+
+function isKitCard(card) {
+    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }
 

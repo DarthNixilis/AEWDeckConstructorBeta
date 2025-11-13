@@ -24,8 +24,11 @@ const deckGridSizeControls = document.getElementById('deckGridSizeControls');
 export async function renderCardPool(cards) {
     searchResults.innerHTML = '';
     searchResults.className = `card-list ${state.currentViewMode}-view`;
-    if (state.currentViewMode === 'grid') searchResults.setAttribute('data-columns', state.numGridColumns);
-    else searchResults.removeAttribute('data-columns');
+    if (state.currentViewMode === 'grid') {
+        searchResults.setAttribute('data-columns', state.numGridColumns);
+    } else {
+        searchResults.removeAttribute('data-columns');
+    }
     
     if (cards.length === 0) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
@@ -37,29 +40,40 @@ export async function renderCardPool(cards) {
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
 
-    for (const card of cards) {
+    const cardPromises = cards.map(async (card) => {
         const cardElement = document.createElement('div');
         cardElement.className = state.currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
         if (state.isSignatureFor(card)) cardElement.classList.add('signature-highlight');
         cardElement.dataset.title = card.title;
+
         if (state.currentViewMode === 'list') {
             cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            else buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            if (card.cost === 0) {
+                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            } else {
+                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            }
             cardElement.appendChild(buttonsDiv);
         } else {
             const visualHTML = await generateCardVisualHTML(card, tempContainer);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'card-buttons';
-            if (card.cost === 0) buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-            else buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            if (card.cost === 0) {
+                buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            } else {
+                buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
+            }
             cardElement.appendChild(buttonsDiv);
         }
-        searchResults.appendChild(cardElement);
-    }
+        return cardElement;
+    });
+
+    const cardElements = await Promise.all(cardPromises);
+    cardElements.forEach(el => searchResults.appendChild(el));
+    
     document.body.removeChild(tempContainer);
 }
 
@@ -102,10 +116,12 @@ export async function showCardModal(cardTitle) {
     modalCloseButton.focus();
 }
 
-export function renderDecks() {
+export async function renderDecks() {
     deckGridSizeControls.style.display = state.deckViewMode === 'grid' ? 'flex' : 'none';
-    renderDeckList(startingDeckList, state.startingDeck, 'starting');
-    renderDeckList(purchaseDeckList, state.purchaseDeck, 'purchase');
+    await Promise.all([
+        renderDeckList(startingDeckList, state.startingDeck, 'starting'),
+        renderDeckList(purchaseDeckList, state.purchaseDeck, 'purchase')
+    ]);
     updateDeckCounts();
     renderValidationIssues();
     renderDeckStats();
@@ -131,11 +147,9 @@ async function renderDeckList(element, deck, deckName) {
             cardElement.dataset.title = cardTitle;
 
             let buttonsHTML = `<button data-action="remove" data-deck="${deckName}" data-title="${cardTitle}">Remove</button>`;
-            if (deckName === 'purchase' && card.cost === 0) {
-                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">Move</button>`;
-            }
-            if (deckName === 'starting') {
-                 buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">Move</button>`;
+            if (card.cost === 0) {
+                const moveTarget = deckName === 'starting' ? 'Purchase' : 'Starting';
+                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To ${moveTarget}</button>`;
             }
 
             cardElement.innerHTML = `<span data-title="${cardTitle}">${count}x ${cardTitle}</span><div class="card-buttons">${buttonsHTML}</div>`;
@@ -148,26 +162,28 @@ async function renderDeckList(element, deck, deckName) {
         tempContainer.style.left = '-9999px';
         document.body.appendChild(tempContainer);
 
-        for (const cardTitle of deck.sort((a, b) => a.localeCompare(b))) {
+        const cardPromises = deck.sort((a, b) => a.localeCompare(b)).map(async (cardTitle) => {
             const card = state.cardTitleCache[cardTitle];
-            if (!card) continue;
+            if (!card) return null;
 
             const cardElement = document.createElement('div');
             cardElement.className = 'deck-grid-card-item';
             cardElement.dataset.title = card.title;
 
             let buttonsHTML = `<button data-action="remove" data-deck="${deckName}" data-title="${cardTitle}">Remove</button>`;
-            if (deckName === 'purchase' && card.cost === 0) {
-                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To Starting</button>`;
-            }
-             if (deckName === 'starting') {
-                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To Purchase</button>`;
+            if (card.cost === 0) {
+                const moveTarget = deckName === 'starting' ? 'Purchase' : 'Starting';
+                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To ${moveTarget}</button>`;
             }
 
             const visualHTML = await generateCardVisualHTML(card, tempContainer);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div><div class="deck-grid-buttons">${buttonsHTML}</div>`;
-            element.appendChild(cardElement);
-        }
+            return cardElement;
+        });
+
+        const cardElements = await Promise.all(cardPromises);
+        cardElements.filter(Boolean).forEach(el => element.appendChild(el));
+        
         document.body.removeChild(tempContainer);
     }
 }
@@ -177,5 +193,76 @@ function updateDeckCounts() {
     purchaseDeckCount.textContent = state.purchaseDeck.length;
     startingDeckCount.parentElement.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'var(--danger-color)';
     purchaseDeckHeader.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'inherit';
-    purchaseDeckCount.parentElement.style.color = state.purchaseDeck.
+    purchaseDeckCount.parentElement.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'var(--danger-color)';
+    purchaseDeckHeader.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'inherit';
+}
+
+function renderValidationIssues() {
+    const issues = validateDeck();
+    if (!validationIssuesContainer) return;
+    validationIssuesContainer.innerHTML = '';
+    if (issues.length === 0) {
+        validationIssuesContainer.innerHTML = '<div class="validation-item validation-success">Deck is valid!</div>';
+    } else {
+        const list = document.createElement('ul');
+        issues.forEach(issue => {
+            const item = document.createElement('li');
+            item.className = 'validation-item validation-error';
+            item.textContent = issue;
+            list.appendChild(item);
+        });
+        validationIssuesContainer.appendChild(list);
+    }
+}
+
+export function renderDeckStats() {
+    const stats = DeckValidator.getDeckStats();
+    const sortedCardTypes = Object.entries(stats.cardTypes).sort((a, b) => a[0].localeCompare(b[0]));
+    const sortedCostCurve = Object.entries(stats.costCurve).sort((a, b) => Number(a[0]) - Number(b[0]));
+    const maxCount = Math.max(...Object.values(stats.costCurve), 1);
+
+    const statsHTML = `
+        <h4>Deck Statistics</h4>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <span class="stat-label">Total Cards:</span>
+                <span class="stat-value">${stats.totalCards}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Avg Cost:</span>
+                <span class="stat-value">${stats.averageCost.toFixed(2)}</span>
+            </div>
+            ${sortedCardTypes.map(([type, count]) => `
+                <div class="stat-item">
+                    <span class="stat-label">${type}:</span>
+                    <span class="stat-value">${count}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="cost-curve">
+            <h5>Cost Curve (Purchase Deck)</h5>
+            <div class="curve-bars">
+                ${sortedCostCurve.map(([cost, count]) => `
+                    <div class="curve-bar" title="${count} card(s) at cost ${cost}">
+                        <div class="bar-label">${count > 0 ? count : ''}</div>
+                        <div class="bar" style="height: ${(count / maxCount) * 100}%"></div>
+                        <div class="cost-label">${cost}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    let statsContainer = document.getElementById('deckStatsContainer');
+    statsContainer.innerHTML = statsHTML;
+}
+
+export function filterDeckList(deckListElement, query) {
+    const itemSelector = state.deckViewMode === 'list' ? '.card-item' : '.deck-grid-card-item';
+    const items = deckListElement.querySelectorAll(itemSelector);
+    items.forEach(item => {
+        const text = item.dataset.title.toLowerCase();
+        item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+    });
+}
 

@@ -14,12 +14,20 @@ export function initializeAllEventListeners(refreshCardPool) {
     const gridSizeControls = document.getElementById('gridSizeControls');
     const viewModeToggle = document.getElementById('viewModeToggle');
     const searchResults = document.getElementById('searchResults');
+    const usePlaytestProxiesToggle = document.getElementById('usePlaytestProxiesToggle');
 
     document.addEventListener('filtersChanged', refreshCardPool);
     searchInput.addEventListener('input', state.debounce(refreshCardPool, 300));
     sortSelect.addEventListener('change', (e) => { state.setCurrentSort(e.target.value); refreshCardPool(); });
     showZeroCostCheckbox.addEventListener('change', (e) => { state.setShowZeroCost(e.target.checked); refreshCardPool(); });
     showNonZeroCostCheckbox.addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); refreshCardPool(); });
+    
+    usePlaytestProxiesToggle.addEventListener('change', async (e) => {
+        state.setUsePlaytestProxies(e.target.checked);
+        await refreshCardPool();
+        await ui.renderDecks();
+    });
+
     gridSizeControls.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             state.setNumGridColumns(e.target.dataset.columns);
@@ -53,26 +61,25 @@ export function initializeAllEventListeners(refreshCardPool) {
     const exportAsImageBtn = document.getElementById('exportAsImageBtn');
     const deckViewModeToggle = document.getElementById('deckViewModeToggle');
     const deckGridSizeControls = document.getElementById('deckGridSizeControls');
-    const expandStartingDeckBtn = document.getElementById('expandStartingDeck'); // NEW
-    const expandPurchaseDeckBtn = document.getElementById('expandPurchaseDeck'); // NEW
+    const expandStartingDeckBtn = document.getElementById('expandStartingDeck');
+    const expandPurchaseDeckBtn = document.getElementById('expandPurchaseDeck');
 
-    deckViewModeToggle.addEventListener('click', () => {
+    deckViewModeToggle.addEventListener('click', async () => {
         const newMode = state.deckViewMode === 'list' ? 'grid' : 'list';
         state.setDeckViewMode(newMode);
         deckViewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        ui.renderDecks();
+        await ui.renderDecks();
     });
 
-    deckGridSizeControls.addEventListener('click', (e) => {
+    deckGridSizeControls.addEventListener('click', async (e) => {
         if (e.target.tagName === 'BUTTON') {
             state.setNumDeckGridColumns(e.target.dataset.columns);
             deckGridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
-            ui.renderDecks();
+            await ui.renderDecks();
         }
     });
 
-    // NEW: Listeners for expand/collapse buttons
     expandStartingDeckBtn.addEventListener('click', () => {
         const isExpanded = !state.isStartingDeckExpanded;
         state.setStartingDeckExpanded(isExpanded);

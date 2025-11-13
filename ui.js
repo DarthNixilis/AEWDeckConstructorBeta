@@ -2,7 +2,7 @@
 
 import * as state from './config.js';
 import { generateCardVisualHTML } from './card-renderer.js';
-import { validateDeck } from './deck.js';
+import { validateDeck, DeckValidator } from './deck.js'; // Import DeckValidator
 
 // --- DOM REFERENCES ---
 const searchResults = document.getElementById('searchResults');
@@ -17,7 +17,7 @@ const cardModal = document.getElementById('cardModal');
 const modalCardContent = document.getElementById('modalCardContent');
 const modalCloseButton = cardModal.querySelector('.modal-close-button');
 const validationIssuesContainer = document.getElementById('validationIssues');
-const deckGridSizeControls = document.getElementById('deckGridSizeControls'); // NEW
+const deckGridSizeControls = document.getElementById('deckGridSizeControls');
 
 // --- RENDERING FUNCTIONS ---
 
@@ -96,25 +96,26 @@ export function showCardModal(cardTitle) {
 }
 
 export function renderDecks() {
-    // NEW: Show/hide deck grid controls based on view mode
     deckGridSizeControls.style.display = state.deckViewMode === 'grid' ? 'flex' : 'none';
-
     renderDeckList(startingDeckList, state.startingDeck, 'starting');
     renderDeckList(purchaseDeckList, state.purchaseDeck, 'purchase');
     updateDeckCounts();
     renderValidationIssues();
+    renderDeckStats(); // NEW: Call stats rendering
     state.saveStateToCache();
 }
 
 function renderDeckList(element, deck, deckName) {
     element.innerHTML = '';
     element.className = `deck-list ${state.deckViewMode}-view`;
+    if (state.isStartingDeckExpanded && deckName === 'starting') element.classList.add('expanded');
+    if (state.isPurchaseDeckExpanded && deckName === 'purchase') element.classList.add('expanded');
 
     const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
     const uniqueSortedTitles = Object.keys(cardCounts).sort((a, b) => a.localeCompare(b));
 
     if (state.deckViewMode === 'list') {
-        element.removeAttribute('data-columns'); // Clear columns attribute
+        element.removeAttribute('data-columns');
         uniqueSortedTitles.forEach(cardTitle => {
             const card = state.cardTitleCache[cardTitle];
             const count = cardCounts[cardTitle];
@@ -130,14 +131,11 @@ function renderDeckList(element, deck, deckName) {
                  buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">Move</button>`;
             }
 
-            cardElement.innerHTML = `
-                <span data-title="${cardTitle}">${count}x ${cardTitle}</span>
-                <div class="card-buttons">${buttonsHTML}</div>
-            `;
+            cardElement.innerHTML = `<span data-title="${cardTitle}">${count}x ${cardTitle}</span><div class="card-buttons">${buttonsHTML}</div>`;
             element.appendChild(cardElement);
         });
-    } else { // Grid view logic
-        element.setAttribute('data-columns', state.numDeckGridColumns); // Set columns attribute
+    } else {
+        element.setAttribute('data-columns', state.numDeckGridColumns);
         deck.sort((a, b) => a.localeCompare(b)).forEach(cardTitle => {
             const card = state.cardTitleCache[cardTitle];
             if (!card) return;
@@ -155,10 +153,7 @@ function renderDeckList(element, deck, deckName) {
             }
 
             const visualHTML = generateCardVisualHTML(card);
-            cardElement.innerHTML = `
-                <div class="card-visual" data-title="${card.title}">${visualHTML}</div>
-                <div class="deck-grid-buttons">${buttonsHTML}</div>
-            `;
+            cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div><div class="deck-grid-buttons">${buttonsHTML}</div>`;
             element.appendChild(cardElement);
         });
     }
@@ -168,7 +163,7 @@ function updateDeckCounts() {
     startingDeckCount.textContent = state.startingDeck.length;
     purchaseDeckCount.textContent = state.purchaseDeck.length;
     startingDeckCount.parentElement.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'var(--danger-color)';
-    startingDeckHeader.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'inherit';
+    purchaseDeckHeader.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'inherit';
     purchaseDeckCount.parentElement.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'var(--danger-color)';
     purchaseDeckHeader.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'inherit';
 }
@@ -176,7 +171,6 @@ function updateDeckCounts() {
 function renderValidationIssues() {
     const issues = validateDeck();
     if (!validationIssuesContainer) return;
-
     validationIssuesContainer.innerHTML = '';
     if (issues.length === 0) {
         validationIssuesContainer.innerHTML = '<div class="validation-item validation-success">Deck is valid!</div>';
@@ -190,6 +184,49 @@ function renderValidationIssues() {
         });
         validationIssuesContainer.appendChild(list);
     }
+}
+
+// NEW: Function to render deck statistics
+export function renderDeckStats() {
+    const stats = DeckValidator.getDeckStats();
+    const sortedCardTypes = Object.entries(stats.cardTypes).sort((a, b) => a[0].localeCompare(b[0]));
+    const sortedCostCurve = Object.entries(stats.costCurve).sort((a, b) => Number(a[0]) - Number(b[0]));
+    const maxCount = Math.max(...Object.values(stats.costCurve), 1);
+
+    const statsHTML = `
+        <h4>Deck Statistics</h4>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <span class="stat-label">Total Cards:</span>
+                <span class="stat-value">${stats.totalCards}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Avg Cost:</span>
+                <span class="stat-value">${stats.averageCost.toFixed(2)}</span>
+            </div>
+            ${sortedCardTypes.map(([type, count]) => `
+                <div class="stat-item">
+                    <span class="stat-label">${type}:</span>
+                    <span class="stat-value">${count}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="cost-curve">
+            <h5>Cost Curve</h5>
+            <div class="curve-bars">
+                ${sortedCostCurve.map(([cost, count]) => `
+                    <div class="curve-bar" title="${count} card(s) at cost ${cost}">
+                        <div class="bar-label">${count}</div>
+                        <div class="bar" style="height: ${(count / maxCount) * 100}%"></div>
+                        <div class="cost-label">${cost}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    let statsContainer = document.getElementById('deckStatsContainer');
+    statsContainer.innerHTML = statsHTML;
 }
 
 export function filterDeckList(deckListElement, query) {

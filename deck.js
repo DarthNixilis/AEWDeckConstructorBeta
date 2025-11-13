@@ -72,7 +72,6 @@ export function moveCard(cardTitle, sourceDeckName) {
     }
 }
 
-// NEW: DeckValidator Class
 export class DeckValidator {
     static validateStartingDeck(deck) {
         const issues = [];
@@ -110,10 +109,16 @@ export class DeckValidator {
         return issues;
     }
 
+    // UPDATED getDeckStats method
     static getDeckStats() {
         const allCards = [...state.startingDeck, ...state.purchaseDeck]
             .map(title => state.cardTitleCache[title])
-            .filter(Boolean); // Filter out any undefined cards
+            .filter(Boolean);
+
+        // *** NEW: Create a separate array just for the purchase deck cards for the cost curve ***
+        const purchaseDeckCards = state.purchaseDeck
+            .map(title => state.cardTitleCache[title])
+            .filter(Boolean);
 
         const totalCards = allCards.length;
         if (totalCards === 0) {
@@ -122,30 +127,36 @@ export class DeckValidator {
 
         const stats = {
             totalCards: totalCards,
-            averageCost: allCards.reduce((sum, card) => sum + (card.cost || 0), 0) / totalCards,
+            // Avg Cost should also only consider the purchase deck for relevance
+            averageCost: purchaseDeckCards.length > 0 ? purchaseDeckCards.reduce((sum, card) => sum + (card.cost || 0), 0) / purchaseDeckCards.length : 0,
+            // Card types can still be for the whole deck
             cardTypes: allCards.reduce((acc, card) => {
                 const type = card.card_type || 'Unknown';
                 acc[type] = (acc[type] || 0) + 1;
                 return acc;
             }, {}),
-            costCurve: allCards.reduce((acc, card) => {
+            // *** CHANGED: Cost curve is now calculated ONLY from the purchase deck ***
+            costCurve: purchaseDeckCards.reduce((acc, card) => {
                 const cost = card.cost ?? 0;
                 acc[cost] = (acc[cost] || 0) + 1;
                 return acc;
             }, {})
         };
-        // Ensure all costs from 0 to max are present for the curve
-        const maxCost = Math.max(...Object.keys(stats.costCurve).map(Number));
-        for (let i = 0; i <= maxCost; i++) {
-            if (!stats.costCurve[i]) {
-                stats.costCurve[i] = 0;
+        
+        // Ensure all costs from 0 to max are present for the curve for a consistent display
+        const costKeys = Object.keys(stats.costCurve);
+        if (costKeys.length > 0) {
+            const maxCost = Math.max(...costKeys.map(Number));
+            for (let i = 0; i <= maxCost; i++) {
+                if (!stats.costCurve[i]) {
+                    stats.costCurve[i] = 0;
+                }
             }
         }
         return stats;
     }
 }
 
-// UPDATED: validateDeck function now uses the class
 export function validateDeck() {
     const issues = [
         ...DeckValidator.validateStartingDeck(state.startingDeck),
@@ -156,6 +167,6 @@ export function validateDeck() {
         issues.push(`Purchase Deck needs at least 36 cards (is ${state.purchaseDeck.length})`);
     }
 
-    return [...new Set(issues)]; // Return unique issues
+    return [...new Set(issues)];
 }
 

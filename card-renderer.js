@@ -23,7 +23,32 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
-export function generateCardVisualHTML(card) {
+// UPDATED: Now accepts a tempContainer for playtest rendering
+export async function generateCardVisualHTML(card, tempContainer) {
+    // If playtest proxies are forced, generate and return the playtest HTML
+    if (state.usePlaytestProxies) {
+        // We need a valid container for getFittedTitleHTML to work.
+        // If one isn't provided, create a temporary one.
+        let container = tempContainer;
+        let shouldRemoveContainer = false;
+        if (!container) {
+            container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            document.body.appendChild(container);
+            shouldRemoveContainer = true;
+        }
+        
+        const playtestHTML = await generatePlaytestCardHTML(card, container);
+
+        if (shouldRemoveContainer) {
+            document.body.removeChild(container);
+        }
+        // The playtest HTML is a complete div, so we just return it.
+        return playtestHTML;
+    }
+
+    // Original logic for official images
     const imageName = toPascalCase(card.title);
     const imagePath = `./card-images/${imageName}.png`;
     const typeClass = `type-${card.card_type.toLowerCase()}`;

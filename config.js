@@ -8,7 +8,7 @@ export let selectedWrestler = null;
 export let selectedManager = null;
 export let activeFilters = [{}, {}, {}];
 export let currentViewMode = 'grid';
-export let deckViewMode = 'list';
+export let deckViewMode = 'grid'; // UPDATED: Default to grid
 export let currentSort = 'alpha-asc';
 export let showZeroCost = true;
 export let showNonZeroCost = true;
@@ -16,7 +16,8 @@ export let numGridColumns = 2;
 export let numDeckGridColumns = 3;
 export let lastFocusedElement;
 
-// NEW: State for expanded deck lists
+export let usePlaytestProxies = false; // NEW: State for card view
+
 export let isStartingDeckExpanded = false;
 export let isPurchaseDeckExpanded = false;
 
@@ -36,8 +37,7 @@ export function setShowNonZeroCost(value) { showNonZeroCost = value; }
 export function setNumGridColumns(num) { numGridColumns = num; }
 export function setNumDeckGridColumns(num) { numDeckGridColumns = num; }
 export function setLastFocusedElement(el) { lastFocusedElement = el; }
-
-// NEW: Setters for expanded state
+export function setUsePlaytestProxies(value) { usePlaytestProxies = value; } // NEW
 export function setStartingDeckExpanded(value) { isStartingDeckExpanded = value; }
 export function setPurchaseDeckExpanded(value) { isPurchaseDeckExpanded = value; }
 

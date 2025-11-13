@@ -2,7 +2,7 @@
 
 import * as state from './config.js';
 import { generateCardVisualHTML } from './card-renderer.js';
-import { validateDeck, DeckValidator } from './deck.js'; // Import DeckValidator
+import { validateDeck, DeckValidator } from './deck.js';
 
 // --- DOM REFERENCES ---
 const searchResults = document.getElementById('searchResults');
@@ -21,7 +21,7 @@ const deckGridSizeControls = document.getElementById('deckGridSizeControls');
 
 // --- RENDERING FUNCTIONS ---
 
-export function renderCardPool(cards) {
+export async function renderCardPool(cards) {
     searchResults.innerHTML = '';
     searchResults.className = `card-list ${state.currentViewMode}-view`;
     if (state.currentViewMode === 'grid') searchResults.setAttribute('data-columns', state.numGridColumns);
@@ -31,7 +31,13 @@ export function renderCardPool(cards) {
         searchResults.innerHTML = '<p>No cards match the current filters.</p>';
         return;
     }
-    cards.forEach(card => {
+
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    for (const card of cards) {
         const cardElement = document.createElement('div');
         cardElement.className = state.currentViewMode === 'list' ? 'card-item' : 'grid-card-item';
         if (state.isSignatureFor(card)) cardElement.classList.add('signature-highlight');
@@ -44,7 +50,7 @@ export function renderCardPool(cards) {
             else buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
             cardElement.appendChild(buttonsDiv);
         } else {
-            const visualHTML = generateCardVisualHTML(card);
+            const visualHTML = await generateCardVisualHTML(card, tempContainer);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'card-buttons';
@@ -53,7 +59,8 @@ export function renderCardPool(cards) {
             cardElement.appendChild(buttonsDiv);
         }
         searchResults.appendChild(cardElement);
-    });
+    }
+    document.body.removeChild(tempContainer);
 }
 
 export function renderPersonaDisplay() {
@@ -84,11 +91,11 @@ export function renderPersonaDisplay() {
     });
 }
 
-export function showCardModal(cardTitle) {
+export async function showCardModal(cardTitle) {
     state.setLastFocusedElement(document.activeElement);
     const card = state.cardDatabase.find(c => c.title === cardTitle);
     if (!card) return;
-    modalCardContent.innerHTML = generateCardVisualHTML(card);
+    modalCardContent.innerHTML = await generateCardVisualHTML(card);
     cardModal.style.display = 'flex';
     cardModal.setAttribute('role', 'dialog');
     cardModal.setAttribute('aria-modal', 'true');
@@ -101,11 +108,11 @@ export function renderDecks() {
     renderDeckList(purchaseDeckList, state.purchaseDeck, 'purchase');
     updateDeckCounts();
     renderValidationIssues();
-    renderDeckStats(); // NEW: Call stats rendering
+    renderDeckStats();
     state.saveStateToCache();
 }
 
-function renderDeckList(element, deck, deckName) {
+async function renderDeckList(element, deck, deckName) {
     element.innerHTML = '';
     element.className = `deck-list ${state.deckViewMode}-view`;
     if (state.isStartingDeckExpanded && deckName === 'starting') element.classList.add('expanded');
@@ -136,9 +143,14 @@ function renderDeckList(element, deck, deckName) {
         });
     } else {
         element.setAttribute('data-columns', state.numDeckGridColumns);
-        deck.sort((a, b) => a.localeCompare(b)).forEach(cardTitle => {
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        document.body.appendChild(tempContainer);
+
+        for (const cardTitle of deck.sort((a, b) => a.localeCompare(b))) {
             const card = state.cardTitleCache[cardTitle];
-            if (!card) return;
+            if (!card) continue;
 
             const cardElement = document.createElement('div');
             cardElement.className = 'deck-grid-card-item';
@@ -152,10 +164,11 @@ function renderDeckList(element, deck, deckName) {
                 buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To Purchase</button>`;
             }
 
-            const visualHTML = generateCardVisualHTML(card);
+            const visualHTML = await generateCardVisualHTML(card, tempContainer);
             cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div><div class="deck-grid-buttons">${buttonsHTML}</div>`;
             element.appendChild(cardElement);
-        });
+        }
+        document.body.removeChild(tempContainer);
     }
 }
 
@@ -164,77 +177,5 @@ function updateDeckCounts() {
     purchaseDeckCount.textContent = state.purchaseDeck.length;
     startingDeckCount.parentElement.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'var(--danger-color)';
     purchaseDeckHeader.style.color = state.startingDeck.length === 24 ? 'var(--success-color)' : 'inherit';
-    purchaseDeckCount.parentElement.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'var(--danger-color)';
-    purchaseDeckHeader.style.color = state.purchaseDeck.length >= 36 ? 'var(--success-color)' : 'inherit';
-}
-
-function renderValidationIssues() {
-    const issues = validateDeck();
-    if (!validationIssuesContainer) return;
-    validationIssuesContainer.innerHTML = '';
-    if (issues.length === 0) {
-        validationIssuesContainer.innerHTML = '<div class="validation-item validation-success">Deck is valid!</div>';
-    } else {
-        const list = document.createElement('ul');
-        issues.forEach(issue => {
-            const item = document.createElement('li');
-            item.className = 'validation-item validation-error';
-            item.textContent = issue;
-            list.appendChild(item);
-        });
-        validationIssuesContainer.appendChild(list);
-    }
-}
-
-// NEW: Function to render deck statistics
-export function renderDeckStats() {
-    const stats = DeckValidator.getDeckStats();
-    const sortedCardTypes = Object.entries(stats.cardTypes).sort((a, b) => a[0].localeCompare(b[0]));
-    const sortedCostCurve = Object.entries(stats.costCurve).sort((a, b) => Number(a[0]) - Number(b[0]));
-    const maxCount = Math.max(...Object.values(stats.costCurve), 1);
-
-    const statsHTML = `
-        <h4>Deck Statistics</h4>
-        <div class="stat-grid">
-            <div class="stat-item">
-                <span class="stat-label">Total Cards:</span>
-                <span class="stat-value">${stats.totalCards}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Avg Cost:</span>
-                <span class="stat-value">${stats.averageCost.toFixed(2)}</span>
-            </div>
-            ${sortedCardTypes.map(([type, count]) => `
-                <div class="stat-item">
-                    <span class="stat-label">${type}:</span>
-                    <span class="stat-value">${count}</span>
-                </div>
-            `).join('')}
-        </div>
-        <div class="cost-curve">
-            <h5>Cost Curve</h5>
-            <div class="curve-bars">
-                ${sortedCostCurve.map(([cost, count]) => `
-                    <div class="curve-bar" title="${count} card(s) at cost ${cost}">
-                        <div class="bar-label">${count}</div>
-                        <div class="bar" style="height: ${(count / maxCount) * 100}%"></div>
-                        <div class="cost-label">${cost}</div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    
-    let statsContainer = document.getElementById('deckStatsContainer');
-    statsContainer.innerHTML = statsHTML;
-}
-
-export function filterDeckList(deckListElement, query) {
-    const itemSelector = state.deckViewMode === 'list' ? '.card-item' : '.deck-grid-card-item';
-    const items = deckListElement.querySelectorAll(itemSelector);
-    items.forEach(item => {
-        const text = item.dataset.title.toLowerCase();
-        item.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
-    });
-}
+    purchaseDeckCount.parentElement.style.color = state.purchaseDeck.
 

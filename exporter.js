@@ -1,13 +1,13 @@
 // exporter.js
 import * as state from './config.js';
 import { generatePlaytestCardHTML, generateCardVisualHTML } from './card-renderer.js';
-import { toPascalCase } from './config.js';
+import { toPascalCase, isKitCard } from './config.js'; // ADDED isKitCard
 
 export function generatePlainTextDeck() {
     const activePersonaTitles = [];
     if (state.selectedWrestler) activePersonaTitles.push(state.selectedWrestler.title);
     if (state.selectedManager) activePersonaTitles.push(state.selectedManager.title);
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For'])).sort((a, b) => a.title.localeCompare(b.title));
+    const kitCards = state.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For'])).sort((a, b) => a.title.localeCompare(b.title)); // FIXED: Using imported function
     let text = `Wrestler: ${state.selectedWrestler ? state.selectedWrestler.title : 'None'}\n`;
     text += `Manager: ${state.selectedManager ? state.selectedManager.title : 'None'}\n`;
     kitCards.forEach((card, index) => { text += `Kit${index + 1}: ${card.title}\n`; });
@@ -73,7 +73,7 @@ export async function exportDeckAsImage(exportType) {
         uniquePersonaAndKit.push(state.selectedManager);
         activePersonaTitles.push(state.selectedManager.title);
     }
-    const kitCards = state.cardDatabase.filter(card => state.isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    const kitCards = state.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For'])); // FIXED: Using imported function
     uniquePersonaAndKit.push(...kitCards);
     const finalUniquePersonaAndKit = [...new Map(uniquePersonaAndKit.map(card => [card.title, card])).values()];
     const mainDeckCards = [...state.startingDeck, ...state.purchaseDeck].map(title => state.cardTitleCache[title]);

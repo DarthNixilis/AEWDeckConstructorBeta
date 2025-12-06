@@ -1,6 +1,7 @@
 // filters.js
 
 import * as state from './config.js';
+import { isKitCard } from './config.js'; // FIX: Added missing import
 
 // --- FILTER & SORT LOGIC ---
 
@@ -33,60 +34,104 @@ function getAvailableFilterOptions(cards) {
         if (card && card.set) options['Set'].add(card.set);
     });
     
-    const sortedTypes = Array.from(options['Card Type']).sort();
-    if (sortedTypes.some(type => ['Strike', 'Grapple', 'Submission'].includes(type))) sortedTypes.unshift('Maneuver');
-    
-    const sortedSets = Array.from(options['Set']).sort();
-    
-    return { 
-        'Card Type': sortedTypes, 
-        'Keyword': Array.from(options['Keyword']).sort(), 
-        'Trait': Array.from(options['Trait']).sort(),
-        'Set': sortedSets
-    };
+    // Convert sets to sorted arrays
+    return Object.keys(options).reduce((acc, key) => {
+        acc[key] = Array.from(options[key]).sort();
+        return acc;
+    }, {});
 }
 
 export function renderCascadingFilters() {
-    const cascadingFiltersContainer = document.getElementById('cascadingFiltersContainer');
-    cascadingFiltersContainer.innerHTML = '';
-    
-    const categories = ['Card Type', 'Keyword', 'Trait', 'Set'];
-    const availableOptions = getAvailableFilterOptions(state.cardDatabase);
-    
-    categories.forEach((category, index) => {
-        const select = document.createElement('select');
-        select.innerHTML = `<option value="">-- Select ${category} --</option>`;
-        availableOptions[category].forEach(opt => select.add(new Option(opt, opt)));
-        select.value = state.activeFilters[index]?.value || '';
-        select.onchange = (e) => {
-            const newFilters = [...state.activeFilters];
-            newFilters[index] = { category: category, value: e.target.value };
-            for (let j = index + 1; j < categories.length; j++) newFilters[j] = {};
-            state.setActiveFilters(newFilters);
+    const filtersContainer = document.getElementById('cascadingFiltersContainer');
+    // For simplicity, we just use a small subset of the total card pool to determine options
+    // A more robust app might process the entire database once.
+    const filterOptions = getAvailableFilterOptions(state.cardDatabase);
+
+    // Render 3 filter selects
+    filtersContainer.innerHTML = state.activeFilters.map((activeFilter, index) => {
+        const categories = Object.keys(filterOptions).sort();
+        const categoryOptions = ['<option value="">-- Category --</option>']
+            .concat(categories.map(cat => `<option value="${cat}" ${activeFilter.category === cat ? 'selected' : ''}>${cat}</option>`))
+            .join('');
+
+        let valueOptions = '<option value="">-- Value --</option>';
+        if (activeFilter.category && filterOptions[activeFilter.category]) {
+            valueOptions = filterOptions[activeFilter.category].sort().map(value => 
+                `<option value="${value}" ${activeFilter.value === value ? 'selected' : ''}>${value}</option>`
+            ).join('');
+            valueOptions = `<option value="">-- Value --</option>` + valueOptions;
+        }
+
+        return `
+            <div class="cascading-filter" data-filter-index="${index}">
+                <select class="filter-category" data-index="${index}">${categoryOptions}</select>
+                <select class="filter-value" data-index="${index}" ${!activeFilter.category ? 'disabled' : ''}>${valueOptions}</select>
+                ${index > 0 ? `<button class="remove-filter-btn" data-index="${index}">&times;</button>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Add Filter button
+    if (state.activeFilters.length < 3) {
+        const addButton = document.createElement('button');
+        addButton.className = 'add-filter-btn';
+        addButton.textContent = '+ Add Filter';
+        addButton.onclick = () => {
+            state.addFilter({});
             renderCascadingFilters();
             document.dispatchEvent(new Event('filtersChanged'));
         };
-        cascadingFiltersContainer.appendChild(select);
+        filtersContainer.appendChild(addButton);
+    }
+
+    // Add event listeners for the new selects
+    filtersContainer.querySelectorAll('.filter-category').forEach(select => {
+        select.addEventListener('change', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            const category = e.target.value;
+            state.setActiveFilterCategory(index, category);
+            state.setActiveFilterValue(index, ''); // Reset value when category changes
+            renderCascadingFilters(); // Re-render to update the value dropdown
+            document.dispatchEvent(new Event('filtersChanged'));
+        });
+    });
+
+    filtersContainer.querySelectorAll('.filter-value').forEach(select => {
+        select.addEventListener('change', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            state.setActiveFilterValue(index, e.target.value);
+            document.dispatchEvent(new Event('filtersChanged'));
+        });
+    });
+
+    filtersContainer.querySelectorAll('.remove-filter-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            state.removeFilter(index);
+            renderCascadingFilters();
+            document.dispatchEvent(new Event('filtersChanged'));
+        });
     });
 }
 
 function applyAllFilters(cards) {
-    let filtered = [...cards];
-    state.activeFilters.forEach(filter => {
-        if (filter && filter.value) {
+    return cards.filter(card => {
+        return state.activeFilters.every(filter => {
+            if (!filter.category || !filter.value) return true;
             const filterFunc = filterFunctions[filter.category];
-            if (filterFunc) filtered = filtered.filter(card => filterFunc(card, filter.value));
-        }
+            return filterFunc ? filterFunc(card, filter.value) : true;
+        });
     });
-    return filtered;
 }
 
-function applySort(cards) {
-    const [sortBy, direction] = state.currentSort.split('-');
+function sortCardPool(cards) {
+    const [key, direction] = state.currentSort.split('-');
+    
     return cards.sort((a, b) => {
         let valA, valB;
-        switch (sortBy) {
-            case 'alpha': valA = a.title.toLowerCase(); valB = b.title.toLowerCase(); break;
+
+        switch (key) {
+            case 'alpha': valA = a.title; valB = b.title; break;
             case 'cost': valA = a.cost ?? -1; valB = b.cost ?? -1; break;
             case 'damage': valA = a.damage ?? -1; valB = b.damage ?? -1; break;
             case 'momentum': valA = a.momentum ?? -1; valB = b.momentum ?? -1; break;
@@ -116,10 +161,6 @@ export function getFilteredAndSortedCardPool() {
     });
 
     const filtered = applyAllFilters(cards);
-    return applySort(filtered);
+    return sortCardPool(filtered);
 }
 
-// Helper needed by this module
-function isKitCard(card) {
-    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
-}

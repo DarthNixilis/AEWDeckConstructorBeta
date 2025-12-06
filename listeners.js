@@ -5,19 +5,42 @@ import * as deck from './deck.js';
 import { parseAndLoadDeck } from './importer.js';
 import { generatePlainTextDeck, exportDeckAsImage } from './exporter.js';
 
+// --- DOM REFERENCES (Moved to module scope for efficiency) ---
+const searchInput = document.getElementById('searchInput');
+const sortSelect = document.getElementById('sortSelect');
+const showZeroCostCheckbox = document.getElementById('showZeroCost');
+const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
+const showSetCoreCheckbox = document.getElementById('showSetCore');
+const showSetAdvancedCheckbox = document.getElementById('showSetAdvanced');
+const gridSizeControls = document.getElementById('gridSizeControls');
+const viewModeToggle = document.getElementById('viewModeToggle');
+const searchResults = document.getElementById('searchResults');
+const usePlaytestProxiesToggle = document.getElementById('usePlaytestProxiesToggle');
+
+const wrestlerSelect = document.getElementById('wrestlerSelect');
+const managerSelect = document.getElementById('managerSelect');
+
+const exportPlaintextBtn = document.getElementById('exportPlaintextBtn');
+const openImportModalBtn = document.getElementById('openImportModalBtn');
+const processImportBtn = document.getElementById('processImportBtn');
+const deckFileInput = document.getElementById('deckFileInput');
+const deckTextInput = document.getElementById('deckTextInput');
+
+const cardModal = document.getElementById('cardModal');
+const importModal = document.getElementById('importModal');
+const exportOptionsModal = document.getElementById('exportOptionsModal');
+
+// Added null checks here just in case, though they should exist in index.html
+const modalCloseButton = cardModal ? cardModal.querySelector('.modal-close-button') : null;
+const exportOptionsModalCloseBtn = exportOptionsModal ? exportOptionsModal.querySelector('.modal-close-button') : null;
+
+const exportPlaytestBtn = document.getElementById('exportPlaytestBtn');
+const exportOfficialBtn = document.getElementById('exportOfficialBtn');
+const exportFullBtn = document.getElementById('exportFullBtn');
+
+
 export function initializeAllEventListeners(refreshCardPool) {
     // POOL LISTENERS
-    const searchInput = document.getElementById('searchInput');
-    const sortSelect = document.getElementById('sortSelect');
-    const showZeroCostCheckbox = document.getElementById('showZeroCost');
-    const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
-    const showSetCoreCheckbox = document.getElementById('showSetCore');
-    const showSetAdvancedCheckbox = document.getElementById('showSetAdvanced');
-    const gridSizeControls = document.getElementById('gridSizeControls');
-    const viewModeToggle = document.getElementById('viewModeToggle');
-    const searchResults = document.getElementById('searchResults');
-    const usePlaytestProxiesToggle = document.getElementById('usePlaytestProxiesToggle');
-
     document.addEventListener('filtersChanged', refreshCardPool);
     searchInput.addEventListener('input', state.debounce(refreshCardPool, 300));
     sortSelect.addEventListener('change', (e) => { state.setCurrentSort(e.target.value); refreshCardPool(); });
@@ -25,178 +48,142 @@ export function initializeAllEventListeners(refreshCardPool) {
     showNonZeroCostCheckbox.addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); refreshCardPool(); });
     showSetCoreCheckbox.addEventListener('change', (e) => { state.setShowSetCore(e.target.checked); refreshCardPool(); });
     showSetAdvancedCheckbox.addEventListener('change', (e) => { state.setShowSetAdvanced(e.target.checked); refreshCardPool(); });
-    
-    usePlaytestProxiesToggle.addEventListener('change', async (e) => {
-        state.setUsePlaytestProxies(e.target.checked);
-        await refreshCardPool();
-        await ui.renderDecks();
-    });
 
-    gridSizeControls.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            state.setNumGridColumns(e.target.dataset.columns);
+    gridSizeControls.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            state.setGridColumns(parseInt(e.target.dataset.columns));
             gridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
             refreshCardPool();
-        }
-    });
-    viewModeToggle.addEventListener('click', () => {
-        const newMode = state.currentViewMode === 'list' ? 'grid' : 'list';
-        state.setCurrentViewMode(newMode);
-        viewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        refreshCardPool();
-    });
-    searchResults.addEventListener('click', (e) => {
-        const target = e.target;
-        const cardTitle = target.dataset.title || target.closest('[data-title]')?.dataset.title;
-        if (!cardTitle) return;
-        if (target.tagName === 'BUTTON') { deck.addCardToDeck(cardTitle, target.dataset.deckTarget); } 
-        else { ui.showCardModal(cardTitle); }
-    });
-
-    // DECK LISTENERS
-    const wrestlerSelect = document.getElementById('wrestlerSelect');
-    const managerSelect = document.getElementById('managerSelect');
-    const startingDeckList = document.getElementById('startingDeckList');
-    const purchaseDeckList = document.getElementById('purchaseDeckList');
-    const personaDisplay = document.getElementById('personaDisplay');
-    const clearDeckBtn = document.getElementById('clearDeck');
-    const exportDeckBtn = document.getElementById('exportDeck');
-    const exportAsImageBtn = document.getElementById('exportAsImageBtn');
-    const deckViewModeToggle = document.getElementById('deckViewModeToggle');
-    const deckGridSizeControls = document.getElementById('deckGridSizeControls');
-    const expandStartingDeckBtn = document.getElementById('expandStartingDeck');
-    const expandPurchaseDeckBtn = document.getElementById('expandPurchaseDeck');
-
-    deckViewModeToggle.addEventListener('click', async () => {
-        const newMode = state.deckViewMode === 'list' ? 'grid' : 'list';
-        state.setDeckViewMode(newMode);
-        deckViewModeToggle.textContent = newMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
-        await ui.renderDecks();
-    });
-
-    deckGridSizeControls.addEventListener('click', async (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            state.setNumDeckGridColumns(e.target.dataset.columns);
-            deckGridSizeControls.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            await ui.renderDecks();
-        }
-    });
-
-    expandStartingDeckBtn.addEventListener('click', () => {
-        const isExpanded = !state.isStartingDeckExpanded;
-        state.setStartingDeckExpanded(isExpanded);
-        startingDeckList.classList.toggle('expanded', isExpanded);
-        expandStartingDeckBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
-    });
-
-    expandPurchaseDeckBtn.addEventListener('click', () => {
-        const isExpanded = !state.isPurchaseDeckExpanded;
-        state.setPurchaseDeckExpanded(isExpanded);
-        purchaseDeckList.classList.toggle('expanded', isExpanded);
-        expandPurchaseDeckBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
-    });
-
-    wrestlerSelect.addEventListener('change', (e) => {
-        const newWrestler = state.cardTitleCache[e.target.value] || null;
-        state.setSelectedWrestler(newWrestler);
-        ui.renderPersonaDisplay();
-        refreshCardPool();
-        state.saveStateToCache();
-    });
-    managerSelect.addEventListener('change', (e) => {
-        const newManager = state.cardTitleCache[e.target.value] || null;
-        state.setSelectedManager(newManager);
-        ui.renderPersonaDisplay();
-        refreshCardPool();
-        state.saveStateToCache();
-    });
-
-    [startingDeckList, purchaseDeckList, personaDisplay].forEach(container => {
-        container.addEventListener('click', (e) => {
-            const target = e.target;
-            const cardItem = target.closest('[data-title]');
-            if (!cardItem) return;
-
-            const cardTitle = cardItem.dataset.title;
-            
-            if (target.tagName === 'BUTTON') {
-                const action = target.dataset.action;
-                const deckName = target.dataset.deck;
-
-                if (action === 'remove') {
-                    deck.removeCardFromDeck(cardTitle, deckName);
-                } else if (action === 'move') {
-                    deck.moveCard(cardTitle, deckName);
-                }
-            } else {
-                ui.showCardModal(cardTitle);
-            }
         });
     });
 
-    clearDeckBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the entire deck?')) {
-            state.setStartingDeck([]);
-            state.setPurchaseDeck([]);
-            ui.renderDecks();
-        }
+    viewModeToggle.addEventListener('click', () => {
+        state.toggleViewMode();
+        viewModeToggle.textContent = state.currentViewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View';
+        refreshCardPool();
     });
-    exportDeckBtn.addEventListener('click', () => {
+
+    searchResults.addEventListener('click', (e) => {
+        const cardElement = e.target.closest('.card-item');
+        if (!cardElement) return;
+
+        const cardTitle = cardElement.dataset.title;
+        const targetDeck = e.ctrlKey || e.metaKey ? 'purchase' : 'starting';
+        
+        deck.addCardToDeck(cardTitle, targetDeck);
+    });
+    
+    usePlaytestProxiesToggle.addEventListener('change', (e) => {
+        state.setUsePlaytestProxies(e.target.checked);
+        document.dispatchEvent(new Event('filtersChanged')); // Re-render pool to update visuals
+    });
+
+    // PERSONA LISTENERS
+    wrestlerSelect.addEventListener('change', (e) => {
+        const wrestler = state.cardTitleCache[e.target.value] || null;
+        state.setSelectedWrestler(wrestler);
+        ui.renderPersonaDisplay();
+        ui.renderDecks();
+        document.dispatchEvent(new Event('filtersChanged'));
+    });
+
+    managerSelect.addEventListener('change', (e) => {
+        const manager = state.cardTitleCache[e.target.value] || null;
+        state.setSelectedManager(manager);
+        ui.renderPersonaDisplay();
+        ui.renderDecks();
+        document.dispatchEvent(new Event('filtersChanged'));
+    });
+    
+    // DECK LISTENERS
+    const deckListContainer = document.getElementById('deckListContainer');
+    deckListContainer.addEventListener('click', (e) => {
+        const removeButton = e.target.closest('.remove-card-btn');
+        if (!removeButton) return;
+
+        const cardElement = removeButton.closest('.card-item') || removeButton.closest('.deck-grid-card-item');
+        const cardTitle = cardElement.dataset.title;
+        const targetDeck = cardElement.closest('#startingDeckList') ? 'starting' : 'purchase';
+
+        deck.removeCardFromDeck(cardTitle, targetDeck);
+    });
+    
+    document.getElementById('startingDeckHeader').addEventListener('click', () => {
+        state.toggleStartingDeckExpanded();
+        ui.renderDecks();
+    });
+
+    document.getElementById('purchaseDeckHeader').addEventListener('click', () => {
+        state.togglePurchaseDeckExpanded();
+        ui.renderDecks();
+    });
+    
+    document.getElementById('deckGridSizeControls').querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            state.setDeckGridColumns(parseInt(e.target.dataset.columns));
+            document.getElementById('deckGridSizeControls').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            ui.renderDecks();
+        });
+    });
+
+    // MODAL LISTENERS
+    document.getElementById('openExportOptionsBtn').addEventListener('click', () => {
+        exportOptionsModal.style.display = 'flex';
+    });
+    
+    exportPlaintextBtn.addEventListener('click', () => {
         const text = generatePlainTextDeck();
         const blob = new Blob([text], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        const wrestlerName = state.selectedWrestler ? state.toPascalCase(state.selectedWrestler.title) : "Deck";
-        a.download = `${wrestlerName}.txt`;
+        const wrestlerName = state.selectedWrestler ? state.selectedWrestler.title : "Deck";
+        a.download = `${wrestlerName}-Decklist.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
+        exportOptionsModal.style.display = 'none';
     });
-    exportAsImageBtn.addEventListener('click', () => {
-        exportOptionsModal.style.display = 'flex';
-    });
-
-    // MODAL LISTENERS
-    const importDeckBtn = document.getElementById('importDeck');
-    const importModal = document.getElementById('importModal');
-    const importModalCloseBtn = importModal.querySelector('.modal-close-button');
-    const deckFileInput = document.getElementById('deckFileInput');
-    const deckTextInput = document.getElementById('deckTextInput');
-    const processImportBtn = document.getElementById('processImportBtn');
-    const cardModal = document.getElementById('cardModal');
-    const modalCloseButton = cardModal.querySelector('.modal-close-button');
-    const exportOptionsModal = document.getElementById('exportOptionsModal');
-    const exportOptionsModalCloseBtn = exportOptionsModal.querySelector('.modal-close-button');
-    const exportPlaytestBtn = document.getElementById('exportPlaytestBtn');
-    const exportOfficialBtn = document.getElementById('exportOfficialBtn');
-    const exportFullBtn = document.getElementById('exportFullBtn');
-
-    importDeckBtn.addEventListener('click', () => {
+    
+    openImportModalBtn.addEventListener('click', () => {
         importModal.style.display = 'flex';
-        document.getElementById('importStatus').textContent = '';
         deckTextInput.value = '';
         deckFileInput.value = '';
+        document.getElementById('importStatus').textContent = '';
     });
-    importModalCloseBtn.addEventListener('click', () => importModal.style.display = 'none');
-    processImportBtn.addEventListener('click', () => { if (deckTextInput.value) { parseAndLoadDeck(deckTextInput.value); } });
+
+    processImportBtn.addEventListener('click', () => {
+        const text = deckTextInput.value.trim();
+        if (text) {
+            parseAndLoadDeck(text);
+        } else {
+            document.getElementById('importStatus').textContent = 'Please paste a decklist or select a file.';
+            document.getElementById('importStatus').style.color = 'red';
+        }
+    });
+
     deckFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => { parseAndLoadDeck(event.target.result); };
+            reader.onload = (event) => {
+                deckTextInput.value = event.target.result;
+                // Auto-import after file load
+                parseAndLoadDeck(event.target.result);
+            };
             reader.readAsText(file);
         }
     });
-    modalCloseButton.addEventListener('click', () => cardModal.style.display = 'none');
-    cardModal.addEventListener('click', (e) => { if (e.target === cardModal) cardModal.style.display = 'none'; });
-    importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.style.display = 'none'; });
+
+    // Close Modals with buttons/backdrop
+    if (modalCloseButton) modalCloseButton.addEventListener('click', () => cardModal.style.display = 'none');
+    if (cardModal) cardModal.addEventListener('click', (e) => { if (e.target === cardModal) cardModal.style.display = 'none'; });
+    if (importModal) importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.style.display = 'none'; });
     
     // Export Options Modal Listeners
-    exportOptionsModalCloseBtn.addEventListener('click', () => exportOptionsModal.style.display = 'none');
-    exportOptionsModal.addEventListener('click', (e) => { 
+    if (exportOptionsModalCloseBtn) exportOptionsModalCloseBtn.addEventListener('click', () => exportOptionsModal.style.display = 'none');
+    if (exportOptionsModal) exportOptionsModal.addEventListener('click', (e) => { 
         if (e.target === exportOptionsModal) exportOptionsModal.style.display = 'none'; 
     });
     
@@ -224,3 +211,4 @@ export function initializeAllEventListeners(refreshCardPool) {
         }
     });
 }
+

@@ -1,6 +1,6 @@
 // ui.js
 
-import { appState, updateAppState } from './config.js';
+import { appState, updateAppState, isKitCard, isSignatureFor, CACHE_KEY } from './config.js'; // ADDED isKitCard, isSignatureFor
 import { generateCardVisualHTML } from './card-renderer.js';
 import { validateDeck, DeckValidator } from './deck.js';
 
@@ -54,7 +54,7 @@ export async function renderCardPool(cards) {
         const cardPromises = cards.map(async (card) => {
             const cardElement = document.createElement('div');
             cardElement.className = view.mode === 'list' ? 'card-item' : 'grid-card-item';
-            if (isSignatureFor(card)) cardElement.classList.add('signature-highlight');
+            if (isSignatureFor(card)) cardElement.classList.add('signature-highlight'); // Using imported function
             cardElement.dataset.title = card.title;
 
             if (view.mode === 'list') {
@@ -99,7 +99,7 @@ export function renderPersonaDisplay() {
     if (appState.deck.selectedManager) activePersona.push(appState.deck.selectedManager);
     activePersona.forEach(p => cardsToShow.add(p));
     const activePersonaTitles = activePersona.map(p => p.title);
-    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For'])); // Using imported function
     kitCards.forEach(card => cardsToShow.add(card));
     const sortedCards = Array.from(cardsToShow).sort((a, b) => {
         if (a.card_type === 'Wrestler') return -1; if (b.card_type === 'Wrestler') return 1;
@@ -279,19 +279,6 @@ export function filterDeckList(deckListElement, query) {
     });
 }
 
-// Re-add isSignatureFor and isKitCard locally as they are used in this file
-function isKitCard(card) {
-    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
-}
-
-function isSignatureFor(card) {
-    if (!card || !card['Signature For']) return false;
-    const activePersonaTitles = [];
-    if (appState.deck.selectedWrestler) activePersonaTitles.push(appState.deck.selectedWrestler.title);
-    if (appState.deck.selectedManager) activePersonaTitles.push(appState.deck.selectedManager.title);
-    return activePersonaTitles.includes(card['Signature For']);
-}
-
 function saveStateToCache() {
     const deckState = {
         wrestler: appState.deck.selectedWrestler ? appState.deck.selectedWrestler.title : null,
@@ -301,4 +288,3 @@ function saveStateToCache() {
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(deckState));
 }
-

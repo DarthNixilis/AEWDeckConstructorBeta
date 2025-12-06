@@ -1,12 +1,12 @@
 // deck.js
 
-import { appState, updateAppState } from './config.js';
+import { appState, updateAppState, isKitCard } from './config.js'; 
 import { renderDecks } from './ui.js';
 
 export function addCardToDeck(cardTitle, targetDeck) {
     const card = appState.cardTitleCache[cardTitle];
     if (!card) return;
-    if (isKitCard(card)) {
+    if (isKitCard(card)) { // Now using imported function
         alert(`"${card.title}" is a Kit card and cannot be added to your deck during construction.`);
         return;
     }
@@ -26,99 +26,100 @@ export function addCardToDeck(cardTitle, targetDeck) {
     renderDecks();
 }
 
-export function removeCardFromDeck(cardTitle, deckName) {
-    const deck = deckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
-    const cardIndex = deck.lastIndexOf(cardTitle);
-    if (cardIndex > -1) {
-        const newDeck = [...deck];
-        newDeck.splice(cardIndex, 1);
-        if (deckName === 'starting') {
-            updateAppState('deck.starting', newDeck);
-        } else {
-            updateAppState('deck.purchase', newDeck);
-        }
+export function removeCardFromDeck(cardTitle, targetDeck) {
+    const deck = appState.deck[targetDeck];
+    const index = deck.indexOf(cardTitle);
+    if (index > -1) {
+        deck.splice(index, 1);
+        updateAppState(`deck.${targetDeck}`, deck);
         renderDecks();
     }
 }
 
-export function moveCard(cardTitle, sourceDeckName) {
-    const card = appState.cardTitleCache[cardTitle];
-    if (!card) return;
-
-    const sourceDeck = sourceDeckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
-    const destinationDeckName = sourceDeckName === 'starting' ? 'purchase' : 'starting';
-    const destinationDeck = destinationDeckName === 'starting' ? appState.deck.starting : appState.deck.purchase;
-
-    if (destinationDeckName === 'starting') {
-        if (card.cost !== 0) { alert(`Rule Violation: Cannot move "${card.title}" to Starting Deck because its cost is not 0.`); return; }
-        if (destinationDeck.length >= 24) { alert(`Rule Violation: Starting Deck is full (24 cards).`); return; }
-        if (destinationDeck.filter(title => title === cardTitle).length >= 2) { alert(`Rule Violation: Max 2 copies of "${card.title}" allowed in Starting Deck.`); return; }
-    }
-
-    const cardIndex = sourceDeck.lastIndexOf(cardTitle);
-    if (cardIndex > -1) {
-        const newSourceDeck = [...sourceDeck];
-        newSourceDeck.splice(cardIndex, 1);
-        const newDestinationDeck = [...destinationDeck, cardTitle];
-
-        if (sourceDeckName === 'starting') {
-            updateAppState('deck.starting', newSourceDeck);
-            updateAppState('deck.purchase', newDestinationDeck);
-        } else {
-            updateAppState('deck.purchase', newSourceDeck);
-            updateAppState('deck.starting', newDestinationDeck);
-        }
-        renderDecks();
-    }
-}
-
-export class DeckValidator {
-    static validateStartingDeck(deck) {
+export const DeckValidator = {
+    validateStartingDeck: (startingDeck) => {
         const issues = [];
-        if (deck.length !== 24) {
-            issues.push(`Starting Deck must have 24 cards (is ${deck.length})`);
+        if (startingDeck.length !== 24) {
+            issues.push(`Starting Deck must have exactly 24 cards (has ${startingDeck.length})`);
         }
 
-        const nonZeroCost = deck.filter(title => {
-            const card = appState.cardTitleCache[title];
-            return card && card.cost !== 0;
-        });
+        const startingDeckCards = startingDeck
+            .map(title => appState.cardTitleCache[title])
+            .filter(card => card); // Safety filter for missing cards
+
+        const nonZeroCost = startingDeckCards.filter(card => card.cost && card.cost > 0);
         if (nonZeroCost.length > 0) {
-            issues.push(`Found ${nonZeroCost.length} non-zero cost card(s) in Starting Deck.`);
+            issues.push(`Rule Violation: Starting Deck contains ${nonZeroCost.length} non-zero cost card(s) (e.g., ${nonZeroCost[0].title}).`);
         }
 
-        const counts = deck.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
-        Object.entries(counts).forEach(([card, count]) => {
+        const counts = startingDeck.reduce((acc, title) => { acc[title] = (acc[title] || 0) + 1; return acc; }, {});
+        Object.entries(counts).forEach(([title, count]) => {
             if (count > 2) {
-                issues.push(`Too many "${card}" in Starting Deck (${count}/2).`);
+                issues.push(`Rule Violation: "${title}" has ${count} copies in Starting Deck (Max 2 allowed).`);
             }
         });
-        return issues;
-    }
 
-    static validateTotalComposition(startingDeck, purchaseDeck) {
+        return issues;
+    },
+
+    validateTotalComposition: (startingDeck, purchaseDeck) => {
         const issues = [];
-        const allCards = [...startingDeck, ...purchaseDeck];
-        const counts = allCards.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
+        const cardTitles = [...startingDeck, ...purchaseDeck];
+        const allCardObjects = cardTitles
+            .map(title => appState.cardTitleCache[title])
+            .filter(card => card); // FIX: Filter out null/undefined entries to prevent crash
 
-        Object.entries(counts).forEach(([card, count]) => {
+        const counts = cardTitles.reduce((acc, title) => { acc[title] = (acc[title] || 0) + 1; return acc; }, {});
+        Object.entries(counts).forEach(([title, count]) => {
             if (count > 3) {
-                issues.push(`Too many copies of "${card}" in total (${count}/3).`);
+                issues.push(`Rule Violation: "${title}" has ${count} copies in total (Max 3 allowed).`);
             }
         });
+
+        const cardTypes = allCardObjects.reduce((acc, card) => {
+            if (card.card_type === 'Strike' || card.card_type === 'Grapple' || card.card_type === 'Submission') {
+                acc.maneuvers = (acc.maneuvers || 0) + 1;
+            } else if (card.card_type === 'Response' || card.card_type === 'Action') {
+                acc.actions = (acc.actions || 0) + 1;
+            } else if (card.card_type === 'Asset') {
+                acc.assets = (acc.assets || 0) + 1;
+            }
+            return acc;
+        }, { maneuvers: 0, actions: 0, assets: 0 });
+
+        const totalNonPersonaCards = cardTitles.length;
+        const totalManeuvers = cardTypes.maneuvers;
+        const totalActionsAndResponses = cardTypes.actions;
+        const totalAssets = cardTypes.assets;
+
+        // Validation rule 2: Maneuvers must be at least 50% of the non-persona deck
+        if (totalManeuvers < Math.ceil(totalNonPersonaCards * 0.5)) {
+            issues.push(`Composition Rule: Must have at least ${Math.ceil(totalNonPersonaCards * 0.5)} Maneuvers (has ${totalManeuvers}).`);
+        }
+
+        // Validation rule 3: Actions/Responses/Assets cannot be more than 20%
+        const maxNonManeuver = Math.floor(totalNonPersonaCards * 0.20);
+        const nonManeuverCount = totalActionsAndResponses + totalAssets;
+
+        if (nonManeuverCount > maxNonManeuver) {
+            issues.push(`Composition Rule: Total Actions/Responses/Assets cannot exceed 20% (${maxNonManeuver}). Has ${nonManeuverCount}.`);
+        }
+        
         return issues;
-    }
+    },
 
-    static getDeckStats() {
-        const allCards = [...appState.deck.starting, ...appState.deck.purchase]
+    getDeckStats: (startingDeck, purchaseDeck) => {
+        const cardTitles = [...startingDeck, ...purchaseDeck];
+        const allCards = cardTitles
             .map(title => appState.cardTitleCache[title])
-            .filter(Boolean);
+            .filter(card => card); // Safety filter for missing cards
 
-        const purchaseDeckCards = appState.deck.purchase
+        const purchaseDeckCards = purchaseDeck
             .map(title => appState.cardTitleCache[title])
-            .filter(Boolean);
+            .filter(card => card); // Safety filter for missing cards
 
-        const totalCards = allCards.length;
+        const totalCards = cardTitles.length;
+
         if (totalCards === 0) {
             return { totalCards: 0, averageCost: 0, cardTypes: {}, costCurve: {} };
         }
@@ -161,10 +162,35 @@ export function validateDeck() {
         issues.push(`Purchase Deck needs at least 36 cards (is ${appState.deck.purchase.length})`);
     }
 
-    return [...new Set(issues)];
-}
+    if (appState.deck.starting.length + appState.deck.purchase.length < 60) {
+        issues.push(`Total cards (Starting + Purchase) needs at least 60 cards (is ${appState.deck.starting.length + appState.deck.purchase.length})`);
+    }
 
-function isKitCard(card) {
-    return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
+    // Check for Wrestler and Manager presence
+    if (!appState.deck.selectedWrestler) {
+        issues.push(`Wrestler must be selected.`);
+    }
+
+    // Check for Kit Card presence (just an optional warning for completeness)
+    const activePersonaTitles = [];
+    if (appState.deck.selectedWrestler) activePersonaTitles.push(appState.deck.selectedWrestler.title);
+    if (appState.deck.selectedManager) activePersonaTitles.push(appState.deck.selectedManager.title);
+    
+    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
+    if (kitCards.length === 0) {
+        issues.push(`Warning: No Kit Cards found for the selected Wrestler/Manager.`);
+    }
+
+
+    const validationContainer = document.getElementById('validationIssues');
+    if (!validationContainer) return;
+
+    if (issues.length === 0) {
+        validationContainer.innerHTML = '<li class="validation-success">Deck is Valid!</li>';
+    } else {
+        validationContainer.innerHTML = issues.map(issue => 
+            `<li class="validation-item validation-error">${issue}</li>`
+        ).join('');
+    }
 }
 

@@ -2,6 +2,18 @@
 import * as state from './config.js';
 import { renderDecks, renderPersonaDisplay } from './ui.js';
 
+// Helper function for case-insensitive lookup
+function getCanonicalCardTitle(title) {
+    const lowerTitle = title.toLowerCase();
+    // cardTitleCache keys are canonical (e.g., "Buckshot Lariat")
+    for (const canonicalTitle in state.cardTitleCache) {
+        if (canonicalTitle.toLowerCase() === lowerTitle) {
+            return canonicalTitle;
+        }
+    }
+    return null;
+}
+
 export function parseAndLoadDeck(text) {
     const importStatus = document.getElementById('importStatus');
     const importModal = document.getElementById('importModal');
@@ -13,27 +25,40 @@ export function parseAndLoadDeck(text) {
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine || trimmedLine.toLowerCase().startsWith('kit')) return;
+            
             if (trimmedLine.toLowerCase().startsWith('wrestler:')) {
                 const wrestlerName = trimmedLine.substring(9).trim();
-                const wrestler = state.cardTitleCache[wrestlerName];
-                if (wrestler && wrestler.card_type === 'Wrestler') newWrestler = wrestler;
+                const canonicalWrestlerName = getCanonicalCardTitle(wrestlerName);
+                if (canonicalWrestlerName) {
+                    const wrestler = state.cardTitleCache[canonicalWrestlerName];
+                    if (wrestler && wrestler.card_type === 'Wrestler') newWrestler = wrestler;
+                }
             } else if (trimmedLine.toLowerCase().startsWith('manager:')) {
                 const managerName = trimmedLine.substring(8).trim();
                 if (managerName.toLowerCase() !== 'none') {
-                    const manager = state.cardTitleCache[managerName];
-                    if (manager && manager.card_type === 'Manager') newManager = manager;
+                    const canonicalManagerName = getCanonicalCardTitle(managerName); // FIX: Added canonical lookup
+                    if (canonicalManagerName) {                                    
+                        const manager = state.cardTitleCache[canonicalManagerName]; // FIX: Used canonical name
+                        if (manager && manager.card_type === 'Manager') newManager = manager;
+                    }
                 }
-            } else if (trimmedLine.startsWith('--- Starting Deck')) { currentSection = 'starting'; }
-            else if (trimmedLine.startsWith('--- Purchase Deck')) { currentSection = 'purchase'; }
-            else {
+            } else if (trimmedLine.startsWith('--- Starting Deck')) {
+                currentSection = 'starting';
+            } else if (trimmedLine.startsWith('--- Purchase Deck')) {
+                currentSection = 'purchase';
+            } else {
                 const match = trimmedLine.match(/^(\d+)x\s+(.+)/);
                 if (match) {
                     const count = parseInt(match[1], 10);
                     const cardName = match[2].trim();
-                    if (state.cardTitleCache[cardName]) {
+                    
+                    // Already using canonical lookup here for general cards
+                    const canonicalCardName = getCanonicalCardTitle(cardName);
+
+                    if (canonicalCardName) {
                         for (let i = 0; i < count; i++) {
-                            if (currentSection === 'starting') newStartingDeck.push(cardName);
-                            else if (currentSection === 'purchase') newPurchaseDeck.push(cardName);
+                            if (currentSection === 'starting') newStartingDeck.push(canonicalCardName);
+                            else if (currentSection === 'purchase') newPurchaseDeck.push(canonicalCardName);
                         }
                     }
                 }
@@ -57,3 +82,4 @@ export function parseAndLoadDeck(text) {
         importStatus.style.color = 'red';
     }
 }
+

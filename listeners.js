@@ -11,6 +11,8 @@ export function initializeAllEventListeners(refreshCardPool) {
     const sortSelect = document.getElementById('sortSelect');
     const showZeroCostCheckbox = document.getElementById('showZeroCost');
     const showNonZeroCostCheckbox = document.getElementById('showNonZeroCost');
+    const showSetCoreCheckbox = document.getElementById('showSetCore');
+    const showSetAdvancedCheckbox = document.getElementById('showSetAdvanced');
     const gridSizeControls = document.getElementById('gridSizeControls');
     const viewModeToggle = document.getElementById('viewModeToggle');
     const searchResults = document.getElementById('searchResults');
@@ -21,6 +23,8 @@ export function initializeAllEventListeners(refreshCardPool) {
     sortSelect.addEventListener('change', (e) => { state.setCurrentSort(e.target.value); refreshCardPool(); });
     showZeroCostCheckbox.addEventListener('change', (e) => { state.setShowZeroCost(e.target.checked); refreshCardPool(); });
     showNonZeroCostCheckbox.addEventListener('change', (e) => { state.setShowNonZeroCost(e.target.checked); refreshCardPool(); });
+    showSetCoreCheckbox.addEventListener('change', (e) => { state.setShowSetCore(e.target.checked); refreshCardPool(); });
+    showSetAdvancedCheckbox.addEventListener('change', (e) => { state.setShowSetAdvanced(e.target.checked); refreshCardPool(); });
     
     usePlaytestProxiesToggle.addEventListener('change', async (e) => {
         state.setUsePlaytestProxies(e.target.checked);
@@ -151,7 +155,9 @@ export function initializeAllEventListeners(refreshCardPool) {
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     });
-    exportAsImageBtn.addEventListener('click', exportDeckAsImage);
+    exportAsImageBtn.addEventListener('click', () => {
+        exportOptionsModal.style.display = 'flex';
+    });
 
     // MODAL LISTENERS
     const importDeckBtn = document.getElementById('importDeck');
@@ -162,6 +168,11 @@ export function initializeAllEventListeners(refreshCardPool) {
     const processImportBtn = document.getElementById('processImportBtn');
     const cardModal = document.getElementById('cardModal');
     const modalCloseButton = cardModal.querySelector('.modal-close-button');
+    const exportOptionsModal = document.getElementById('exportOptionsModal');
+    const exportOptionsModalCloseBtn = exportOptionsModal.querySelector('.modal-close-button');
+    const exportPlaytestBtn = document.getElementById('exportPlaytestBtn');
+    const exportOfficialBtn = document.getElementById('exportOfficialBtn');
+    const exportFullBtn = document.getElementById('exportFullBtn');
 
     importDeckBtn.addEventListener('click', () => {
         importModal.style.display = 'flex';
@@ -182,12 +193,34 @@ export function initializeAllEventListeners(refreshCardPool) {
     modalCloseButton.addEventListener('click', () => cardModal.style.display = 'none');
     cardModal.addEventListener('click', (e) => { if (e.target === cardModal) cardModal.style.display = 'none'; });
     importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.style.display = 'none'; });
+    
+    // Export Options Modal Listeners
+    exportOptionsModalCloseBtn.addEventListener('click', () => exportOptionsModal.style.display = 'none');
+    exportOptionsModal.addEventListener('click', (e) => { 
+        if (e.target === exportOptionsModal) exportOptionsModal.style.display = 'none'; 
+    });
+    
+    exportPlaytestBtn.addEventListener('click', async () => {
+        exportOptionsModal.style.display = 'none';
+        await exportDeckAsImage('playtest');
+    });
+    
+    exportOfficialBtn.addEventListener('click', async () => {
+        exportOptionsModal.style.display = 'none';
+        await exportDeckAsImage('official');
+    });
+    
+    exportFullBtn.addEventListener('click', async () => {
+        exportOptionsModal.style.display = 'none';
+        await exportDeckAsImage('hybrid');
+    });
+    
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             cardModal.style.display = 'none';
             importModal.style.display = 'none';
+            exportOptionsModal.style.display = 'none';
             if (state.lastFocusedElement) { state.lastFocusedElement.focus(); }
         }
     });
 }
-

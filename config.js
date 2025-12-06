@@ -1,6 +1,6 @@
 // config.js
 
-// NEW: Unified Application State
+// Unified Application State
 export const appState = {
     // Card data
     cardDatabase: [],
@@ -24,6 +24,8 @@ export const appState = {
             filters: [{}, {}, {}],
             showZeroCost: true,
             showNonZeroCost: true,
+            showSetCore: true,
+            showSetAdvanced: true,
             usePlaytestProxies: false
         },
         deck: {
@@ -44,7 +46,84 @@ export const appState = {
 
 export const CACHE_KEY = 'aewDeckBuilderCache';
 
-// NEW: Unified state update function
+// State management functions
+export function setCardDatabase(cards) {
+    appState.cardDatabase = cards;
+}
+
+export function setKeywordDatabase(keywords) {
+    appState.keywordDatabase = keywords;
+}
+
+export function setStartingDeck(deck) {
+    appState.deck.starting = deck;
+}
+
+export function setPurchaseDeck(deck) {
+    appState.deck.purchase = deck;
+}
+
+export function setSelectedWrestler(wrestler) {
+    appState.deck.selectedWrestler = wrestler;
+}
+
+export function setSelectedManager(manager) {
+    appState.deck.selectedManager = manager;
+}
+
+export function setCurrentSort(sort) {
+    appState.view.cardPool.sort = sort;
+}
+
+export function setCurrentViewMode(mode) {
+    appState.view.cardPool.mode = mode;
+}
+
+export function setDeckViewMode(mode) {
+    appState.view.deck.mode = mode;
+}
+
+export function setNumGridColumns(columns) {
+    appState.view.cardPool.gridColumns = parseInt(columns);
+}
+
+export function setNumDeckGridColumns(columns) {
+    appState.view.deck.gridColumns = parseInt(columns);
+}
+
+export function setShowZeroCost(show) {
+    appState.view.cardPool.showZeroCost = show;
+}
+
+export function setShowNonZeroCost(show) {
+    appState.view.cardPool.showNonZeroCost = show;
+}
+
+export function setShowSetCore(show) {
+    appState.view.cardPool.showSetCore = show;
+}
+
+export function setShowSetAdvanced(show) {
+    appState.view.cardPool.showSetAdvanced = show;
+}
+
+export function setUsePlaytestProxies(use) {
+    appState.view.cardPool.usePlaytestProxies = use;
+}
+
+export function setActiveFilters(filters) {
+    appState.view.cardPool.filters = filters;
+}
+
+export function setStartingDeckExpanded(expanded) {
+    appState.view.deck.expanded.starting = expanded;
+}
+
+export function setPurchaseDeckExpanded(expanded) {
+    appState.view.deck.expanded.purchase = expanded;
+}
+
+// Unified state update function
 export function updateAppState(path, value) {
     const pathParts = path.split('.');
     let current = appState;
@@ -65,6 +144,7 @@ export function updateAppState(path, value) {
     }
 }
 
+// Helper functions
 export function toPascalCase(str) {
     if (!str) return '';
     return str.replace(/[^a-zA-Z0-9\s]+/g, '').split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
@@ -113,3 +193,23 @@ export function isSignatureFor(card) {
     return activePersonaTitles.includes(card['Signature For']);
 }
 
+// Getters for convenience
+export const currentViewMode = appState.view.cardPool.mode;
+export const deckViewMode = appState.view.deck.mode;
+export const numGridColumns = appState.view.cardPool.gridColumns;
+export const activeFilters = appState.view.cardPool.filters;
+export const showZeroCost = appState.view.cardPool.showZeroCost;
+export const showNonZeroCost = appState.view.cardPool.showNonZeroCost;
+export const showSetCore = appState.view.cardPool.showSetCore;
+export const showSetAdvanced = appState.view.cardPool.showSetAdvanced;
+export const usePlaytestProxies = appState.view.cardPool.usePlaytestProxies;
+export const selectedWrestler = appState.deck.selectedWrestler;
+export const selectedManager = appState.deck.selectedManager;
+export const cardDatabase = appState.cardDatabase;
+export const cardTitleCache = appState.cardTitleCache;
+export const keywordDatabase = appState.keywordDatabase;
+export const startingDeck = appState.deck.starting;
+export const purchaseDeck = appState.deck.purchase;
+export const isStartingDeckExpanded = appState.view.deck.expanded.starting;
+export const isPurchaseDeckExpanded = appState.view.deck.expanded.purchase;
+export const lastFocusedElement = appState.ui.lastFocusedElement;

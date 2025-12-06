@@ -146,6 +146,50 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .validation-success { color: var(--success-color); font-weight: bold; text-align: center; }
 .validation-error { color: var(--danger-color); }
 
+/* Export Options Styles */
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.export-option-btn {
+    padding: 15px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--panel-bg);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.export-option-btn:hover {
+    border-color: var(--primary-color);
+    background-color: #f8f9fa;
+}
+
+.export-option-btn:active {
+    transform: scale(0.98);
+}
+
+.export-option-btn strong {
+    display: block;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    color: var(--text-color);
+}
+
+.export-option-btn span {
+    display: block;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+}
+
+#exportOptionsModal .modal-content {
+    max-width: 500px;
+}
+
 /* Media Query for Responsiveness */
 @media (max-width: 768px) { 
     .container { flex-direction: column; padding: 10px; } 
@@ -153,4 +197,3 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
     .view-controls-container { align-items: flex-start; } 
     .card-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; } 
 }
-

@@ -23,34 +23,14 @@ function getFittedTitleHTML(title, container) {
     return `<div style="font-size: ${fontSize}px; font-weight: 900; text-align: center; flex-grow: 1;">${title}</div>`;
 }
 
-// UPDATED: Now accepts a tempContainer for playtest rendering
 export async function generateCardVisualHTML(card, tempContainer) {
-    // If playtest proxies are forced, generate and return the playtest HTML
-    if (state.usePlaytestProxies) {
-        // We need a valid container for getFittedTitleHTML to work.
-        // If one isn't provided, create a temporary one.
-        let container = tempContainer;
-        let shouldRemoveContainer = false;
-        if (!container) {
-            container = document.createElement('div');
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
-            document.body.appendChild(container);
-            shouldRemoveContainer = true;
-        }
-        
-        const playtestHTML = await generatePlaytestCardHTML(card, container);
-
-        if (shouldRemoveContainer) {
-            document.body.removeChild(container);
-        }
-        // The playtest HTML is a complete div, so we just return it.
-        return playtestHTML;
-    }
-
-    // Original logic for official images
+    // Always generate the full HTML structure
     const imageName = toPascalCase(card.title);
-    const imagePath = `./card-images/${imageName}.png`;
+    const basePath = window.location.pathname.includes('/RepoName/') 
+        ? window.location.pathname.substring(0, window.location.pathname.indexOf('/', 1) + 1)
+        : '/';
+    const imagePath = `${basePath}card-images/${imageName}.png`;
+    
     const typeClass = `type-${card.card_type.toLowerCase()}`;
     const targetTrait = card.text_box?.traits?.find(t => t.name.trim() === 'Target');
     const targetValue = targetTrait ? targetTrait.value : null;
@@ -72,7 +52,9 @@ export async function generateCardVisualHTML(card, tempContainer) {
                 <p>${card.text_box?.raw_text || ''}</p>
             </div>
         </div>`;
-    return `<img src="${imagePath}" alt="${card.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
+    
+    // Return image with fallback
+    return `<img src="${imagePath}" alt="${card.title}" style="width: 445px; height: 622px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display: none;">${placeholderHTML}</div>`;
 }
 
 export async function generatePlaytestCardHTML(card, tempContainer) {
@@ -153,4 +135,3 @@ export async function generatePlaytestCardHTML(card, tempContainer) {
         </div>
     `;
 }
-

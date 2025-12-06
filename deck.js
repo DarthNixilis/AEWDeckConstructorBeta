@@ -1,6 +1,6 @@
 // deck.js
 
-import { appState, updateAppState, isKitCard } from './config.js'; 
+import { appState, updateAppState, isKitCard } from './config.js'; // ADDED isKitCard
 import { renderDecks } from './ui.js';
 
 export function addCardToDeck(cardTitle, targetDeck) {
@@ -27,35 +27,50 @@ export function addCardToDeck(cardTitle, targetDeck) {
 }
 
 export function removeCardFromDeck(cardTitle, targetDeck) {
-    const deck = appState.deck[targetDeck];
-    const index = deck.indexOf(cardTitle);
-    if (index > -1) {
-        deck.splice(index, 1);
-        updateAppState(`deck.${targetDeck}`, deck);
-        renderDecks();
+    if (targetDeck === 'starting') {
+        const index = appState.deck.starting.indexOf(cardTitle);
+        if (index > -1) {
+            const newDeck = [...appState.deck.starting];
+            newDeck.splice(index, 1);
+            updateAppState('deck.starting', newDeck);
+        }
+    } else {
+        const index = appState.deck.purchase.indexOf(cardTitle);
+        if (index > -1) {
+            const newDeck = [...appState.deck.purchase];
+            newDeck.splice(index, 1);
+            updateAppState('deck.purchase', newDeck);
+        }
     }
+    renderDecks();
 }
 
+// --- DECK VALIDATION LOGIC ---
+
+// Define the validation rules logic
 export const DeckValidator = {
     validateStartingDeck: (startingDeck) => {
         const issues = [];
         if (startingDeck.length !== 24) {
-            issues.push(`Starting Deck must have exactly 24 cards (has ${startingDeck.length})`);
+            issues.push(`Starting Deck size must be exactly 24 cards (is ${startingDeck.length})`);
         }
+        
+        const counts = startingDeck.reduce((acc, title) => {
+            acc[title] = (acc[title] || 0) + 1;
+            return acc;
+        }, {});
 
-        const startingDeckCards = startingDeck
-            .map(title => appState.cardTitleCache[title])
-            .filter(card => card); // Safety filter for missing cards
-
-        const nonZeroCost = startingDeckCards.filter(card => card.cost && card.cost > 0);
-        if (nonZeroCost.length > 0) {
-            issues.push(`Rule Violation: Starting Deck contains ${nonZeroCost.length} non-zero cost card(s) (e.g., ${nonZeroCost[0].title}).`);
-        }
-
-        const counts = startingDeck.reduce((acc, title) => { acc[title] = (acc[title] || 0) + 1; return acc; }, {});
-        Object.entries(counts).forEach(([title, count]) => {
+        Object.entries(counts).forEach(([cardTitle, count]) => {
             if (count > 2) {
-                issues.push(`Rule Violation: "${title}" has ${count} copies in Starting Deck (Max 2 allowed).`);
+                issues.push(`Starting Deck: "${cardTitle}" has ${count} copies. Max 2 allowed.`);
+            }
+        });
+
+        const cards = startingDeck.map(title => appState.cardTitleCache[title]).filter(c => c);
+        
+        cards.forEach(card => {
+            if (card.cost !== 0) {
+                issues.push(`Starting Deck: "${card.title}" has a cost of ${card.cost}. Only 0-cost cards allowed.`);
             }
         });
 
@@ -64,61 +79,29 @@ export const DeckValidator = {
 
     validateTotalComposition: (startingDeck, purchaseDeck) => {
         const issues = [];
-        const cardTitles = [...startingDeck, ...purchaseDeck];
-        const allCardObjects = cardTitles
-            .map(title => appState.cardTitleCache[title])
-            .filter(card => card); // FIX: Filter out null/undefined entries to prevent crash
+        const combinedDeck = [...startingDeck, ...purchaseDeck];
+        
+        const counts = combinedDeck.reduce((acc, title) => {
+            acc[title] = (acc[title] || 0) + 1;
+            return acc;
+        }, {});
 
-        const counts = cardTitles.reduce((acc, title) => { acc[title] = (acc[title] || 0) + 1; return acc; }, {});
-        Object.entries(counts).forEach(([title, count]) => {
+        Object.entries(counts).forEach(([cardTitle, count]) => {
             if (count > 3) {
-                issues.push(`Rule Violation: "${title}" has ${count} copies in total (Max 3 allowed).`);
+                issues.push(`Total Deck: "${cardTitle}" has ${count} copies. Max 3 allowed across both decks.`);
             }
         });
 
-        const cardTypes = allCardObjects.reduce((acc, card) => {
-            if (card.card_type === 'Strike' || card.card_type === 'Grapple' || card.card_type === 'Submission') {
-                acc.maneuvers = (acc.maneuvers || 0) + 1;
-            } else if (card.card_type === 'Response' || card.card_type === 'Action') {
-                acc.actions = (acc.actions || 0) + 1;
-            } else if (card.card_type === 'Asset') {
-                acc.assets = (acc.assets || 0) + 1;
-            }
-            return acc;
-        }, { maneuvers: 0, actions: 0, assets: 0 });
-
-        const totalNonPersonaCards = cardTitles.length;
-        const totalManeuvers = cardTypes.maneuvers;
-        const totalActionsAndResponses = cardTypes.actions;
-        const totalAssets = cardTypes.assets;
-
-        // Validation rule 2: Maneuvers must be at least 50% of the non-persona deck
-        if (totalManeuvers < Math.ceil(totalNonPersonaCards * 0.5)) {
-            issues.push(`Composition Rule: Must have at least ${Math.ceil(totalNonPersonaCards * 0.5)} Maneuvers (has ${totalManeuvers}).`);
-        }
-
-        // Validation rule 3: Actions/Responses/Assets cannot be more than 20%
-        const maxNonManeuver = Math.floor(totalNonPersonaCards * 0.20);
-        const nonManeuverCount = totalActionsAndResponses + totalAssets;
-
-        if (nonManeuverCount > maxNonManeuver) {
-            issues.push(`Composition Rule: Total Actions/Responses/Assets cannot exceed 20% (${maxNonManeuver}). Has ${nonManeuverCount}.`);
-        }
-        
         return issues;
     },
-
-    getDeckStats: (startingDeck, purchaseDeck) => {
-        const cardTitles = [...startingDeck, ...purchaseDeck];
-        const allCards = cardTitles
-            .map(title => appState.cardTitleCache[title])
-            .filter(card => card); // Safety filter for missing cards
-
-        const purchaseDeckCards = purchaseDeck
-            .map(title => appState.cardTitleCache[title])
-            .filter(card => card); // Safety filter for missing cards
-
-        const totalCards = cardTitles.length;
+    
+    // --- STATS LOGIC ---
+    
+    getDeckStats: () => {
+        const startingDeckCards = appState.deck.starting.map(title => appState.cardTitleCache[title]).filter(c => c);
+        const purchaseDeckCards = appState.deck.purchase.map(title => appState.cardTitleCache[title]).filter(c => c);
+        const allCards = [...startingDeckCards, ...purchaseDeckCards];
+        const totalCards = allCards.length;
 
         if (totalCards === 0) {
             return { totalCards: 0, averageCost: 0, cardTypes: {}, costCurve: {} };
@@ -162,35 +145,6 @@ export function validateDeck() {
         issues.push(`Purchase Deck needs at least 36 cards (is ${appState.deck.purchase.length})`);
     }
 
-    if (appState.deck.starting.length + appState.deck.purchase.length < 60) {
-        issues.push(`Total cards (Starting + Purchase) needs at least 60 cards (is ${appState.deck.starting.length + appState.deck.purchase.length})`);
-    }
-
-    // Check for Wrestler and Manager presence
-    if (!appState.deck.selectedWrestler) {
-        issues.push(`Wrestler must be selected.`);
-    }
-
-    // Check for Kit Card presence (just an optional warning for completeness)
-    const activePersonaTitles = [];
-    if (appState.deck.selectedWrestler) activePersonaTitles.push(appState.deck.selectedWrestler.title);
-    if (appState.deck.selectedManager) activePersonaTitles.push(appState.deck.selectedManager.title);
-    
-    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For']));
-    if (kitCards.length === 0) {
-        issues.push(`Warning: No Kit Cards found for the selected Wrestler/Manager.`);
-    }
-
-
-    const validationContainer = document.getElementById('validationIssues');
-    if (!validationContainer) return;
-
-    if (issues.length === 0) {
-        validationContainer.innerHTML = '<li class="validation-success">Deck is Valid!</li>';
-    } else {
-        validationContainer.innerHTML = issues.map(issue => 
-            `<li class="validation-item validation-error">${issue}</li>`
-        ).join('');
-    }
+    return issues;
 }
 

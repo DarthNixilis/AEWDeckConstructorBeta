@@ -35,221 +35,309 @@ async function withTempContainer(callback) {
     }
 }
 
-export async function renderCardPool(cards) {
-    const view = appState.view.cardPool;
-    searchResults.innerHTML = '';
-    searchResults.className = `card-list ${view.mode}-view`;
-    if (view.mode === 'grid') {
-        searchResults.setAttribute('data-columns', view.gridColumns);
-    } else {
-        searchResults.removeAttribute('data-columns');
+/**
+ * Creates the HTML element for a single card in the pool or deck.
+ */
+function createCardElement(card, sourceDeck) {
+    const isDeckCard = !!sourceDeck;
+    const element = document.createElement('div');
+    const mode = isDeckCard ? appState.view.deck.mode : appState.view.cardPool.mode;
+
+    if (mode === 'grid') {
+        element.className = isDeckCard ? 'deck-grid-card-item' : 'card-grid-item';
+        element.dataset.title = card.title;
+        element.style.flexBasis = `calc(${100 / (isDeckCard ? appState.view.deck.gridColumns : appState.view.cardPool.gridColumns)}% - 10px)`;
+        
+        const renderFunc = appState.view.cardPool.usePlaytestProxies || isKitCard(card) ? generatePlaytestCardHTML : generateCardVisualHTML;
+        
+        // Grid view renders asynchronously, using a temporary container helper
+        element.innerHTML = `<div class="card-visual-placeholder">${card.title}</div>`;
+
+        withTempContainer(async (tempContainer) => {
+            const cardHTML = await renderFunc(card, tempContainer);
+            if (cardHTML) {
+                element.innerHTML = cardHTML;
+            } else {
+                element.innerHTML = `<div class="card-visual-placeholder error">Error rendering ${card.title}</div>`;
+            }
+        });
+
+    } else { // List View
+        element.className = 'card-item';
+        element.dataset.title = card.title;
+        
+        let actions = '';
+        if (isDeckCard) {
+            actions = `
+                <button class="remove-card-btn" data-title="${card.title}" data-deck="${sourceDeck}">Remove</button>
+            `;
+        } else if (isKitCard(card)) {
+            // Kit cards can be viewed, but not added manually
+            actions = `<span class="kit-card-tag">Kit Card (${card['Signature For']})</span>`;
+        } else {
+             // Main pool card
+            actions = `
+                <button class="add-starting-btn" data-title="${card.title}" ${card.cost !== 0 ? 'disabled title="Only 0-Cost cards allowed in Starting Deck"' : ''}>Add to Starting</button>
+                <button class="add-purchase-btn" data-title="${card.title}">Add to Purchase</button>
+            `;
+        }
+
+        element.innerHTML = `
+            <div class="card-info">
+                <span class="card-title">${card.title}</span>
+                <span class="card-type">${card.card_type}</span>
+                <span class="card-cost">${card.cost ?? '—'} C</span>
+                <span class="card-damage">${card.damage ?? '—'} D</span>
+                <span class="card-momentum">${card.momentum ?? '—'} M</span>
+                <span class="card-set">(${card.set})</span>
+            </div>
+            <div class="card-actions">
+                ${actions}
+                <button class="view-card-btn" data-title="${card.title}">View</button>
+            </div>
+        `;
     }
-    
+
+    // Add modal click listener to the entire element in grid mode, or the view button in list mode
+    const viewTarget = mode === 'grid' ? element : element.querySelector('.view-card-btn');
+    if (viewTarget) {
+        viewTarget.addEventListener('click', (e) => {
+            if (e.target.closest('.add-starting-btn, .add-purchase-btn, .remove-card-btn')) return;
+            showCardModal(card);
+        });
+    }
+
+    return element;
+}
+
+/**
+ * Renders the Card Pool based on filtered and sorted results.
+ */
+export function renderCardPool(cards) {
+    searchResults.innerHTML = '';
+    const mode = appState.view.cardPool.mode;
+
+    if (mode === 'grid') {
+        searchResults.className = 'card-pool-grid';
+        searchResults.style.gridTemplateColumns = `repeat(${appState.view.cardPool.gridColumns}, 1fr)`;
+    } else {
+        searchResults.className = 'card-pool-list';
+        searchResults.style.gridTemplateColumns = '1fr';
+    }
+
     if (cards.length === 0) {
-        searchResults.innerHTML = '<p>No cards match the current filters.</p>';
+        searchResults.innerHTML = '<p class="no-results-message">No cards match your current filters.</p>';
         return;
     }
 
-    await withTempContainer(async (tempContainer) => {
-        const cardPromises = cards.map(async (card) => {
-            const cardElement = document.createElement('div');
-            cardElement.className = view.mode === 'list' ? 'card-item' : 'grid-card-item';
-            if (isSignatureFor(card)) cardElement.classList.add('signature-highlight'); // Using imported function
-            cardElement.dataset.title = card.title;
+    cards.forEach(card => {
+        searchResults.appendChild(createCardElement(card, null));
+    });
+}
 
-            if (view.mode === 'list') {
-                cardElement.innerHTML = `<span data-title="${card.title}">${card.title} (C:${card.cost ?? 'N/A'}, D:${card.damage ?? 'N/A'}, M:${card.momentum ?? 'N/A'})</span>`;
-                const buttonsDiv = document.createElement('div');
-                buttonsDiv.className = 'card-buttons';
-                if (card.cost === 0) {
-                    buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-                } else {
-                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-                }
-                cardElement.appendChild(buttonsDiv);
+/**
+ * Renders both Starting and Purchase Decks.
+ */
+export function renderDecks() {
+    const startingDeckCards = appState.deck.starting.map(title => appState.cardTitleCache[title]).filter(c => c);
+    const purchaseDeckCards = appState.deck.purchase.map(title => appState.cardTitleCache[title]).filter(c => c);
+
+    startingDeckList.innerHTML = '';
+    purchaseDeckList.innerHTML = '';
+
+    const renderList = (deckListElement, deckCards, deckName) => {
+        const mode = appState.view.deck.mode;
+        
+        if (mode === 'grid') {
+            deckListElement.className = 'deck-grid';
+            deckListElement.style.gridTemplateColumns = `repeat(${appState.view.deck.gridColumns}, 1fr)`;
+        } else {
+            deckListElement.className = 'deck-list';
+            deckListElement.style.gridTemplateColumns = '1fr';
+        }
+        
+        // Group cards by title to display counts
+        const cardCounts = deckCards.reduce((acc, card) => {
+            acc[card.title] = { card: card, count: (acc[card.title]?.count || 0) + 1 };
+            return acc;
+        }, {});
+
+        // Sort alphabetically
+        const sortedTitles = Object.keys(cardCounts).sort((a, b) => a.localeCompare(b));
+
+        sortedTitles.forEach(title => {
+            const { card, count } = cardCounts[title];
+            const cardElement = createCardElement(card, deckName);
+            
+            if (mode === 'list') {
+                const countSpan = document.createElement('span');
+                countSpan.className = 'card-count';
+                countSpan.textContent = `${count}x`;
+                cardElement.prepend(countSpan);
             } else {
-                const visualHTML = await generateCardVisualHTML(card, tempContainer);
-                cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div>`;
-                const buttonsDiv = document.createElement('div');
-                buttonsDiv.className = 'card-buttons';
-                if (card.cost === 0) {
-                    buttonsDiv.innerHTML = `<button data-title="${card.title}" data-deck-target="starting">Starting</button><button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-                } else {
-                    buttonsDiv.innerHTML = `<button class="btn-purchase" data-title="${card.title}" data-deck-target="purchase">Purchase</button>`;
-                }
-                cardElement.appendChild(buttonsDiv);
+                // For grid view, prepend count to the title (placeholder or rendered card)
+                // This is less accurate due to async rendering, but better than nothing.
+                const countLabel = document.createElement('div');
+                countLabel.className = 'deck-card-count-overlay';
+                countLabel.textContent = `${count}x`;
+                cardElement.prepend(countLabel);
             }
-            return cardElement;
+            
+            deckListElement.appendChild(cardElement);
         });
+    };
 
-        const cardElements = await Promise.all(cardPromises);
-        cardElements.forEach(el => searchResults.appendChild(el));
-    });
-}
+    renderList(startingDeckList, startingDeckCards, 'starting');
+    renderList(purchaseDeckList, purchaseDeckCards, 'purchase');
+    
+    startingDeckCount.textContent = startingDeckCards.length;
+    purchaseDeckCount.textContent = purchaseDeckCards.length;
+    
+    // Toggle deck list visibility based on expansion state
+    startingDeckList.classList.toggle('expanded', appState.view.deck.expanded.starting);
+    purchaseDeckList.classList.toggle('expanded', appState.view.deck.expanded.purchase);
+    startingDeckHeader.querySelector('i').className = appState.view.deck.expanded.starting ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    purchaseDeckHeader.querySelector('i').className = appState.view.deck.expanded.purchase ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
 
-export function renderPersonaDisplay() {
-    if (!appState.deck.selectedWrestler) { personaDisplay.style.display = 'none'; return; }
-    personaDisplay.style.display = 'block';
-    personaDisplay.innerHTML = '<h3>Persona & Kit</h3><div class="persona-card-list"></div>';
-    const list = personaDisplay.querySelector('.persona-card-list');
-    list.innerHTML = ''; 
-    const cardsToShow = new Set();
-    const activePersona = [];
-    if (appState.deck.selectedWrestler) activePersona.push(appState.deck.selectedWrestler);
-    if (appState.deck.selectedManager) activePersona.push(appState.deck.selectedManager);
-    activePersona.forEach(p => cardsToShow.add(p));
-    const activePersonaTitles = activePersona.map(p => p.title);
-    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && activePersonaTitles.includes(card['Signature For'])); // Using imported function
-    kitCards.forEach(card => cardsToShow.add(card));
-    const sortedCards = Array.from(cardsToShow).sort((a, b) => {
-        if (a.card_type === 'Wrestler') return -1; if (b.card_type === 'Wrestler') return 1;
-        if (a.card_type === 'Manager') return -1; if (b.card_type === 'Manager') return 1;
-        return a.title.localeCompare(b.title);
-    });
-    sortedCards.forEach(card => {
-        const item = document.createElement('div');
-        item.className = 'persona-card-item';
-        item.textContent = card.title;
-        item.dataset.title = card.title;
-        list.appendChild(item);
-    });
-}
 
-export async function showCardModal(cardTitle) {
-    updateAppState('ui.lastFocusedElement', document.activeElement);
-    const card = appState.cardDatabase.find(c => c.title === cardTitle);
-    if (!card) return;
-    modalCardContent.innerHTML = await generateCardVisualHTML(card);
-    cardModal.style.display = 'flex';
-    cardModal.setAttribute('role', 'dialog');
-    cardModal.setAttribute('aria-modal', 'true');
-    modalCloseButton.focus();
-}
-
-export async function renderDecks() {
-    deckGridSizeControls.style.display = appState.view.deck.mode === 'grid' ? 'flex' : 'none';
-    await Promise.all([
-        renderDeckList(startingDeckList, appState.deck.starting, 'starting'),
-        renderDeckList(purchaseDeckList, appState.deck.purchase, 'purchase')
-    ]);
-    updateDeckCounts();
-    renderValidationIssues();
+    renderValidation(validateDeck());
     renderDeckStats();
     saveStateToCache();
 }
 
-async function renderDeckList(element, deck, deckName) {
-    const view = appState.view.deck;
-    element.innerHTML = '';
-    element.className = `deck-list ${view.mode}-view`;
-    if (view.expanded[deckName]) element.classList.add('expanded');
+/**
+ * Renders the Wrestler and Manager info.
+ */
+export function renderPersonaDisplay() {
+    personaDisplay.innerHTML = '';
+    const wrestler = appState.deck.selectedWrestler;
+    const manager = appState.deck.selectedManager;
 
-    const cardCounts = deck.reduce((acc, cardTitle) => { acc[cardTitle] = (acc[cardTitle] || 0) + 1; return acc; }, {});
-    const uniqueSortedTitles = Object.keys(cardCounts).sort((a, b) => a.localeCompare(b));
+    const renderPersona = (persona, role) => {
+        if (!persona) return '';
+        
+        const isKitCardFlag = isKitCard(persona); // Should always be true for Wrestler/Manager
+        const renderFunc = appState.view.cardPool.usePlaytestProxies || isKitCardFlag ? generatePlaytestCardHTML : generateCardVisualHTML;
 
-    if (view.mode === 'list') {
-        element.removeAttribute('data-columns');
-        uniqueSortedTitles.forEach(cardTitle => {
-            const card = appState.cardTitleCache[cardTitle];
-            const count = cardCounts[cardTitle];
-            const cardElement = document.createElement('div');
-            cardElement.className = 'card-item';
-            cardElement.dataset.title = cardTitle;
+        // Use a placeholder immediately, then render async
+        const container = document.createElement('div');
+        container.className = 'persona-card';
+        container.dataset.title = persona.title;
+        container.innerHTML = `<div class="card-visual-placeholder">${persona.title}</div>`;
 
-            let buttonsHTML = `<button data-action="remove" data-deck="${deckName}" data-title="${cardTitle}">Remove</button>`;
-            if (card.cost === 0) {
-                const moveTarget = deckName === 'starting' ? 'Purchase' : 'Starting';
-                buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To ${moveTarget}</button>`;
+        withTempContainer(async (tempContainer) => {
+            const cardHTML = await renderFunc(persona, tempContainer);
+            if (cardHTML) {
+                container.innerHTML = cardHTML;
+            } else {
+                container.innerHTML = `<div class="card-visual-placeholder error">Error rendering ${persona.title}</div>`;
             }
-
-            cardElement.innerHTML = `<span data-title="${cardTitle}">${count}x ${cardTitle}</span><div class="card-buttons">${buttonsHTML}</div>`;
-            element.appendChild(cardElement);
         });
-    } else {
-        element.setAttribute('data-columns', view.gridColumns);
-        await withTempContainer(async (tempContainer) => {
-            const cardPromises = deck.sort((a, b) => a.localeCompare(b)).map(async (cardTitle) => {
-                const card = appState.cardTitleCache[cardTitle];
-                if (!card) return null;
 
-                const cardElement = document.createElement('div');
-                cardElement.className = 'deck-grid-card-item';
-                cardElement.dataset.title = card.title;
+        // Add modal listener
+        container.addEventListener('click', () => showCardModal(persona));
 
-                let buttonsHTML = `<button data-action="remove" data-deck="${deckName}" data-title="${cardTitle}">Remove</button>`;
-                if (card.cost === 0) {
-                    const moveTarget = deckName === 'starting' ? 'Purchase' : 'Starting';
-                    buttonsHTML += `<button data-action="move" data-deck="${deckName}" data-title="${cardTitle}" class="btn-move">To ${moveTarget}</button>`;
-                }
-
-                const visualHTML = await generateCardVisualHTML(card, tempContainer);
-                cardElement.innerHTML = `<div class="card-visual" data-title="${card.title}">${visualHTML}</div><div class="deck-grid-buttons">${buttonsHTML}</div>`;
-                return cardElement;
-            });
-
-            const cardElements = await Promise.all(cardPromises);
-            cardElements.filter(Boolean).forEach(el => element.appendChild(el));
-        });
+        return container;
     }
-}
-
-// BUG FIX: Correctly assign header colors
-function updateDeckCounts() {
-    const startingDeckLength = appState.deck.starting.length;
-    const purchaseDeckLength = appState.deck.purchase.length;
-    startingDeckCount.textContent = startingDeckLength;
-    purchaseDeckCount.textContent = purchaseDeckLength;
     
-    startingDeckHeader.style.color = startingDeckLength === 24 ? 'var(--success-color)' : 'var(--danger-color)';
-    purchaseDeckHeader.style.color = purchaseDeckLength >= 36 ? 'var(--success-color)' : 'var(--danger-color)';
-}
+    const wrestlerElement = renderPersona(wrestler, 'Wrestler');
+    if (wrestlerElement) personaDisplay.appendChild(wrestlerElement);
 
-function renderValidationIssues() {
-    const issues = validateDeck();
-    if (!validationIssuesContainer) return;
-    validationIssuesContainer.innerHTML = '';
-    if (issues.length === 0) {
-        validationIssuesContainer.innerHTML = '<div class="validation-item validation-success">Deck is valid!</div>';
-    } else {
-        const list = document.createElement('ul');
-        issues.forEach(issue => {
-            const item = document.createElement('li');
-            item.className = 'validation-item validation-error';
-            item.textContent = issue;
-            list.appendChild(item);
+    const managerElement = renderPersona(manager, 'Manager');
+    if (managerElement) personaDisplay.appendChild(managerElement);
+
+    const kitCards = appState.cardDatabase.filter(card => isKitCard(card) && isSignatureFor(card)).sort((a, b) => a.title.localeCompare(b.title));
+
+    if (kitCards.length > 0) {
+        const kitHeader = document.createElement('h4');
+        kitHeader.textContent = 'Kit Cards (Not in Deck)';
+        personaDisplay.appendChild(kitHeader);
+
+        const kitContainer = document.createElement('div');
+        kitContainer.className = 'kit-cards-container';
+        
+        kitCards.forEach(card => {
+            const cardElement = createCardElement(card, null);
+            kitContainer.appendChild(cardElement);
         });
-        validationIssuesContainer.appendChild(list);
+
+        personaDisplay.appendChild(kitContainer);
     }
 }
 
-// BUG FIX: Ensure stats container exists before trying to update it
-export function renderDeckStats() {
-    const stats = DeckValidator.getDeckStats();
-    let statsContainer = document.getElementById('deckStatsContainer');
-    if (!statsContainer) {
-        console.error("Could not find #deckStatsContainer");
+
+/**
+ * Populates and shows the modal with a single card's visual render.
+ */
+export async function showCardModal(card) {
+    modalCardContent.innerHTML = '<div class="card-loading-message">Loading card preview...</div>';
+    cardModal.style.display = 'block';
+
+    const isKitCardFlag = isKitCard(card);
+    const renderFunc = appState.view.cardPool.usePlaytestProxies || isKitCardFlag ? generatePlaytestCardHTML : generateCardVisualHTML;
+
+    await withTempContainer(async (tempContainer) => {
+        const cardHTML = await renderFunc(card, tempContainer);
+        if (cardHTML) {
+            modalCardContent.innerHTML = cardHTML;
+        } else {
+            modalCardContent.innerHTML = `<div class="card-visual-placeholder error">Error rendering ${card.title}</div>`;
+        }
+    });
+}
+
+/**
+ * Renders deck validation issues.
+ */
+function renderValidation(issues) {
+    validationIssuesContainer.innerHTML = '';
+    
+    if (issues.length === 0) {
+        validationIssuesContainer.innerHTML = '<div class="validation-success">Deck is Valid!</div>';
         return;
     }
+    
+    const ul = document.createElement('ul');
+    issues.forEach(issue => {
+        const li = document.createElement('li');
+        li.className = 'validation-item validation-error';
+        li.textContent = issue;
+        ul.appendChild(li);
+    });
+    
+    validationIssuesContainer.innerHTML = '<h4>Deck Validation Issues:</h4>';
+    validationIssuesContainer.appendChild(ul);
+}
 
-    const sortedCardTypes = Object.entries(stats.cardTypes).sort((a, b) => a[0].localeCompare(b[0]));
-    const sortedCostCurve = Object.entries(stats.costCurve).sort((a, b) => Number(a[0]) - Number(b[0]));
-    const maxCount = Math.max(...Object.values(stats.costCurve), 1);
 
+/**
+ * Renders deck statistics.
+ */
+function renderDeckStats() {
+    const statsContainer = document.getElementById('deckStats');
+    const stats = DeckValidator.getDeckStats();
+    
+    const costCurveEntries = Object.entries(stats.costCurve).map(([cost, count]) => ({ cost: Number(cost), count: count }));
+    const sortedCostCurve = costCurveEntries.sort((a, b) => a.cost - b.cost).map(e => [e.cost, e.count]);
+    const maxCount = Math.max(...sortedCostCurve.map(e => e[1]), 1); // Avoid division by zero
+
+    const totalNonPersonaCards = stats.totalCards - (appState.deck.selectedWrestler ? 1 : 0) - (appState.deck.selectedManager ? 1 : 0);
+    
     const statsHTML = `
-        <h4>Deck Statistics</h4>
-        <div class="stat-grid">
-            <div class="stat-item">
-                <span class="stat-label">Total Cards:</span>
-                <span class="stat-value">${stats.totalCards}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Avg Cost:</span>
-                <span class="stat-value">${stats.averageCost.toFixed(2)}</span>
-            </div>
-            ${sortedCardTypes.map(([type, count]) => `
-                <div class="stat-item">
-                    <span class="stat-label">${type}:</span>
-                    <span class="stat-value">${count}</span>
+        <h3>Deck Statistics</h3>
+        <div class="stat-summary">
+            <div><strong>Total Cards in Deck (Starting + Purchase):</strong> ${totalNonPersonaCards}</div>
+            <div><strong>Starting Deck Size:</strong> ${appState.deck.starting.length}/24</div>
+            <div><strong>Purchase Deck Size:</strong> ${appState.deck.purchase.length}/36</div>
+            <div><strong>Average Purchase Cost:</strong> ${stats.averageCost.toFixed(2)} C</div>
+        </div>
+        
+        <div class="card-type-breakdown">
+            <h5>Card Type Breakdown (Total)</h5>
+            ${Object.entries(stats.cardTypes).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
+                <div class="type-item">
+                    <span>${type}:</span>
+                    <span class="type-count">${count}</span>
                 </div>
             `).join('')}
         </div>
@@ -259,7 +347,7 @@ export function renderDeckStats() {
                 ${sortedCostCurve.map(([cost, count]) => `
                     <div class="curve-bar" title="${count} card(s) at cost ${cost}">
                         <div class="bar-label">${count > 0 ? count : ''}</div>
-                        <div class="bar" style="height: ${(count / maxCount) * 100}%"></div>
+                        <div class="bar" style="height: ${(count / maxCount) * 100}%; background-color: var(--purchase-color);"></div>
                         <div class="cost-label">${cost}</div>
                     </div>
                 `).join('')}
@@ -279,12 +367,3 @@ export function filterDeckList(deckListElement, query) {
     });
 }
 
-function saveStateToCache() {
-    const deckState = {
-        wrestler: appState.deck.selectedWrestler ? appState.deck.selectedWrestler.title : null,
-        manager: appState.deck.selectedManager ? appState.deck.selectedManager.title : null,
-        startingDeck: appState.deck.starting,
-        purchaseDeck: appState.deck.purchase
-    };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(deckState));
-}

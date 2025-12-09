@@ -1,7 +1,7 @@
 // filters.js
 
 import * as state from './config.js';
-import { isKitCard } from './config.js'; // ADDED isKitCard
+import { isKitCard } from './config.js'; // FIX: Added missing import
 
 // --- FILTER & SORT LOGIC ---
 
@@ -33,43 +33,94 @@ function getAvailableFilterOptions(cards) {
         });
         if (card && card.set) options['Set'].add(card.set);
     });
-
-    // Remove persona types from 'Card Type'
-    options['Card Type'].delete('Wrestler');
-    options['Card Type'].delete('Manager');
     
-    // Sort and convert to array of unique values
-    for (const key in options) {
-        options[key] = Array.from(options[key]).sort((a, b) => a.localeCompare(b));
+    // Custom logic to handle 'Maneuver' rollup for UI
+    if (options['Card Type'].has('Strike') || options['Card Type'].has('Grapple') || options['Card Type'].has('Submission')) {
+        options['Card Type'].add('Maneuver');
     }
 
-    // Special handling for Card Type display
-    const cardTypes = options['Card Type'];
-    if (cardTypes.some(t => ['Strike', 'Grapple', 'Submission'].includes(t))) {
-        // If any maneuver types exist, add the grouped "Maneuver" filter
-        const maneuverIndex = cardTypes.findIndex(t => t === 'Strike'); // Find an anchor
-        if (maneuverIndex !== -1) {
-            cardTypes.splice(maneuverIndex, 0, 'Maneuver');
-        } else {
-            cardTypes.push('Maneuver');
-        }
-    }
-    
-    return options;
+    return Object.fromEntries(
+        Object.entries(options).map(([key, value]) => [key, [...value].sort()])
+    );
 }
 
+export function renderCascadingFilters() {
+    const cardsToFilter = state.cardDatabase.filter(card => {
+        // Exclude personas and kit cards from filter options calculation
+        return !card || (card.card_type !== 'Wrestler' && card.card_type !== 'Manager' && !isKitCard(card));
+    });
+
+    const options = getAvailableFilterOptions(cardsToFilter);
+    const container = document.getElementById('cascadingFiltersContainer');
+    container.innerHTML = '';
+    
+    // Clear old filters and reset to 3 empty filter objects
+    state.activeFilters.length = 0;
+    state.activeFilters.push({}, {}, {});
+
+    // Render filter blocks
+    for (let i = 0; i < 3; i++) {
+        const filterBlock = document.createElement('div');
+        filterBlock.className = 'filter-block';
+        filterBlock.dataset.filterIndex = i;
+        
+        const typeSelect = document.createElement('select');
+        typeSelect.className = 'filter-type-select';
+        typeSelect.add(new Option('Filter By...', '', true, true));
+        Object.keys(options).forEach(key => typeSelect.add(new Option(key, key)));
+        
+        const valueSelect = document.createElement('select');
+        valueSelect.className = 'filter-value-select';
+        valueSelect.disabled = true;
+
+        // Load existing filter state if available
+        if (state.activeFilters[i].type) {
+            typeSelect.value = state.activeFilters[i].type;
+            const currentOptions = options[state.activeFilters[i].type] || [];
+            currentOptions.forEach(value => valueSelect.add(new Option(value, value)));
+            if (state.activeFilters[i].value) {
+                valueSelect.value = state.activeFilters[i].value;
+            }
+            valueSelect.disabled = false;
+        }
+
+        typeSelect.addEventListener('change', () => {
+            const filterType = typeSelect.value;
+            state.activeFilters[i] = {}; // Reset filter on type change
+            valueSelect.innerHTML = ''; // Clear old values
+            valueSelect.disabled = true;
+            
+            if (filterType) {
+                const currentOptions = options[filterType] || [];
+                valueSelect.add(new Option(`Select ${filterType}...`, '', true, true));
+                currentOptions.forEach(value => valueSelect.add(new Option(value, value)));
+                valueSelect.disabled = false;
+                
+                // Update state for new filter type
+                state.activeFilters[i].type = filterType;
+            }
+            document.dispatchEvent(new Event('filtersChanged'));
+        });
+
+        valueSelect.addEventListener('change', () => {
+            state.activeFilters[i].value = valueSelect.value;
+            document.dispatchEvent(new Event('filtersChanged'));
+        });
+
+        filterBlock.appendChild(typeSelect);
+        filterBlock.appendChild(valueSelect);
+        container.appendChild(filterBlock);
+    }
+}
 
 function applyAllFilters(cards) {
     let filteredCards = [...cards];
     
     state.activeFilters.forEach(filter => {
-        const filterKey = filter.key;
-        const filterValue = filter.value;
-        
-        if (filterKey && filterValue) {
-            const filterFunc = filterFunctions[filterKey];
-            if (filterFunc) {
-                filteredCards = filteredCards.filter(card => filterFunc(card, filterValue));
+        if (filter.type && filter.value) {
+            const filterFn = filterFunctions[filter.type];
+            if (filterFn) {
+                filteredCards = filteredCards.filter(card => filterFn(card, filter.value));
             }
         }
     });
@@ -77,92 +128,17 @@ function applyAllFilters(cards) {
     return filteredCards;
 }
 
-export function renderCascadingFilters() {
-    const filtersContainer = document.getElementById('cascadingFiltersContainer');
-    // Start with all cards that are not personas or kit cards
-    const baseCards = state.cardDatabase.filter(card => 
-        card && 
-        card.card_type !== 'Wrestler' && 
-        card.card_type !== 'Manager' && 
-        !isKitCard(card)
-    );
+function sortCardPool(cards) {
+    const [field, direction] = state.currentSort.split('-');
     
-    let currentCards = baseCards;
-    filtersContainer.innerHTML = '';
-    
-    // Define the order of filters to render
-    const filterOrder = ['Card Type', 'Set', 'Keyword', 'Trait'];
-    
-    filterOrder.forEach((key, index) => {
-        const filterElement = document.createElement('div');
-        filterElement.className = 'filter-control';
-        
-        const label = document.createElement('label');
-        label.textContent = `${key}:`;
-        
-        const select = document.createElement('select');
-        select.id = `filter-${key.replace(/\s/g, '')}`;
-
-        // Get available options based on the currently filtered cards
-        const availableOptions = getAvailableFilterOptions(currentCards);
-        const options = availableOptions[key] || [];
-
-        // Add default 'All' option
-        select.add(new Option('All', ''));
-        
-        // Populate options
-        options.forEach(value => {
-            select.add(new Option(value, value));
-        });
-
-        // Set current selection
-        const activeFilter = state.getActiveFilter(index);
-        if (activeFilter.key === key) {
-            select.value = activeFilter.value || '';
-        } else {
-            // If the filter type changed or was cleared, make sure the visual state is 'All'
-            select.value = '';
-        }
-        
-        // Update state and refresh UI on change
-        select.addEventListener('change', (e) => {
-            const value = e.target.value;
-            if (value) {
-                state.setActiveFilter(index, { key: key, value: value });
-            } else {
-                state.clearActiveFilter(index);
-            }
-            // Clear subsequent filters
-            for (let i = index + 1; i < filterOrder.length; i++) {
-                state.clearActiveFilter(i);
-            }
-            document.dispatchEvent(new Event('filtersChanged'));
-            renderCascadingFilters(); // Re-render to update subsequent filter options
-        });
-        
-        filterElement.appendChild(label);
-        filterElement.appendChild(select);
-        filtersContainer.appendChild(filterElement);
-
-        // Update currentCards for the next filter's options based on the selection just processed
-        const selectedValue = select.value;
-        if (selectedValue) {
-            currentCards = currentCards.filter(card => filterFunctions[key](card, selectedValue));
-        }
-    });
-}
-
-function applySorting(cards, sortBy) {
-    const [field, direction] = sortBy.split('-');
-
     return cards.sort((a, b) => {
         if (field === 'alpha') {
-            const valA = a.title.toLowerCase();
-            const valB = b.title.toLowerCase();
-            if (direction === 'asc') return valA.localeCompare(valB);
-            else return valB.localeCompare(valA);
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            if (direction === 'asc') return titleA.localeCompare(titleB);
+            else return titleB.localeCompare(titleA);
         }
-
+        
         let valA, valB;
         switch (field) {
             case 'cost': valA = a.cost ?? -1; valB = b.cost ?? -1; break;
@@ -179,31 +155,21 @@ export function getFilteredAndSortedCardPool() {
     const searchInput = document.getElementById('searchInput');
     const query = searchInput.value.toLowerCase();
     
-    // Start with all cards from the database
     let cards = state.cardDatabase.filter(card => {
-        // Basic card validation
         if (!card || !card.title) return false; 
-        
-        // Exclude personas and kit cards
         if (card.card_type === 'Wrestler' || card.card_type === 'Manager' || isKitCard(card)) return false;
-
-        // Cost filters
         if (!state.showZeroCost && card.cost === 0) return false;
-        if (!state.showNonZeroCost && (card.cost === null || card.cost > 0)) return false; // Filter non-zero cost
-
-        // Set filters
+        if (!state.showNonZeroCost && card.cost > 0) return false;
+        
+        // Filter by set
         if (!state.showSetCore && card.set === 'Core') return false;
         if (!state.showSetAdvanced && card.set === 'Advanced') return false;
         
-        // Search query filter
         const rawText = card.text_box?.raw_text || '';
         return query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
     });
 
-    // Apply cascading filters
     const filtered = applyAllFilters(cards);
-
-    // Apply sorting
-    return applySorting(filtered, state.appState.view.cardPool.sort);
+    return sortCardPool(filtered);
 }
 

@@ -3,7 +3,7 @@
 // data-loader.js
 import * as state from './config.js';
 import { initializeApp } from './app-init.js';
-import { updateCacheStatus } from './ui.js'; // NEW IMPORT
+import { updateCacheStatus } from './ui.js';
 
 // --- DYNAMIC PATH DETECTION ---
 function getBasePath() {
@@ -34,15 +34,25 @@ const CACHE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 async function getFileHash(url) {
     try {
-        const response = await fetch(url, { method: 'HEAD' });
-        const lastModified = response.headers.get('last-modified');
-        const contentLength = response.headers.get('content-length');
-        const etag = response.headers.get('etag');
+        // For GitHub Pages, we can't reliably use HEAD requests due to CORS
+        // Instead, we'll use a simpler approach with GET and cache busting
+        const timestamp = new Date().getTime();
+        const response = await fetch(`${url}?v=${timestamp}`, {
+            method: 'GET',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         
-        // Create a hash from available headers
-        return `${url}|${lastModified || ''}|${contentLength || ''}|${etag || ''}`;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        // Use content-length if available, otherwise fallback to timestamp
+        const contentLength = response.headers.get('content-length');
+        return `${url}|${contentLength || timestamp}`;
     } catch (error) {
-        console.warn(`Could not get file headers for ${url}:`, error);
+        console.warn(`Could not get file info for ${url}:`, error);
         // Fallback: use current timestamp as version
         return `${url}|${new Date().getTime()}`;
     }
@@ -78,23 +88,29 @@ function loadFromCache(key) {
 async function checkFilesChanged(cardDbUrl, keywordsUrl) {
     const currentFileVersions = loadFromCache(FILE_VERSIONS_KEY) || {};
     
-    // Get current file hashes
-    const currentCardHash = await getFileHash(cardDbUrl);
-    const currentKeywordHash = await getFileHash(keywordsUrl);
-    
-    // Check if files have changed
-    const cardChanged = currentFileVersions.cardDbHash !== currentCardHash;
-    const keywordChanged = currentFileVersions.keywordHash !== currentKeywordHash;
-    
-    // Update stored hashes
-    if (cardChanged || keywordChanged) {
-        currentFileVersions.cardDbHash = currentCardHash;
-        currentFileVersions.keywordHash = currentKeywordHash;
-        currentFileVersions.lastCheck = new Date().getTime();
-        saveToCache(FILE_VERSIONS_KEY, currentFileVersions);
+    try {
+        // Get current file hashes
+        const currentCardHash = await getFileHash(cardDbUrl);
+        const currentKeywordHash = await getFileHash(keywordsUrl);
+        
+        // Check if files have changed
+        const cardChanged = currentFileVersions.cardDbHash !== currentCardHash;
+        const keywordChanged = currentFileVersions.keywordHash !== currentKeywordHash;
+        
+        // Update stored hashes
+        if (cardChanged || keywordChanged) {
+            currentFileVersions.cardDbHash = currentCardHash;
+            currentFileVersions.keywordHash = currentKeywordHash;
+            currentFileVersions.lastCheck = new Date().getTime();
+            saveToCache(FILE_VERSIONS_KEY, currentFileVersions);
+        }
+        
+        return { cardChanged, keywordChanged };
+    } catch (error) {
+        console.warn('Error checking file changes:', error);
+        // If we can't check, assume files haven't changed
+        return { cardChanged: false, keywordChanged: false };
     }
-    
-    return { cardChanged, keywordChanged };
 }
 
 function isCacheValid() {
@@ -138,7 +154,7 @@ export async function loadGameData() {
     
     try {
         searchResults.innerHTML = '<p>Loading card data...</p>';
-        updateCacheStatus('Loading...'); // NEW: Update status
+        updateCacheStatus('Loading...');
         
         const basePath = getBasePath();
         // UPDATED: Changed from cardDatabase.txt to CoreSet.txt
@@ -146,6 +162,8 @@ export async function loadGameData() {
         const keywordsUrl = `${basePath}keywords.txt`;
         
         console.log(`Base path: ${basePath}`);
+        console.log(`Card DB URL: ${cardDbUrl}`);
+        console.log(`Keywords URL: ${keywordsUrl}`);
         
         // Check cache validity
         const cacheValid = isCacheValid();
@@ -153,106 +171,137 @@ export async function loadGameData() {
         if (cacheValid === true) {
             // Load from cache immediately
             console.log('Loading from cache...');
-            updateCacheStatus('Loading from cache...'); // NEW: Update status
+            updateCacheStatus('Loading from cache...');
             
             const cachedCards = loadFromCache(CARD_DATA_CACHE_KEY);
             const cachedKeywords = loadFromCache(KEYWORD_DATA_CACHE_KEY);
             
-            state.setCardDatabase(cachedCards);
-            state.setKeywordDatabase(cachedKeywords);
-            state.buildCardTitleCache();
-            
-            updateCacheStatus('Loaded from cache ✓'); // NEW: Update status
-            
-            // Check for updates in background
-            setTimeout(async () => {
-                try {
-                    updateCacheStatus('Checking for updates...'); // NEW: Update status
-                    
-                    const { cardChanged, keywordChanged } = await checkFilesChanged(
-                        `${cardDbUrl}?v=${new Date().getTime()}`,
-                        `${keywordsUrl}?v=${new Date().getTime()}`
-                    );
-                    
-                    if (cardChanged || keywordChanged) {
-                        console.log('Files changed, fetching updates in background...');
-                        updateCacheStatus('Updating cache...'); // NEW: Update status
-                        
-                        // Re-fetch data silently
-                        const updatedCards = await fetchAndParseCards(cardDbUrl);
-                        const updatedKeywords = await fetchAndParseKeywords(keywordsUrl);
-                        
-                        if (updatedCards && updatedKeywords) {
-                            // Update cache
-                            saveToCache(CARD_DATA_CACHE_KEY, updatedCards);
-                            saveToCache(KEYWORD_DATA_CACHE_KEY, updatedKeywords);
-                            localStorage.setItem(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION);
-                            
-                            // Update app state
-                            state.setCardDatabase(updatedCards);
-                            state.setKeywordDatabase(updatedKeywords);
-                            state.buildCardTitleCache();
-                            
-                            console.log('Cache updated in background');
-                            updateCacheStatus('Cache updated ✓'); // NEW: Update status
-                            
-                            // Revert to ready status after a few seconds
-                            setTimeout(() => {
-                                updateCacheStatus('Ready');
-                            }, 3000);
-                        }
-                    } else {
-                        updateCacheStatus('Ready'); // NEW: Update status
-                    }
-                } catch (error) {
-                    console.warn('Background cache check failed:', error);
-                    updateCacheStatus('Ready'); // NEW: Update status
-                }
-            }, 1000); // Wait 1 second before background check
-            
-            return true;
-        }
-        
-        // If cache needs checking or is invalid, check files
-        if (cacheValid === 'needs-check') {
-            console.log('Checking for file updates...');
-            updateCacheStatus('Checking for updates...'); // NEW: Update status
-            
-            const { cardChanged, keywordChanged } = await checkFilesChanged(
-                `${cardDbUrl}?v=${new Date().getTime()}`,
-                `${keywordsUrl}?v=${new Date().getTime()}`
-            );
-            
-            if (!cardChanged && !keywordChanged) {
-                // Files haven't changed, use cache
-                console.log('Files unchanged, using cache');
-                updateCacheStatus('Loading from cache...'); // NEW: Update status
-                
-                const cachedCards = loadFromCache(CARD_DATA_CACHE_KEY);
-                const cachedKeywords = loadFromCache(KEYWORD_DATA_CACHE_KEY);
-                
+            if (cachedCards && cachedKeywords) {
                 state.setCardDatabase(cachedCards);
                 state.setKeywordDatabase(cachedKeywords);
                 state.buildCardTitleCache();
                 
-                updateCacheStatus('Loaded from cache ✓'); // NEW: Update status
+                updateCacheStatus('Loaded from cache ✓');
                 
-                // Revert to ready status after a few seconds
-                setTimeout(() => {
-                    updateCacheStatus('Ready');
-                }, 2000);
+                // Check for updates in background (with longer delay for GitHub Pages)
+                setTimeout(async () => {
+                    try {
+                        updateCacheStatus('Checking for updates...');
+                        
+                        const { cardChanged, keywordChanged } = await checkFilesChanged(
+                            cardDbUrl,
+                            keywordsUrl
+                        );
+                        
+                        if (cardChanged || keywordChanged) {
+                            console.log('Files changed, fetching updates in background...');
+                            updateCacheStatus('Updating cache...');
+                            
+                            // Re-fetch data silently
+                            const updatedCards = await fetchAndParseCards(cardDbUrl);
+                            const updatedKeywords = await fetchAndParseKeywords(keywordsUrl);
+                            
+                            if (updatedCards && updatedKeywords) {
+                                // Update cache
+                                saveToCache(CARD_DATA_CACHE_KEY, updatedCards);
+                                saveToCache(KEYWORD_DATA_CACHE_KEY, updatedKeywords);
+                                localStorage.setItem(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION);
+                                
+                                // Update app state
+                                state.setCardDatabase(updatedCards);
+                                state.setKeywordDatabase(updatedKeywords);
+                                state.buildCardTitleCache();
+                                
+                                console.log('Cache updated in background');
+                                updateCacheStatus('Cache updated ✓');
+                                
+                                // Revert to ready status after a few seconds
+                                setTimeout(() => {
+                                    updateCacheStatus('Ready');
+                                }, 3000);
+                            }
+                        } else {
+                            updateCacheStatus('Ready');
+                        }
+                    } catch (error) {
+                        console.warn('Background cache check failed:', error);
+                        updateCacheStatus('Ready');
+                    }
+                }, 2000); // Wait 2 seconds before background check for GitHub Pages
                 
                 return true;
+            } else {
+                console.log('Cache exists but data is invalid, fetching fresh data');
+                updateCacheStatus('Cache invalid, fetching data...');
             }
-            
-            console.log('Files changed, fetching fresh data');
-            updateCacheStatus('Fetching updated data...'); // NEW: Update status
-        } else {
-            console.log('Cache invalid or missing, fetching fresh data');
-            updateCacheStatus('Fetching data...'); // NEW: Update status
         }
         
-        // Fetch and parse fresh data
+        // If cache needs checking or is invalid
+        if (cacheValid === 'needs-check') {
+            console.log('Checking for file updates...');
+            updateCacheStatus('Checking for updates...');
+            
+            try {
+                const { cardChanged, keywordChanged } = await checkFilesChanged(
+                    cardDbUrl,
+                    keywordsUrl
+                );
+                
+                if (!cardChanged && !keywordChanged) {
+                    // Files haven't changed, use cache
+                    console.log('Files unchanged, using cache');
+                    updateCacheStatus('Loading from cache...');
+                    
+                    const cachedCards = loadFromCache(CARD_DATA_CACHE_KEY);
+                    const cachedKeywords = loadFromCache(KEYWORD_DATA_CACHE_KEY);
+                    
+                    if (cachedCards && cachedKeywords) {
+                        state.setCardDatabase(cachedCards);
+                        state.setKeywordDatabase(cachedKeywords);
+                        state.buildCardTitleCache();
+                        
+                        updateCacheStatus('Loaded from cache ✓');
+                        
+                        setTimeout(() => {
+                            updateCacheStatus('Ready');
+                        }, 2000);
+                        
+                        return true;
+                    }
+                }
+                
+                console.log('Files changed or cache missing, fetching fresh data');
+                updateCacheStatus('Fetching updated data...');
+            } catch (error) {
+                console.warn('Could not check file changes, using cache if available:', error);
+                updateCacheStatus('Using cached data...');
+                
+                // Try to use cache as fallback
+                const cachedCards = loadFromCache(CARD_DATA_CACHE_KEY);
+                const cachedKeywords = loadFromCache(KEYWORD_DATA_CACHE_KEY);
+                
+                if (cachedCards && cachedKeywords) {
+                    state.setCardDatabase(cachedCards);
+                    state.setKeywordDatabase(cachedKeywords);
+                    state.buildCardTitleCache();
+                    
+                    updateCacheStatus('Using cached data ✓');
+                    
+                    setTimeout(() => {
+                        updateCacheStatus('Ready');
+                    }, 2000);
+                    
+                    return true;
+                }
+                
+                updateCacheStatus('Fetching data...');
+            }
+        } else {
+            console.log('Cache invalid or missing, fetching fresh data');
+            updateCacheStatus('Fetching data...');
+        }
+        
+        // Fetch and parse fresh data with GitHub Pages-friendly approach
         const [parsedCards, parsedKeywords] = await Promise.all([
             fetchAndParseCards(cardDbUrl),
             fetchAndParseKeywords(keywordsUrl)
@@ -277,13 +326,13 @@ export async function loadGameData() {
         state.setKeywordDatabase(parsedKeywords);
         state.buildCardTitleCache();
         
-        updateCacheStatus('Ready'); // NEW: Update status
+        updateCacheStatus('Ready');
         
         return true;
 
     } catch (error) {
         console.error("Fatal Error during data load:", error);
-        updateCacheStatus('Error loading data'); // NEW: Update status
+        updateCacheStatus('Error loading data');
         
         // Try to use cache as fallback (even if invalid/expired)
         const cachedCards = loadFromCache(CARD_DATA_CACHE_KEY);
@@ -291,13 +340,12 @@ export async function loadGameData() {
         
         if (cachedCards && cachedKeywords) {
             console.log('Using cached data as fallback due to error:', error.message);
-            updateCacheStatus('Using cached data (offline)'); // NEW: Update status
+            updateCacheStatus('Using cached data (offline)');
             
             state.setCardDatabase(cachedCards);
             state.setKeywordDatabase(cachedKeywords);
             state.buildCardTitleCache();
             
-            // Revert to ready status after a few seconds
             setTimeout(() => {
                 updateCacheStatus('Ready (offline)');
             }, 2000);
@@ -305,13 +353,23 @@ export async function loadGameData() {
             return true;
         }
         
-        searchResults.innerHTML = `<div style="color: red; padding: 20px; text-align: center;">
-            <strong>FATAL ERROR:</strong> ${error.message}<br><br>
-            <button onclick="location.reload()">Retry</button>
-            <button onclick="localStorage.clear(); location.reload()">Clear Cache & Retry</button>
-        </div>`;
+        // Show more detailed error for debugging
+        const errorHtml = `
+            <div style="color: red; padding: 20px; text-align: center;">
+                <strong>FATAL ERROR:</strong> ${error.message}<br><br>
+                <div style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; text-align: left;">
+                    <strong>Debug Info:</strong><br>
+                    • URL: ${window.location.href}<br>
+                    • Browser: ${navigator.userAgent}<br>
+                    • Cache Available: ${localStorage.getItem(CARD_DATA_CACHE_KEY) ? 'Yes' : 'No'}<br>
+                </div>
+                <button onclick="location.reload()">Retry</button>
+                <button onclick="localStorage.clear(); location.reload()" style="margin-left: 10px;">Clear Cache & Retry</button>
+            </div>`;
         
-        updateCacheStatus('Failed to load data'); // NEW: Update status
+        searchResults.innerHTML = errorHtml;
+        
+        updateCacheStatus('Failed to load data');
         
         return false;
     }
@@ -319,11 +377,28 @@ export async function loadGameData() {
 
 async function fetchAndParseCards(url) {
     try {
-        const response = await fetch(`${url}?v=${new Date().getTime()}`);
-        if (!response.ok) throw new Error(`CoreSet.txt: ${response.status}`);
+        // GitHub Pages-friendly fetch with cache busting
+        const response = await fetch(`${url}?v=${new Date().getTime()}`, {
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`Failed to fetch CoreSet.txt: ${response.status} ${response.statusText}`);
+            throw new Error(`CoreSet.txt: ${response.status}`);
+        }
         
         const tsvData = await response.text();
+        if (!tsvData || tsvData.trim().length === 0) {
+            throw new Error('CoreSet.txt is empty');
+        }
+        
         const cardLines = tsvData.trim().split(/\r?\n/);
+        if (cardLines.length < 2) {
+            throw new Error('CoreSet.txt has insufficient data');
+        }
+        
         const cardHeaders = cardLines.shift().trim().split('\t').map(h => h.trim());
         
         return cardLines.map(line => {
@@ -358,10 +433,23 @@ async function fetchAndParseCards(url) {
 
 async function fetchAndParseKeywords(url) {
     try {
-        const response = await fetch(`${url}?v=${new Date().getTime()}`);
-        if (!response.ok) throw new Error(`Keywords: ${response.status}`);
+        // GitHub Pages-friendly fetch with cache busting
+        const response = await fetch(`${url}?v=${new Date().getTime()}`, {
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`Failed to fetch keywords.txt: ${response.status} ${response.statusText}`);
+            throw new Error(`Keywords: ${response.status}`);
+        }
         
         const keywordText = await response.text();
+        if (!keywordText || keywordText.trim().length === 0) {
+            throw new Error('keywords.txt is empty');
+        }
+        
         const parsedKeywords = {};
         const keywordLines = keywordText.trim().split(/\r?\n/);
         

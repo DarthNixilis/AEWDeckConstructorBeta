@@ -1,3 +1,5 @@
+[file name]: ui.js
+[file content begin]
 // ui.js
 
 import * as state from './config.js';
@@ -130,3 +132,21 @@ export function filterDeckList(deckListElement, query) {
     });
 }
 
+// NEW: Cache status update function
+export function updateCacheStatus(status) {
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (cacheStatus) {
+        cacheStatus.textContent = status;
+        
+        if (status.includes('cache') || status.includes('✓') || status === 'Ready') {
+            cacheStatus.style.color = '#28a745'; // Green for cache/success
+        } else if (status.includes('fetch') || status.includes('Checking')) {
+            cacheStatus.style.color = '#dc3545'; // Red for fetching/checking
+        } else if (status.includes('Loading')) {
+            cacheStatus.style.color = '#007bff'; // Blue for loading
+        } else {
+            cacheStatus.style.color = '#666'; // Default gray
+        }
+    }
+}
+[file content end]

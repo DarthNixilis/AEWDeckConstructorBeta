@@ -1,3 +1,5 @@
+[file name]: listeners.js
+[file content begin]
 // listeners.js
 import * as state from './config.js';
 import * as ui from './ui.js';
@@ -51,6 +53,8 @@ export function initializeAllEventListeners(refreshCardPool) {
     const clearDeckBtn = document.getElementById('clearDeck');
     const exportDeckBtn = document.getElementById('exportDeck');
     const exportAsImageBtn = document.getElementById('exportAsImageBtn');
+    // NEW: Cache clearing button
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
 
     wrestlerSelect.addEventListener('change', (e) => {
         const newWrestler = state.cardTitleCache[e.target.value] || null;
@@ -95,6 +99,32 @@ export function initializeAllEventListeners(refreshCardPool) {
         URL.revokeObjectURL(a.href);
     });
     exportAsImageBtn.addEventListener('click', exportDeckAsImage);
+    
+    // NEW: Cache clearing button listener
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', () => {
+            if (confirm('Clear cached card data? This will force a fresh load from the server on next page load. Continue?')) {
+                try {
+                    // Clear data cache
+                    localStorage.removeItem('aewCardDataCache');
+                    localStorage.removeItem('aewKeywordDataCache');
+                    localStorage.removeItem('aewCacheVersion');
+                    localStorage.removeItem('aewFileVersions');
+                    
+                    // Update status
+                    ui.updateCacheStatus('Cache cleared. Reloading...');
+                    
+                    // Reload page after a short delay
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } catch (error) {
+                    console.error('Failed to clear cache:', error);
+                    alert('Error clearing cache. Check console for details.');
+                }
+            }
+        });
+    }
 
     // MODAL LISTENERS
     const importDeckBtn = document.getElementById('importDeck');
@@ -133,3 +163,4 @@ export function initializeAllEventListeners(refreshCardPool) {
         }
     });
 }
+[file content end]

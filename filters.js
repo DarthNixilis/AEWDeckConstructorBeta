@@ -1,3 +1,5 @@
+[file name]: filters.js
+[file content begin]
 // filters.js
 
 import * as state from './config.js';
@@ -110,3 +112,4 @@ export function getFilteredAndSortedCardPool() {
 function isKitCard(card) {
     return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }
+[file content end]

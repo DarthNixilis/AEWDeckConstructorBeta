@@ -32,66 +32,38 @@ header {
     z-index: 100;
 }
 
-h1, h2, h3, h4, h5 { font-size: 1.5rem; margin: 0; }
-h2 { font-size: 1.2rem; padding-bottom: 10px; margin-bottom: 15px; }
-h3 { font-size: 1.1rem; }
-h4 { font-size: 1.0rem; margin-bottom: 10px; }
-h5 { font-size: 0.9rem; margin-bottom: 10px; text-align: center; }
+h1, h2, h3 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; }
 
 .container { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 20px; gap: 20px; min-height: calc(100vh - 80px); }
 .search-panel, .deck-panel { background-color: var(--panel-bg); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; flex: 1; min-width: 500px; max-width: 600px; display: flex; flex-direction: column; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); margin-bottom: 15px; }
 .panel-header h2 { border-bottom: none; margin-bottom: 0; }
-.deck-area-header { margin-bottom: 15px; }
-.deck-view-controls { display: flex; align-items: center; gap: 15px; }
-#viewModeToggle, #deckViewModeToggle { padding: 8px 12px; border: 1px solid var(--secondary-color); background-color: transparent; color: var(--secondary-color); border-radius: 4px; cursor: pointer; }
+#viewModeToggle { padding: 8px 12px; border: 1px solid var(--secondary-color); background-color: transparent; color: var(--secondary-color); border-radius: 4px; cursor: pointer; }
 .filter-controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
 #searchInput { width: 95%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
 #cascadingFiltersContainer { display: flex; flex-direction: column; gap: 10px; }
 #cascadingFiltersContainer select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--panel-bg); }
-
-/* Card Pool List Styles */
 .card-list { flex-grow: 1; height: 500px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; }
 .card-list.list-view .card-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
 .card-list.list-view .card-item:last-child { border-bottom: none; }
 .card-list.list-view .card-item span { cursor: pointer; }
 .card-list.list-view .card-buttons { display: flex; gap: 5px; }
-
-/* Main Card Pool Grid Styles */
 .card-list.grid-view { display: grid; gap: 15px; align-content: start; }
-.card-list.grid-view .grid-card-item { border: 1px solid var(--border-color); border-radius: 8px; background-color: #f9f9f9; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.card-list.grid-view .grid-card-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
-.card-list.grid-view .card-visual { width: 100%; cursor: pointer; margin-bottom: 12px; border-radius: 6px; overflow: hidden; }
-.card-list.grid-view .card-buttons { margin-top: auto; display: flex; flex-direction: column; gap: 5px; width: 100%; }
-.card-list.grid-view .grid-card-item button { width: 100%; padding: 6px; font-size: 0.9em; }
+.grid-view .grid-card-item { border: 1px solid var(--border-color); border-radius: 8px; background-color: #f9f9f9; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.grid-view .grid-card-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+.grid-view .card-visual { width: 100%; cursor: pointer; margin-bottom: 12px; border-radius: 6px; overflow: hidden; }
+.grid-view .card-buttons { margin-top: auto; display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.grid-view .grid-card-item button { width: 100%; padding: 6px; font-size: 0.9em; }
 .card-list.grid-view[data-columns="2"] { grid-template-columns: repeat(2, 1fr); }
 .card-list.grid-view[data-columns="3"] { grid-template-columns: repeat(3, 1fr); }
 .card-list.grid-view[data-columns="4"] { grid-template-columns: repeat(4, 1fr); }
-
-/* Deck Panel Buttons */
 button[data-deck-target="starting"] { background-color: var(--success-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
 button.btn-purchase { background-color: var(--purchase-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
-.deck-panel .card-item .card-buttons button, .deck-grid-buttons button { background-color: var(--danger-color); color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; margin-top: 5px; }
-.btn-move { background-color: var(--primary-color) !important; }
-
-/* Persona and Deck Lists */
+.deck-panel .card-item button { background-color: var(--danger-color); }
 .persona-selection select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
-.deck-list-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; }
-.expand-btn { padding: 4px 8px; font-size: 0.8em; border: 1px solid var(--secondary-color); background-color: transparent; color: var(--secondary-color); border-radius: 4px; cursor: pointer; }
-.deck-list { border: 1px solid var(--border-color); padding: 10px; margin-bottom: 15px; transition: max-height 0.3s ease-in-out; }
-.deck-list.list-view { height: 120px; overflow-y: auto; }
-.deck-list.grid-view { display: grid; gap: 10px; align-content: start; overflow-y: auto; max-height: 300px; }
-.deck-list.expanded { max-height: none !important; height: auto !important; overflow-y: visible; }
-.deck-list.grid-view[data-columns="2"] { grid-template-columns: repeat(2, 1fr); }
-.deck-list.grid-view[data-columns="3"] { grid-template-columns: repeat(3, 1fr); }
-.deck-list.grid-view[data-columns="4"] { grid-template-columns: repeat(4, 1fr); }
-.deck-list.grid-view[data-columns="5"] { grid-template-columns: repeat(5, 1fr); }
-.deck-grid-card-item { border: 1px solid var(--border-color); border-radius: 8px; background-color: #f9f9f9; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px; }
-.deck-grid-card-item .card-visual { margin-bottom: 8px; }
-.deck-grid-buttons { margin-top: auto; width: 100%; display: flex; flex-direction: column; gap: 4px; }
-.deck-grid-buttons button { width: 100%; padding: 6px; font-size: 0.8em; margin-left: 0; }
-
-/* Deck Actions and Modals */
+.deck-list-small { height: 120px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; margin-bottom: 15px; }
+.deck-search-input { width: 95%; padding: 8px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px; }
 .deck-actions { margin-top: auto; padding-top: 20px; text-align: right; }
 .deck-actions button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
 #exportDeck { background-color: var(--primary-color); color: white; }
@@ -104,9 +76,18 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content { background-color: var(--panel-bg); padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
 .modal-close-button { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
-#modalCardContent img, .card-visual img { width: 100%; height: auto; display: block; max-width: 100%; }
 
-/* Placeholder Card Styles */
+/* --- THIS IS THE GLOBAL FIX FOR ALL CARD IMAGES --- */
+/* This targets any image that is inside a container that also holds our placeholder logic */
+#modalCardContent img,
+.card-visual img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: 100%; /* Redundant but safe */
+}
+/* -------------------------------------------------- */
+
 .placeholder-card { border: 1px solid #ccc; border-radius: 10px; width: 100%; aspect-ratio: 63 / 88; padding: 15px; background-color: #fdfdfd; display: flex; flex-direction: column; box-sizing: border-box; color: #333; }
 .placeholder-header { font-weight: bold; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; text-align: center; }
 .placeholder-stats-line { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; font-weight: bold; padding: 0 5px 5px 5px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -114,9 +95,13 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .placeholder-art-area { flex-grow: 1; background-color: #e9ecef; border-radius: 5px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #6c757d; font-style: italic; }
 .placeholder-type-line { font-style: italic; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 5px 0; text-align: center; margin-bottom: 10px; }
 .placeholder-text-box { font-size: 0.9em; flex-grow: 2; overflow-y: auto; padding: 5px; background-color: #f8f9fa; border-radius: 4px; white-space: pre-wrap; margin-bottom: 10px; }
+.placeholder-stats { display: none; }
 .signature-highlight { box-shadow: 0 0 8px 4px gold; border-color: gold !important; }
-
-/* Controls and Import/Export */
+.placeholder-type-line.type-action { background-color: #9c5a9c; color: white; }
+.placeholder-type-line.type-response { background-color: #c84c4c; color: white; }
+.placeholder-type-line.type-submission { background-color: #5aa05a; color: white; }
+.placeholder-type-line.type-strike { background-color: #4c82c8; color: white; }
+.placeholder-type-line.type-grapple { background-color: #e68a00; color: white; }
 .view-controls-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
 .sort-controls, .cost-filter-controls, .grid-size-controls { display: flex; align-items: center; gap: 10px; }
 .grid-size-controls label, .sort-controls label { font-weight: bold; margin-right: 5px; }
@@ -127,73 +112,5 @@ button.btn-purchase { background-color: var(--purchase-color); color: white; bor
 .import-controls textarea { width: 95%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; resize: vertical; font-family: inherit; }
 .import-controls button { padding: 10px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-end; }
 .import-status { margin-top: 15px; font-size: 0.9em; }
+@media (max-width: 768px) { .container { flex-direction: column; padding: 10px; } .search-panel, .deck-panel { min-width: 100%; width: 100%; } .view-controls-container { align-items: flex-start; } .card-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; } }
 
-/* Deck Stats & Validation */
-.deck-stats { background: #f8f9fa; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-top: 20px; }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
-.stat-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 0.9em; }
-.stat-label { font-weight: bold; }
-.cost-curve { margin-top: 15px; }
-.curve-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; padding: 10px 0; border-top: 1px solid var(--border-color); }
-.curve-bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; text-align: center; position: relative; height: 100%; }
-.curve-bar .bar { background: var(--primary-color); width: 80%; min-height: 2px; border-radius: 2px 2px 0 0; transition: height 0.3s ease; }
-.curve-bar .bar-label { font-size: 0.75em; color: var(--text-color); position: absolute; top: -15px; width: 100%; }
-.curve-bar .cost-label { font-size: 0.8em; margin-top: 4px; font-weight: bold; }
-.validation-container { margin-top: 15px; }
-.validation-container ul { margin: 0; padding-left: 20px; }
-.validation-item { font-size: 0.9em; margin-bottom: 5px; }
-.validation-item:last-child { margin-bottom: 0; }
-.validation-success { color: var(--success-color); font-weight: bold; text-align: center; }
-.validation-error { color: var(--danger-color); }
-
-/* Export Options Styles */
-.export-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 20px 0;
-}
-
-.export-option-btn {
-    padding: 15px;
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--panel-bg);
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.2s ease;
-}
-
-.export-option-btn:hover {
-    border-color: var(--primary-color);
-    background-color: #f8f9fa;
-}
-
-.export-option-btn:active {
-    transform: scale(0.98);
-}
-
-.export-option-btn strong {
-    display: block;
-    font-size: 1.1em;
-    margin-bottom: 5px;
-    color: var(--text-color);
-}
-
-.export-option-btn span {
-    display: block;
-    font-size: 0.9em;
-    color: var(--secondary-color);
-}
-
-#exportOptionsModal .modal-content {
-    max-width: 500px;
-}
-
-/* Media Query for Responsiveness */
-@media (max-width: 768px) { 
-    .container { flex-direction: column; padding: 10px; } 
-    .search-panel, .deck-panel { min-width: 100%; width: 100%; } 
-    .view-controls-container { align-items: flex-start; } 
-    .card-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; } 
-}

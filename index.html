@@ -18,9 +18,6 @@
             <div class="panel-header">
                 <h2>Card Pool</h2>
                 <div class="view-controls-container">
-                    <div class="proxy-toggle-control">
-                        <label><input type="checkbox" id="usePlaytestProxiesToggle"> Use Playtest Proxies</label>
-                    </div>
                     <div id="gridSizeControls" class="grid-size-controls">
                         <label>Grid Columns:</label>
                         <button data-columns="2">2</button>
@@ -50,8 +47,6 @@
                     <div class="cost-filter-controls">
                         <label><input type="checkbox" id="showZeroCost" checked> Show 0-Cost</label>
                         <label><input type="checkbox" id="showNonZeroCost" checked> Show Non-0-Cost</label>
-                        <label><input type="checkbox" id="showSetCore" checked> Core Set</label>
-                        <label><input type="checkbox" id="showSetAdvanced" checked> Advanced Set</label>
                     </div>
                 </div>
             </div>
@@ -67,37 +62,16 @@
 
             <div id="personaDisplay" class="persona-display-container"></div>
 
-            <div class="deck-area-header">
-                <div class="deck-view-controls">
-                    <button id="deckViewModeToggle">Switch to List View</button>
-                    <div id="deckGridSizeControls" class="grid-size-controls">
-                        <button data-columns="2">2</button>
-                        <button data-columns="3" class="active">3</button>
-                        <button data-columns="4">4</button>
-                        <button data-columns="5">5</button>
-                    </div>
-                </div>
-            </div>
+            <h2 id="startingDeckHeader">Starting Deck (<span id="startingDeckCount">0</span>/24)</h2>
+            <div id="startingDeckList" class="deck-list-small"></div>
 
-            <div class="deck-list-header">
-                <h3 id="startingDeckHeader">Starting Deck (<span id="startingDeckCount">0</span>/24)</h3>
-                <button id="expandStartingDeck" class="expand-btn">Expand</button>
-            </div>
-            <div id="startingDeckList" class="deck-list"></div>
-
-            <div class="deck-list-header">
-                <h3 id="purchaseDeckHeader">Purchase Deck (<span id="purchaseDeckCount">0</span>/36+)</h3>
-                <button id="expandPurchaseDeck" class="expand-btn">Expand</button>
-            </div>
-            <div id="purchaseDeckList" class="deck-list"></div>
-
-            <div id="deckStatsContainer" class="deck-stats"></div>
-            <div id="validationIssues" class="validation-container"></div>
+            <h2 id="purchaseDeckHeader">Purchase Deck (<span id="purchaseDeckCount">0</span>/36+)</h2>
+            <div id="purchaseDeckList" class="deck-list-small"></div>
 
             <div class="deck-actions">
                 <button id="importDeck">Import Deck</button>
                 <button id="exportDeck">Export as Text</button>
-                <button id="exportAsImageBtn">Export as Images</button>
+                <button id="exportAsImageBtn">Export as Image</button>
                 <button id="clearDeck">Clear Deck</button>
             </div>
         </div>
@@ -124,27 +98,7 @@
         </div>
     </div>
 
-    <div id="exportOptionsModal" class="modal-backdrop" style="display: none;">
-        <div class="modal-content">
-            <span class="modal-close-button">&times;</span>
-            <h3>Choose Export Type</h3>
-            <div class="export-options">
-                <button id="exportPlaytestBtn" class="export-option-btn">
-                    <strong>Playtest Print</strong>
-                    <span>All cards as playtest proxies (fastest)</span>
-                </button>
-                <button id="exportOfficialBtn" class="export-option-btn">
-                    <strong>Only Official Art</strong>
-                    <span>Only cards with official images (show-off)</span>
-                </button>
-                <button id="exportFullBtn" class="export-option-btn">
-                    <strong>Full Hybrid</strong>
-                    <span>Official art when available, playtest for the rest</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script type="module" src="main.js"></script>
 </body>
 </html>
+

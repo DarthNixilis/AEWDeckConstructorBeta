@@ -1,5 +1,3 @@
-[file name]: filters.js
-[file content begin]
 // filters.js
 
 import * as state from './config.js';
@@ -79,27 +77,11 @@ export function getFilteredAndSortedCardPool() {
     const searchInput = document.getElementById('searchInput');
     const query = searchInput.value.toLowerCase();
     
-    // Check if "Wrestler" or "Manager" is specifically selected in the Card Type filter
-    const cardTypeFilter = state.activeFilters.find(f => f?.category === 'Card Type');
-    const isWrestlerFilter = cardTypeFilter?.value === 'Wrestler';
-    const isManagerFilter = cardTypeFilter?.value === 'Manager';
-    
     let cards = state.cardDatabase.filter(card => {
-        if (!card || !card.title) return false;
-        
-        // Allow Wrestler/Manager cards ONLY if specifically filtered for them
-        if (card.card_type === 'Wrestler') {
-            return isWrestlerFilter;
-        }
-        if (card.card_type === 'Manager') {
-            return isManagerFilter;
-        }
-        
-        // For all other card types, apply the existing exclusion logic
-        if (isKitCard(card)) return false;
+        if (!card || !card.title) return false; 
+        if (card.card_type === 'Wrestler' || card.card_type === 'Manager' || isKitCard(card)) return false;
         if (!state.showZeroCost && card.cost === 0) return false;
         if (!state.showNonZeroCost && card.cost > 0) return false;
-        
         const rawText = card.text_box?.raw_text || '';
         return query === '' || card.title.toLowerCase().includes(query) || rawText.toLowerCase().includes(query);
     });
@@ -112,4 +94,3 @@ export function getFilteredAndSortedCardPool() {
 function isKitCard(card) {
     return card && typeof card['Wrestler Kit'] === 'string' && card['Wrestler Kit'].toUpperCase() === 'TRUE';
 }
-[file content end]

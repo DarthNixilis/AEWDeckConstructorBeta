@@ -57,6 +57,8 @@
                 <h2>Persona</h2>
                 <select id="wrestlerSelect"><option value="">-- Select Wrestler --</option></select>
                 <select id="managerSelect"><option value="">-- Select Manager --</option></select>
+                <select id="callNameSelect"><option value="">-- Select Call Name --</option></select>
+                <select id="factionSelect"><option value="">-- Select Faction --</option></select>
             </div>
 
             <div id="personaDisplay" class="persona-display-container"></div>
@@ -90,12 +92,144 @@
             <span class="modal-close-button">&times;</span>
             <h3>Import Decklist</h3>
             <div class="import-controls">
-                <label for="deckFileInput">Import from .txt file:</label>
-                <input type="file" id="deckFileInput" accept=".txt">
+                <label for="deckFileInput">Import from file (.txt or .dek):</label>
+                <input type="file" id="deckFileInput" accept=".txt,.dek,.xml">
                 <textarea id="deckTextInput" rows="10" placeholder="Or paste decklist here..."></textarea>
                 <button id="processImportBtn">Import</button>
             </div>
             <div id="importStatus" class="import-status"></div>
+        </div>
+    </div>
+
+    <!-- Export Options Modal -->
+    <div id="exportModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <span class="modal-close-button">&times;</span>
+            <h3>Export Database</h3>
+            
+            <div class="export-options-container">
+                <!-- Card Type Selection -->
+                <div class="export-section">
+                    <h4>Card Types to Export</h4>
+                    <div class="type-selection-header">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="selectAllTypes" checked> Select All Types
+                        </label>
+                    </div>
+                    <div class="export-type-grid" id="cardTypeCheckboxes" style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                        gap: 10px;
+                        margin-top: 15px;
+                    ">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                
+                <!-- Set Selection -->
+                <div class="export-section">
+                    <h4>Sets to Export</h4>
+                    <div class="set-selection-header">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="selectAllSets" checked> Select All Sets
+                        </label>
+                    </div>
+                    <div class="export-set-grid" id="setCheckboxes" style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                        gap: 10px;
+                        margin-top: 15px;
+                    ">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                
+                <!-- Export Format -->
+                <div class="export-section">
+                    <h4>Export Format</h4>
+                    <div class="export-format-options" style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                    ">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportFormat" value="tsv" checked> TSV Database File (.txt)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportFormat" value="tsv-zip"> ZIP with TSV Files
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportFormat" value="images-zip"> ZIP with Card Images
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportFormat" value="images-individual"> Individual Card Images
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Image Options (only shown for image exports) -->
+                <div id="imageOptions" class="export-section" style="display: none;">
+                    <h4>Image Options</h4>
+                    <div class="export-size-options" style="display: flex; flex-direction: column; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportSize" value="standard" checked> Standard MTG Size (744x1039px)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportSize" value="lackey"> LackeyCCG Size (214x308px)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="radio" name="exportSize" value="custom"> Custom Size:
+                            <input type="number" id="customWidth" placeholder="Width" value="400" min="100" max="2000" style="width: 80px; margin-left: 10px;">
+                            x
+                            <input type="number" id="customHeight" placeholder="Height" value="600" min="100" max="2000" style="width: 80px;">
+                            px
+                        </label>
+                    </div>
+                    <div class="export-name-options" style="margin-top: 15px;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            File Naming:
+                            <select id="imageNaming" style="margin-left: 10px; padding: 5px;">
+                                <option value="pascal">PascalCase (OneWingedAngel.jpg)</option>
+                                <option value="original">Original Name (One Winged Angel.jpg)</option>
+                                <option value="lackey">LackeyCCG Format (OneWingedAngel.jpg)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div id="exportProgress" style="display: none; margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span id="exportProgressText">Preparing export...</span>
+                        <span id="exportProgressPercent">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
+                        <div id="exportProgressBar" style="width: 0%; height: 100%; background: #4CAF50; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="exportStatus" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="export-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button id="cancelExport" class="btn-secondary" style="
+                        background: #95a5a6;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">Cancel</button>
+                    <button id="startExport" class="btn-primary" style="
+                        background: #3498db;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Start Export</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -110,4 +244,4 @@
     
     <script type="module" src="main.js"></script>
 </body>
-</html> 
+</html>
